@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>body{margin:0;background:#EFEFEC;font-family:Geist,system-ui,sans-serif;color:#111}a{color:#111}a:hover{color:#555}button{font-family:inherit}input,select{font-family:inherit}.dv-turn{padding:40px 44px 32px;border-bottom:1px solid rgba(0,0,0,.08);scroll-margin-top:16px}.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 20px}.dv-tid{font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#1a1a1a;color:#fff;border-radius:4px;text-decoration:none}.dv-tname{font:600 13px/1.2 Geist,system-ui,sans-serif;color:#1a1a1a}.dv-opts{display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start}.dv-opt{flex:none;display:flex;flex-direction:column;gap:9px;scroll-margin-top:16px}.dv-oid{font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(0,0,0,.08);color:#1a1a1a;border-radius:5px;text-decoration:none}.dv-olabel{display:flex;align-items:baseline;gap:8px;font:400 12px/1.3 Geist,system-ui,sans-serif;color:rgba(0,0,0,.6)}.dv-card{max-width:100%;background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);overflow:hidden}.dv-opt:target .dv-oid{background:#111;color:#fff}.dv-next{margin:22px 0 0;font:12px/1.5 Geist,system-ui,sans-serif;color:rgba(0,0,0,.55)}</style>
+</helmet>
+<section class="dv-turn" id="t1">
+<div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">StatPakd — three directions. All share live state: pick players/teams, toggle stats, switch Table / 2D / 3D. Drag the 3D chart to rotate.</span></div>
+<div style="display:flex;gap:28px;flex-wrap:wrap;margin:0 0 28px;max-width:1280px;font-size:13px;line-height:1.5;color:#444">
+<div style="flex:1;min-width:240px"><b style="color:#111">Assumptions.</b> NFL only for now; leagues live in a switcher so NBA/MLB/etc. slot in. Stat sets are defined per league + entity type (players vs. teams). Up to 4 entities compared at once.</div>
+<div style="flex:1;min-width:240px"><b style="color:#111">System.</b> White surfaces, black for selection & emphasis, hairline gray borders. Geist + Geist Mono for numbers. Four series colors only (black, red, blue, green) so charts stay readable.</div>
+<div style="flex:1;min-width:240px"><b style="color:#111">Data.</b> Numbers shown are sample values for layout only — wire to a real stats API in implementation.</div>
+</div>
+<div class="dv-opts">
+
+<div class="dv-opt" id="1a">
+<div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>Ledger — sidebar picker, numbers-first, bars for 2D</div>
+<div class="dv-card" style="width:1280px">
+<div style="display:grid;grid-template-columns:272px minmax(0,1fr);min-height:840px;background:#fff">
+<aside style="border-right:1px solid #E8E8E5;padding:22px 16px;display:flex;flex-direction:column;gap:22px;background:#FAFAF8">
+<div style="display:flex;align-items:center;gap:2px;font-weight:700;font-size:21px;letter-spacing:-0.03em;padding:0 6px"><span>Stat</span><span style="background:#111;color:#fff;padding:0 6px 2px;border-radius:5px">Pakd</span></div>
+<div style="display:flex;flex-direction:column;gap:4px">
+<div style="font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#8A8A85;padding:0 10px 4px">League</div>
+<sc-for list="{{ leagues }}" as="l" hint-placeholder-count="4"><div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:7px;background: {{ l.bg }};color: {{ l.fg }};font-weight:600;font-size:14px"><span style="display:flex;gap:8px">{{ l.k }}<span style="font-weight:400;color: {{ l.subFg }}">{{ l.sub }}</span></span><span style="font-size:11px;font-family:'Geist Mono',monospace;color:#9A9A95">{{ l.tag }}</span></div></sc-for>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;background:#EDEDEA;border-radius:8px;padding:3px">
+<sc-for list="{{ kindTabs }}" as="t" hint-placeholder-count="2"><button onClick="{{ t.onClick }}" style="border:0;padding:7px 0;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;background: {{ t.bg }};color: {{ t.fg }};box-shadow: {{ t.sh }}">{{ t.label }}</button></sc-for>
+</div>
+<div style="display:flex;flex-direction:column;gap:8px;min-height:0">
+<input value="{{ q }}" onChange="{{ onQ }}" placeholder="Search name or team" style="border:1px solid #DEDEDA;border-radius:8px;padding:9px 12px;font-size:14px;background:#fff;outline:none;color:#111">
+<div style="display:flex;justify-content:space-between;font-size:12px;color:#8A8A85;padding:4px 4px 0"><span>{{ poolLabel }}</span><span style="font-family:'Geist Mono',monospace">{{ selCount }}/4</span></div>
+<div style="display:flex;flex-direction:column;gap:2px">
+<sc-for list="{{ pool }}" as="p" hint-placeholder-count="8"><button onClick="{{ p.toggle }}" style="display:flex;align-items:center;gap:10px;padding:8px 8px;border:0;border-radius:7px;cursor:pointer;text-align:left;background: {{ p.rowBg }}" style-hover="background:#F0F0ED"><span style="width:16px;height:16px;flex:none;border-radius:4px;border:1.5px solid {{ p.ring }};background: {{ p.dot }};color:#fff;font-size:10px;line-height:13px;text-align:center">{{ p.check }}</span><span style="display:flex;flex-direction:column;min-width:0"><span style="font-size:14px;font-weight:500;color:#111">{{ p.name }}</span><span style="font-size:12px;color:#7A7A75">{{ p.meta }}</span></span></button></sc-for>
+</div>
+</div>
+</aside>
+<main style="padding:26px 32px;display:flex;flex-direction:column;gap:20px;min-width:0">
+<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:20px">
+<div style="display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;align-items:baseline;gap:12px"><h1 style="margin:0;font-size:28px;font-weight:600;letter-spacing:-0.02em">Compare {{ kindLabel }}</h1><span style="font-size:13px;color:#7A7A75">NFL · 2024 regular season</span></div>
+<div style="display:flex;flex-wrap:wrap;gap:8px">
+<sc-for list="{{ ents }}" as="e" hint-placeholder-count="3"><div style="display:flex;align-items:center;gap:8px;padding:5px 6px 5px 11px;border:1px solid #E3E3E0;border-radius:999px;font-size:13px;font-weight:500"><span style="width:8px;height:8px;border-radius:50%;background: {{ e.color }}"></span>{{ e.name }}<button onClick="{{ e.remove }}" style="border:0;background:#F2F2EF;width:20px;height:20px;border-radius:50%;cursor:pointer;font-size:13px;line-height:1;color:#555">×</button></div></sc-for>
+</div>
+</div>
+<div style="display:flex;background:#F2F2EF;border-radius:9px;padding:3px;flex:none">
+<sc-for list="{{ tabsA }}" as="t" hint-placeholder-count="3"><button onClick="{{ t.onClick }}" style="border:0;padding:8px 16px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;background: {{ t.bg }};color: {{ t.fg }}">{{ t.label }}</button></sc-for>
+</div>
+</div>
+<sc-if value="{{ A.chips }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;flex-wrap:wrap;gap:6px;padding-bottom:4px;border-bottom:1px solid #EFEFEC;padding-bottom:18px">
+<sc-for list="{{ statChips }}" as="s" hint-placeholder-count="8"><button onClick="{{ s.toggle }}" style="border:1px solid {{ s.bd }};padding:6px 12px;border-radius:999px;font-size:13px;font-weight:500;cursor:pointer;background: {{ s.bg }};color: {{ s.fg }}">{{ s.label }}</button></sc-for>
+</div>
+</sc-if>
+<sc-if value="{{ A.num }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;flex-direction:column;gap:10px">
+<div style="border:1px solid #E6E6E3;border-radius:12px;overflow:hidden">
+<div style="display:grid;grid-template-columns: {{ gridCols }};background:#FAFAF8;border-bottom:1px solid #E6E6E3">
+<div style="padding:14px 18px;font-size:11px;color:#7A7A75;font-weight:600;text-transform:uppercase;letter-spacing:.08em;align-self:end">Stat</div>
+<sc-for list="{{ ents }}" as="e"><div style="padding:14px 18px;display:flex;flex-direction:column;gap:2px;align-items:flex-end"><div style="display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px"><span style="width:8px;height:8px;border-radius:50%;background: {{ e.color }}"></span>{{ e.name }}</div><div style="font-size:12px;color:#7A7A75">{{ e.meta }}</div></div></sc-for>
+</div>
+<sc-for list="{{ rows }}" as="r"><div style="display:grid;grid-template-columns: {{ gridCols }};border-bottom:1px solid #F0F0ED;align-items:center"><div style="padding:12px 18px;font-size:14px;display:flex;gap:8px;align-items:baseline">{{ r.label }}<span style="font-size:11px;color:#9A9A95">{{ r.note }}</span></div><sc-for list="{{ r.cells }}" as="c"><div style="padding:9px 18px;display:flex;justify-content:flex-end"><span style="font-family:'Geist Mono',monospace;font-size:17px;font-weight:500;padding:3px 9px;border-radius:6px;background: {{ c.bg }};color: {{ c.fg }}">{{ c.txt }}</span></div></sc-for></div></sc-for>
+</div>
+<div style="font-size:12px;color:#7A7A75">Black = best among selected.</div>
+</div>
+</sc-if>
+<sc-if value="{{ A.d2 }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column">
+<sc-for list="{{ bars }}" as="g"><div style="display:grid;grid-template-columns:160px minmax(0,1fr);gap:20px;padding:14px 0;border-bottom:1px solid #F0F0ED;align-items:center"><div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:500">{{ g.label }}</span><span style="font-size:11px;color:#9A9A95">{{ g.note }}</span></div><div style="display:flex;flex-direction:column;gap:6px"><sc-for list="{{ g.bars }}" as="b"><div style="display:flex;align-items:center;gap:12px"><div style="flex:1;height:12px;background:#F3F3F0;border-radius:3px;overflow:hidden"><div style="height:100%;border-radius:3px;width: {{ b.w }};background: {{ b.color }}"></div></div><span style="width:70px;text-align:right;font-family:'Geist Mono',monospace;font-size:13px">{{ b.txt }}</span></div></sc-for></div></div></sc-for>
+<div style="font-size:12px;color:#7A7A75;padding-top:10px">Bar length scaled to league range.</div>
+</div>
+</sc-if>
+<sc-if value="{{ A.d3 }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+<sc-for list="{{ axSel }}" as="a"><label style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:#7A7A75"><span style="font-family:'Geist Mono',monospace">{{ a.label }}</span><select value="{{ a.value }}" onChange="{{ a.onChange }}" style="border:1px solid #DEDEDA;border-radius:7px;padding:6px 8px;font-size:13px;background:#fff;color:#111"><sc-for list="{{ statOpts }}" as="o"><option value="{{ o.k }}">{{ o.label }}</option></sc-for></select></label></sc-for>
+<button onClick="{{ resetView }}" style="margin-left:auto;border:1px solid #DEDEDA;background:#fff;border-radius:7px;padding:6px 12px;font-size:13px;cursor:pointer">Reset view</button>
+</div>
+<div style="border:1px solid #E6E6E3;border-radius:12px;position:relative;background:#fff">
+<svg viewBox="0 0 600 460" style="width:100%;display:block;cursor:grab;touch-action:none;user-select:none" onPointerDown="{{ pDown }}" onPointerMove="{{ pMove }}" onPointerUp="{{ pUp }}" onPointerLeave="{{ pUp }}">
+<sc-for list="{{ g3.grid }}" as="l"><line x1="{{ l.x1 }}" y1="{{ l.y1 }}" x2="{{ l.x2 }}" y2="{{ l.y2 }}" style="stroke:#EDEDE9;stroke-width:1"></line></sc-for>
+<sc-for list="{{ g3.edges }}" as="l"><line x1="{{ l.x1 }}" y1="{{ l.y1 }}" x2="{{ l.x2 }}" y2="{{ l.y2 }}" style="stroke:#DADAD5;stroke-width:1"></line></sc-for>
+<sc-for list="{{ g3.axes }}" as="l"><line x1="{{ l.x1 }}" y1="{{ l.y1 }}" x2="{{ l.x2 }}" y2="{{ l.y2 }}" style="stroke:#111;stroke-width:1.5"></line></sc-for>
+
+<sc-for list="{{ g3.pts }}" as="p"><g><line x1="{{ p.cx }}" y1="{{ p.cy }}" x2="{{ p.fx }}" y2="{{ p.fy }}" style="stroke-width:1;stroke-dasharray:3 3;stroke: {{ p.drop }}"></line><circle cx="{{ p.cx }}" cy="{{ p.cy }}" r="{{ p.r }}" style="stroke:#fff;stroke-width:1.5;fill: {{ p.fill }}"></circle></g></sc-for>
+</svg>
+<div style="position:absolute;inset:0;pointer-events:none"><sc-for list="{{ g3.labels }}" as="t"><div style="position:absolute;font-size:12px;font-weight:600;color:#111;white-space:nowrap;left: {{ t.left }};top: {{ t.top }};transform: {{ t.tf }}">{{ t.text }}</div></sc-for><sc-for list="{{ g3.tags }}" as="t"><div style="position:absolute;font-size:12px;font-weight:600;color:#111;white-space:nowrap;background:rgba(255,255,255,.85);padding:0 3px;border-radius:3px;left: {{ t.left }};top: {{ t.top }};transform: {{ t.tf }}">{{ t.text }}</div></sc-for></div>
+<div style="position:absolute;left:16px;bottom:12px;font-size:12px;color:#7A7A75">Drag to rotate · gray dots = rest of league</div>
+</div>
+</div>
+</sc-if>
+</main>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="1b">
+<div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>Matchup — big player cards up top, radar for 2D</div>
+<div class="dv-card" style="width:1280px">
+<div style="min-height:840px;background:#fff;display:flex;flex-direction:column">
+<header style="display:flex;align-items:center;gap:28px;padding:16px 32px;border-bottom:1px solid #E8E8E5">
+<div style="display:flex;align-items:center;gap:2px;font-weight:700;font-size:21px;letter-spacing:-0.03em"><span>Stat</span><span style="background:#111;color:#fff;padding:0 6px 2px;border-radius:5px">Pakd</span></div>
+<nav style="display:flex;gap:4px">
+<sc-for list="{{ leagues }}" as="l" hint-placeholder-count="4"><div style="display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;font-size:13px;font-weight:600;background: {{ l.bg }};color: {{ l.fg }}">{{ l.k }}<span style="font-size:10px;font-family:'Geist Mono',monospace;color:#A5A5A0">{{ l.tag }}</span></div></sc-for>
+</nav>
+<div style="margin-left:auto;display:flex;background:#F2F2EF;border-radius:8px;padding:3px">
+<sc-for list="{{ kindTabs }}" as="t" hint-placeholder-count="2"><button onClick="{{ t.onClick }}" style="border:0;padding:6px 16px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;background: {{ t.bg }};color: {{ t.fg }};box-shadow: {{ t.sh }}">{{ t.label }}</button></sc-for>
+</div>
+<span style="font-size:13px;color:#7A7A75">2024 season</span>
+</header>
+<div style="padding:24px 32px 0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px">
+<sc-for list="{{ ents }}" as="e" hint-placeholder-count="3"><div style="border:1px solid #E3E3E0;border-radius:12px;padding:16px 18px;display:flex;flex-direction:column;gap:10px;position:relative;border-top:4px solid {{ e.color }}"><div style="display:flex;justify-content:space-between;align-items:flex-start"><span style="font-family:'Geist Mono',monospace;font-size:40px;font-weight:600;letter-spacing:-0.04em;line-height:1">{{ e.big }}</span><button onClick="{{ e.remove }}" style="border:0;background:#F2F2EF;width:24px;height:24px;border-radius:50%;cursor:pointer;font-size:14px;color:#555">×</button></div><div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:17px;font-weight:600">{{ e.name }}</span><span style="font-size:13px;color:#7A7A75">{{ e.meta }}</span></div></div></sc-for>
+<sc-if value="{{ canAdd }}" hint-placeholder-val="{{ true }}">
+<div style="position:relative">
+<button onClick="{{ toggleAdd }}" style="width:100%;height:100%;min-height:124px;border:1.5px dashed #CFCFCB;border-radius:12px;background:#FAFAF8;cursor:pointer;font-size:14px;font-weight:600;color:#111;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px"><span style="font-size:24px;font-weight:400">+</span>Add {{ kindSingular }}</button>
+<sc-if value="{{ addOpen }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;top:calc(100% + 8px);right:0;width:320px;background:#fff;border:1px solid #DEDEDA;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.12);padding:10px;z-index:5;display:flex;flex-direction:column;gap:6px">
+<input value="{{ q }}" onChange="{{ onQ }}" placeholder="Search" style="border:1px solid #DEDEDA;border-radius:8px;padding:8px 10px;font-size:14px;outline:none">
+<sc-for list="{{ pool }}" as="p"><button onClick="{{ p.toggle }}" style="display:flex;align-items:center;justify-content:space-between;padding:8px 8px;border:0;border-radius:7px;cursor:pointer;text-align:left;background: {{ p.rowBg }}" style-hover="background:#F0F0ED"><span style="display:flex;flex-direction:column"><span style="font-size:14px;font-weight:500;color:#111">{{ p.name }}</span><span style="font-size:12px;color:#7A7A75">{{ p.meta }}</span></span><span style="width:10px;height:10px;border-radius:50%;border:1.5px solid {{ p.ring }};background: {{ p.dot }}"></span></button></sc-for>
+</div>
+</sc-if>
+</div>
+</sc-if>
+</div>
+<div style="padding:24px 32px 32px;display:grid;grid-template-columns:240px minmax(0,1fr);gap:28px;flex:1">
+<div style="display:flex;flex-direction:column;gap:2px">
+<div style="font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#8A8A85;padding:0 8px 8px">Stats</div>
+<sc-for list="{{ statChips }}" as="s" hint-placeholder-count="8"><button onClick="{{ s.toggle }}" style="display:flex;align-items:center;gap:10px;border:0;background:transparent;padding:8px;border-radius:7px;cursor:pointer;font-size:14px;color:#111;text-align:left" style-hover="background:#F4F4F1"><span style="width:16px;height:16px;border-radius:4px;border:1.5px solid {{ s.bd }};background: {{ s.bg }};color:#fff;font-size:10px;line-height:13px;text-align:center">{{ s.check }}</span>{{ s.label }}</button></sc-for>
+</div>
+<div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+<div style="display:flex;border-bottom:1px solid #E8E8E5;gap:24px">
+<sc-for list="{{ tabsB }}" as="t" hint-placeholder-count="3"><button onClick="{{ t.onClick }}" style="border:0;background:transparent;padding:0 0 10px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:-1px;color: {{ t.ufg }};border-bottom:2px solid {{ t.ul }}">{{ t.label }}</button></sc-for>
+</div>
+<sc-if value="{{ B.num }}" hint-placeholder-val="{{ false }}">
+<div style="border:1px solid #E6E6E3;border-radius:12px;overflow:hidden">
+<div style="display:grid;grid-template-columns: {{ gridCols }};background:#FAFAF8;border-bottom:1px solid #E6E6E3">
+<div style="padding:12px 18px;font-size:11px;color:#7A7A75;font-weight:600;text-transform:uppercase;letter-spacing:.08em">Stat</div>
+<sc-for list="{{ ents }}" as="e"><div style="padding:12px 18px;display:flex;align-items:center;justify-content:flex-end;gap:8px;font-weight:600;font-size:14px"><span style="width:8px;height:8px;border-radius:50%;background: {{ e.color }}"></span>{{ e.short }}</div></sc-for>
+</div>
+<sc-for list="{{ rows }}" as="r"><div style="display:grid;grid-template-columns: {{ gridCols }};border-bottom:1px solid #F0F0ED;align-items:center"><div style="padding:12px 18px;font-size:14px;display:flex;gap:8px;align-items:baseline">{{ r.label }}<span style="font-size:11px;color:#9A9A95">{{ r.note }}</span></div><sc-for list="{{ r.cells }}" as="c"><div style="padding:9px 18px;display:flex;justify-content:flex-end"><span style="font-family:'Geist Mono',monospace;font-size:17px;font-weight:500;padding:3px 9px;border-radius:6px;background: {{ c.bg }};color: {{ c.fg }}">{{ c.txt }}</span></div></sc-for></div></sc-for>
+</div>
+</sc-if>
+<sc-if value="{{ B.d2 }}" hint-placeholder-val="{{ true }}">
+<div style="display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:24px;align-items:center">
+<sc-if value="{{ radarOk }}" hint-placeholder-val="{{ true }}">
+<div style="position:relative"><svg viewBox="0 0 520 420" style="width:100%;display:block">
+<sc-for list="{{ radar.rings }}" as="r"><polygon points="{{ r.pts }}" style="fill:none;stroke:#E6E6E2;stroke-width:1"></polygon></sc-for>
+<sc-for list="{{ radar.spokes }}" as="l"><line x1="{{ l.x1 }}" y1="{{ l.y1 }}" x2="{{ l.x2 }}" y2="{{ l.y2 }}" style="stroke:#E6E6E2;stroke-width:1"></line></sc-for>
+<sc-for list="{{ radar.polys }}" as="p"><g><polygon points="{{ p.pts }}" style="fill-opacity:.06;stroke-width:2;stroke-linejoin:round;fill: {{ p.color }};stroke: {{ p.color }}"></polygon><sc-for list="{{ p.dots }}" as="d"><circle cx="{{ d.x }}" cy="{{ d.y }}" r="3.5" style="stroke:#fff;stroke-width:1.5;fill: {{ p.color }}"></circle></sc-for></g></sc-for>
+
+</svg><div style="position:absolute;inset:0;pointer-events:none"><sc-for list="{{ radar.labels }}" as="t"><div style="position:absolute;font-size:12px;font-weight:500;color:#333;white-space:nowrap;left: {{ t.left }};top: {{ t.top }};transform: {{ t.tf }}">{{ t.text }}</div></sc-for></div></div>
+</sc-if>
+<sc-if value="{{ radarLow }}" hint-placeholder-val="{{ false }}"><div style="padding:60px;text-align:center;color:#7A7A75;font-size:14px">Pick at least 3 stats for the radar.</div></sc-if>
+<div style="display:flex;flex-direction:column;gap:14px">
+<sc-for list="{{ ents }}" as="e"><div style="display:flex;flex-direction:column;gap:2px;padding-left:12px;border-left:3px solid {{ e.color }}"><span style="font-size:14px;font-weight:600">{{ e.name }}</span><span style="font-size:12px;color:#7A7A75">{{ e.meta }}</span></div></sc-for>
+<div style="font-size:12px;color:#7A7A75;line-height:1.5;padding-top:6px">Each axis scaled to the league range. Interceptions inverted so outward is always better.</div>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{ B.d3 }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+<sc-for list="{{ axSel }}" as="a"><label style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:#7A7A75"><span style="font-family:'Geist Mono',monospace">{{ a.label }}</span><select value="{{ a.value }}" onChange="{{ a.onChange }}" style="border:1px solid #DEDEDA;border-radius:7px;padding:6px 8px;font-size:13px;background:#fff;color:#111"><sc-for list="{{ statOpts }}" as="o"><option value="{{ o.k }}">{{ o.label }}</option></sc-for></select></label></sc-for>
+<button onClick="{{ resetView }}" style="margin-left:auto;border:1px solid #DEDEDA;background:#fff;border-radius:7px;padding:6px 12px;font-size:13px;cursor:pointer">Reset view</button>
+</div>
+<div style="border:1px solid #E6E6E3;border-radius:12px;position:relative;background:#fff">
+<svg viewBox="0 0 600 460" style="width:100%;display:block;cursor:grab;touch-action:none;user-select:none" onPointerDown="{{ pDown }}" onPointerMove="{{ pMove }}" onPointerUp="{{ pUp }}" onPointerLeave="{{ pUp }}">
+<sc-for list="{{ g3.grid }}" as="l"><line x1="{{ l.x1 }}" y1="{{ l.y1 }}" x2="{{ l.x2 }}" y2="{{ l.y2 }}" style="stroke:#EDEDE9;stroke-width:1"></line></sc-for>
+<sc-for list="{{ g3.edges }}" as="l"><line x1="{{ l.x1 }}" y1="{{ l.y1 }}" x2="{{ l.x2 }}" y2="{{ l.y2 }}" style="stroke:#DADAD5;stroke-width:1"></line></sc-for>
+<sc-for list="{{ g3.axes }}" as="l"><line x1="{{ l.x1 }}" y1="{{ l.y1 }}" x2="{{ l.x2 }}" y2="{{ l.y2 }}" style="stroke:#111;stroke-width:1.5"></line></sc-for>
+
+<sc-for list="{{ g3.pts }}" as="p"><g><line x1="{{ p.cx }}" y1="{{ p.cy }}" x2="{{ p.fx }}" y2="{{ p.fy }}" style="stroke-width:1;stroke-dasharray:3 3;stroke: {{ p.drop }}"></line><circle cx="{{ p.cx }}" cy="{{ p.cy }}" r="{{ p.r }}" style="stroke:#fff;stroke-width:1.5;fill: {{ p.fill }}"></circle></g></sc-for>
+</svg>
+<div style="position:absolute;inset:0;pointer-events:none"><sc-for list="{{ g3.labels }}" as="t"><div style="position:absolute;font-size:12px;font-weight:600;color:#111;white-space:nowrap;left: {{ t.left }};top: {{ t.top }};transform: {{ t.tf }}">{{ t.text }}</div></sc-for><sc-for list="{{ g3.tags }}" as="t"><div style="position:absolute;font-size:12px;font-weight:600;color:#111;white-space:nowrap;background:rgba(255,255,255,.85);padding:0 3px;border-radius:3px;left: {{ t.left }};top: {{ t.top }};transform: {{ t.tf }}">{{ t.text }}</div></sc-for></div>
+<div style="position:absolute;left:16px;bottom:12px;font-size:12px;color:#7A7A75">Drag to rotate</div>
+</div>
+</div>
+</sc-if>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="1c">
+<div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a>Lab — chart-first workspace, 3D default, live readout rail</div>
+<div class="dv-card" style="width:1280px">
+<div style="min-height:840px;background:#fff;display:flex;flex-direction:column">
+<header style="display:flex;align-items:center;gap:24px;padding:12px 24px;background:#111;color:#fff">
+<div style="display:flex;align-items:center;gap:2px;font-weight:700;font-size:19px;letter-spacing:-0.03em"><span>Stat</span><span style="background:#fff;color:#111;padding:0 6px 2px;border-radius:5px">Pakd</span></div>
+<nav style="display:flex;gap:18px;font-size:13px;font-weight:600">
+<sc-for list="{{ leagues }}" as="l" hint-placeholder-count="4"><span style="color: {{ l.darkFg }};display:flex;gap:5px;align-items:center">{{ l.k }}<span style="font-size:10px;font-family:'Geist Mono',monospace;color:#6A6A66">{{ l.tag }}</span></span></sc-for>
+</nav>
+<span style="margin-left:auto;font-size:12px;color:#A5A5A0;font-family:'Geist Mono',monospace">2024 · REG SEASON</span>
+</header>
+<div style="display:grid;grid-template-columns:248px minmax(0,1fr) 288px;flex:1">
+<aside style="border-right:1px solid #E8E8E5;padding:18px 14px;display:flex;flex-direction:column;gap:14px">
+<div style="display:grid;grid-template-columns:1fr 1fr;border:1px solid #DEDEDA;border-radius:8px;overflow:hidden">
+<sc-for list="{{ kindTabs }}" as="t" hint-placeholder-count="2"><button onClick="{{ t.onClick }}" style="border:0;padding:7px 0;font-size:13px;font-weight:600;cursor:pointer;background: {{ t.dbg }};color: {{ t.dfg }}">{{ t.label }}</button></sc-for>
+</div>
+<div style="display:flex;justify-content:space-between;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#8A8A85;padding:0 4px"><span>{{ poolLabel }}</span><span style="font-family:'Geist Mono',monospace">{{ selCount }}/4</span></div>
+<div style="display:flex;flex-direction:column;gap:4px">
+<sc-for list="{{ pool }}" as="p" hint-placeholder-count="8"><button onClick="{{ p.toggle }}" style="display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:7px;cursor:pointer;text-align:left;background:#fff;border:1px solid {{ p.cardBd }}" style-hover="border-color:#111"><span style="width:28px;height:28px;flex:none;border-radius:6px;font-family:'Geist Mono',monospace;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;background: {{ p.tileBg }};color: {{ p.tileFg }}">{{ p.abbr }}</span><span style="display:flex;flex-direction:column;min-width:0"><span style="font-size:13px;font-weight:600;color:#111">{{ p.name }}</span><span style="font-size:11px;color:#7A7A75">{{ p.meta }}</span></span></button></sc-for>
+</div>
+</aside>
+<main style="padding:18px 24px;display:flex;flex-direction:column;gap:14px;min-width:0;background:#FAFAF8">
+<div style="display:flex;align-items:center;gap:16px">
+<div style="display:flex;border:1px solid #DEDEDA;border-radius:8px;overflow:hidden;background:#fff">
+<sc-for list="{{ tabsC }}" as="t" hint-placeholder-count="3"><button onClick="{{ t.onClick }}" style="border:0;padding:7px 16px;font-size:13px;font-weight:600;cursor:pointer;background: {{ t.bg }};color: {{ t.fg }}">{{ t.label }}</button></sc-for>
+</div>
+<span style="font-size:13px;color:#7A7A75">{{ viewHintC }}</span>
+</div>
+<sc-if value="{{ C.chips }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-wrap:wrap;gap:6px">
+<sc-for list="{{ statChips }}" as="s"><button onClick="{{ s.toggle }}" style="border:1px solid {{ s.bd }};padding:5px 11px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;background: {{ s.bg }};color: {{ s.fg }}">{{ s.label }}</button></sc-for>
+</div>
+</sc-if>
+<div style="background:#fff;border:1px solid #E6E6E3;border-radius:12px;padding:16px;flex:1;display:flex;flex-direction:column;gap:12px">
+<sc-if value="{{ C.d3 }}" hint-placeholder-val="{{ true }}">
+<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+<sc-for list="{{ axSel }}" as="a"><label style="display:flex;flex-direction:column;gap:4px;font-size:11px;font-weight:600;color:#7A7A75;font-family:'Geist Mono',monospace">{{ a.label }}<select value="{{ a.value }}" onChange="{{ a.onChange }}" style="border:1px solid #DEDEDA;border-radius:7px;padding:7px 8px;font-size:13px;background:#fff;color:#111;font-family:Geist,sans-serif"><sc-for list="{{ statOpts }}" as="o"><option value="{{ o.k }}">{{ o.label }}</option></sc-for></select></label></sc-for>
+</div>
+<div style="position:relative">
+<svg viewBox="0 0 600 460" style="width:100%;display:block;cursor:grab;touch-action:none;user-select:none" onPointerDown="{{ pDown }}" onPointerMove="{{ pMove }}" onPointerUp="{{ pUp }}" onPointerLeave="{{ pUp }}">
+<sc-for list="{{ g3.grid }}" as="l"><line x1="{{ l.x1 }}" y1="{{ l.y1 }}" x2="{{ l.x2 }}" y2="{{ l.y2 }}" style="stroke:#EDEDE9;stroke-width:1"></line></sc-for>
+<sc-for list="{{ g3.edges }}" as="l"><line x1="{{ l.x1 }}" y1="{{ l.y1 }}" x2="{{ l.x2 }}" y2="{{ l.y2 }}" style="stroke:#DADAD5;stroke-width:1"></line></sc-for>
+<sc-for list="{{ g3.axes }}" as="l"><line x1="{{ l.x1 }}" y1="{{ l.y1 }}" x2="{{ l.x2 }}" y2="{{ l.y2 }}" style="stroke:#111;stroke-width:1.5"></line></sc-for>
+
+<sc-for list="{{ g3.pts }}" as="p"><g><line x1="{{ p.cx }}" y1="{{ p.cy }}" x2="{{ p.fx }}" y2="{{ p.fy }}" style="stroke-width:1;stroke-dasharray:3 3;stroke: {{ p.drop }}"></line><circle cx="{{ p.cx }}" cy="{{ p.cy }}" r="{{ p.r }}" style="stroke:#fff;stroke-width:1.5;fill: {{ p.fill }}"></circle></g></sc-for>
+</svg>
+<div style="position:absolute;inset:0;pointer-events:none"><sc-for list="{{ g3.labels }}" as="t"><div style="position:absolute;font-size:12px;font-weight:600;color:#111;white-space:nowrap;left: {{ t.left }};top: {{ t.top }};transform: {{ t.tf }}">{{ t.text }}</div></sc-for><sc-for list="{{ g3.tags }}" as="t"><div style="position:absolute;font-size:12px;font-weight:600;color:#111;white-space:nowrap;background:rgba(255,255,255,.85);padding:0 3px;border-radius:3px;left: {{ t.left }};top: {{ t.top }};transform: {{ t.tf }}">{{ t.text }}</div></sc-for></div>
+<button onClick="{{ resetView }}" style="position:absolute;right:0;bottom:0;border:1px solid #DEDEDA;background:#fff;border-radius:7px;padding:5px 10px;font-size:12px;cursor:pointer">Reset view</button>
+</div>
+</sc-if>
+<sc-if value="{{ C.d2 }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column">
+<sc-for list="{{ bars }}" as="g"><div style="display:grid;grid-template-columns:130px minmax(0,1fr);gap:16px;padding:11px 0;border-bottom:1px solid #F0F0ED;align-items:center"><span style="font-size:13px;font-weight:600">{{ g.label }}</span><div style="display:flex;flex-direction:column;gap:5px"><sc-for list="{{ g.bars }}" as="b"><div style="display:flex;align-items:center;gap:10px"><div style="flex:1;height:10px;background:#F3F3F0;border-radius:2px;overflow:hidden"><div style="height:100%;width: {{ b.w }};background: {{ b.color }}"></div></div><span style="width:64px;text-align:right;font-family:'Geist Mono',monospace;font-size:12px">{{ b.txt }}</span></div></sc-for></div></div></sc-for>
+</div>
+</sc-if>
+<sc-if value="{{ C.num }}" hint-placeholder-val="{{ false }}">
+<div>
+<div style="display:grid;grid-template-columns: {{ gridCols }};border-bottom:1.5px solid #111">
+<div style="padding:10px 12px;font-size:11px;color:#7A7A75;font-weight:600;text-transform:uppercase;letter-spacing:.08em">Stat</div>
+<sc-for list="{{ ents }}" as="e"><div style="padding:10px 12px;display:flex;align-items:center;justify-content:flex-end;gap:8px;font-weight:600;font-size:13px"><span style="width:8px;height:8px;border-radius:2px;background: {{ e.color }}"></span>{{ e.short }}</div></sc-for>
+</div>
+<sc-for list="{{ rows }}" as="r"><div style="display:grid;grid-template-columns: {{ gridCols }};border-bottom:1px solid #F0F0ED;align-items:center"><div style="padding:10px 12px;font-size:13px">{{ r.label }}</div><sc-for list="{{ r.cells }}" as="c"><div style="padding:7px 12px;display:flex;justify-content:flex-end"><span style="font-family:'Geist Mono',monospace;font-size:15px;font-weight:500;padding:2px 8px;border-radius:5px;background: {{ c.bg }};color: {{ c.fg }}">{{ c.txt }}</span></div></sc-for></div></sc-for>
+</div>
+</sc-if>
+</div>
+</main>
+<aside style="border-left:1px solid #E8E8E5;padding:18px 18px;display:flex;flex-direction:column;gap:14px">
+<div style="font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#8A8A85">Readout</div>
+<sc-for list="{{ readout }}" as="e" hint-placeholder-count="3"><div style="border:1px solid #E6E6E3;border-radius:10px;overflow:hidden"><div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #F0F0ED"><span style="width:10px;height:10px;border-radius:2px;background: {{ e.color }}"></span><span style="font-size:14px;font-weight:600;flex:1">{{ e.name }}</span><button onClick="{{ e.remove }}" style="border:0;background:transparent;cursor:pointer;color:#8A8A85;font-size:15px">×</button></div><div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr))"><sc-for list="{{ e.vals }}" as="v"><div style="padding:9px 12px;display:flex;flex-direction:column;gap:2px"><span style="font-size:10px;color:#7A7A75;font-family:'Geist Mono',monospace">{{ v.axis }}</span><span style="font-family:'Geist Mono',monospace;font-size:15px;font-weight:600">{{ v.txt }}</span><span style="font-size:10px;color:#9A9A95;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ v.label }}</span></div></sc-for></div></div></sc-for>
+<sc-if value="{{ noEnts }}" hint-placeholder-val="{{ false }}"><div style="font-size:13px;color:#7A7A75">Select up to 4 from the left.</div></sc-if>
+</aside>
+</div>
+</div>
+</div>
+</div>
+
+</div>
+<p class="dv-next">Try next: "go with <a class="dv-oid" href="#1a">1a</a> but use the radar from <a class="dv-oid" href="#1b">1b</a>" · "<a class="dv-oid" href="#1c">1c</a> with a light header" · "add a season-over-season line chart"</p>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const COLORS = ['#111111', '#E0472B', '#2F5FD0', '#14946A'];
+const LEAGUES = [
+  { k: 'NFL', sub: 'Football', on: true },
+  { k: 'NBA', sub: 'Basketball' },
+  { k: 'MLB', sub: 'Baseball' },
+  { k: 'NHL', sub: 'Hockey' }
+];
+const QB = (id, name, short, team, num, a) => ({ id, name, short, abbr: team, big: '#' + num, meta: team + ' · QB · #' + num,
+  s: { passYds: a[0], passTd: a[1], int: a[2], cmp: a[3], rate: a[4], rushYds: a[5], rushTd: a[6], qbr: a[7] } });
+const TM = (id, name, abbr, rec, a) => ({ id, name, short: abbr, abbr, big: abbr, meta: rec,
+  s: { ppg: a[0], ypg: a[1], pass: a[2], rush: a[3], papg: a[4], to: a[5], third: a[6], win: a[7] } });
+const DATA = {
+  players: {
+    label: 'Players', single: 'player', poolLabel: 'Quarterbacks',
+    stats: [
+      { k: 'passYds', label: 'Pass Yds' }, { k: 'passTd', label: 'Pass TD' }, { k: 'int', label: 'Interceptions', low: true },
+      { k: 'cmp', label: 'Comp %', dec: 1 }, { k: 'rate', label: 'Passer Rating', dec: 1 }, { k: 'rushYds', label: 'Rush Yds' },
+      { k: 'rushTd', label: 'Rush TD' }, { k: 'qbr', label: 'QBR', dec: 1 }
+    ],
+    pool: [
+      QB('allen', 'Josh Allen', 'J. Allen', 'BUF', 17, [3731, 28, 6, 63.6, 101.4, 531, 12, 77.2]),
+      QB('jackson', 'Lamar Jackson', 'L. Jackson', 'BAL', 8, [4172, 41, 4, 66.7, 119.6, 915, 4, 81.0]),
+      QB('mahomes', 'Patrick Mahomes', 'P. Mahomes', 'KC', 15, [3928, 26, 11, 67.5, 93.5, 307, 2, 62.6]),
+      QB('burrow', 'Joe Burrow', 'J. Burrow', 'CIN', 9, [4918, 43, 9, 70.6, 108.5, 201, 2, 72.1]),
+      QB('goff', 'Jared Goff', 'J. Goff', 'DET', 16, [4629, 37, 12, 72.4, 111.8, 56, 0, 74.3]),
+      QB('hurts', 'Jalen Hurts', 'J. Hurts', 'PHI', 1, [2903, 18, 5, 68.7, 103.7, 630, 14, 70.4]),
+      QB('daniels', 'Jayden Daniels', 'J. Daniels', 'WAS', 5, [3568, 25, 9, 69.0, 100.1, 891, 6, 72.0]),
+      QB('stroud', 'C.J. Stroud', 'C.J. Stroud', 'HOU', 7, [3727, 20, 12, 63.3, 87.0, 233, 0, 53.1])
+    ]
+  },
+  teams: {
+    label: 'Teams', single: 'team', poolLabel: 'Teams',
+    stats: [
+      { k: 'ppg', label: 'Points / G', dec: 1 }, { k: 'ypg', label: 'Yards / G', dec: 1 }, { k: 'pass', label: 'Pass Yds / G', dec: 1 },
+      { k: 'rush', label: 'Rush Yds / G', dec: 1 }, { k: 'papg', label: 'Pts Allowed / G', dec: 1, low: true },
+      { k: 'to', label: 'Turnover Diff', sign: true }, { k: 'third', label: '3rd Down %', dec: 1 }, { k: 'win', label: 'Win %', dec: 1 }
+    ],
+    pool: [
+      TM('kc', 'Kansas City Chiefs', 'KC', 'AFC West · 15–2', [22.6, 335.6, 225.0, 110.6, 19.2, -1, 47.4, 88.2]),
+      TM('buf', 'Buffalo Bills', 'BUF', 'AFC East · 13–4', [30.9, 352.4, 215.0, 137.4, 21.6, 24, 47.2, 76.5]),
+      TM('bal', 'Baltimore Ravens', 'BAL', 'AFC North · 12–5', [30.5, 424.9, 237.4, 187.6, 22.2, 7, 45.1, 70.6]),
+      TM('det', 'Detroit Lions', 'DET', 'NFC North · 15–2', [33.2, 409.5, 252.0, 157.5, 20.1, 6, 48.5, 88.2]),
+      TM('phi', 'Philadelphia Eagles', 'PHI', 'NFC East · 14–3', [27.2, 367.2, 179.2, 188.0, 17.8, 11, 41.0, 82.4]),
+      TM('min', 'Minnesota Vikings', 'MIN', 'NFC North · 14–3', [25.4, 346.4, 236.6, 109.8, 18.6, 3, 42.8, 82.4]),
+      TM('gb', 'Green Bay Packers', 'GB', 'NFC North · 11–6', [27.1, 363.3, 216.9, 146.4, 19.9, 9, 40.3, 64.7]),
+      TM('sf', 'San Francisco 49ers', 'SF', 'NFC West · 6–11', [23.6, 365.6, 241.3, 124.3, 25.6, -11, 42.2, 35.3])
+    ]
+  }
+};
+const r1 = v => Math.round(v * 10) / 10;
+
+class Component extends DCLogic {
+  state = {
+    kind: 'players', q: '', addOpen: false, yaw: -0.65, pitch: 0.38,
+    sel: { players: ['allen', 'jackson', 'mahomes'], teams: ['kc', 'det', 'bal'] },
+    stats: { players: ['passYds', 'passTd', 'int', 'cmp', 'rate', 'rushYds', 'qbr'], teams: ['ppg', 'ypg', 'papg', 'to', 'third', 'win'] },
+    ax: { players: ['passYds', 'rushYds', 'passTd'], teams: ['ppg', 'papg', 'to'] },
+    view: { a: 'num', b: '2d', c: '3d' }
+  };
+  toggle(id) {
+    this.setState(s => {
+      const k = s.kind; let a = s.sel[k];
+      a = a.includes(id) ? a.filter(x => x !== id) : (a.length >= 4 ? a : [...a, id]);
+      return { sel: { ...s.sel, [k]: a }, addOpen: a.length >= 4 ? false : s.addOpen };
+    });
+  }
+  toggleStat(key) {
+    this.setState(s => {
+      const k = s.kind, a = s.stats[k];
+      const order = DATA[k].stats.map(x => x.k);
+      let n = a.includes(key) ? (a.length > 1 ? a.filter(x => x !== key) : a) : [...a, key];
+      n = order.filter(x => n.includes(x));
+      return { stats: { ...s.stats, [k]: n } };
+    });
+  }
+  proj(x, y, z) {
+    const { yaw, pitch } = this.state;
+    const cy = Math.cos(yaw), sy = Math.sin(yaw);
+    const X = x * cy + z * sy; let Z = -x * sy + z * cy;
+    const cp = Math.cos(pitch), sp = Math.sin(pitch);
+    const Y = y * cp - Z * sp; Z = y * sp + Z * cp;
+    const f = 4.5 / (4.5 + Z), S = 128;
+    return [r1(300 + X * S * f), r1(242 - Y * S * f), Z];
+  }
+  renderVals() {
+    const st = this.state, kind = st.kind, D = DATA[kind];
+    const selIds = st.sel[kind], statKeys = st.stats[kind], ax = st.ax[kind];
+    const sd = k => D.stats.find(s => s.k === k);
+    const range = k => { const v = D.pool.map(p => p.s[k]); return [Math.min(...v), Math.max(...v)]; };
+    const fmt = (k, v) => { const d = sd(k); let t = d.dec ? v.toFixed(d.dec) : v.toLocaleString('en-US'); return d.sign && v > 0 ? '+' + t : t; };
+    const norm01 = (k, v) => { const [a, b] = range(k); return b === a ? 0.5 : (v - a) / (b - a); };
+    const ents = selIds.map((id, i) => ({ ...D.pool.find(p => p.id === id), color: COLORS[i], remove: () => this.toggle(id) }));
+    const q = st.q.toLowerCase();
+    const pool = D.pool.filter(p => !q || p.name.toLowerCase().includes(q) || p.abbr.toLowerCase().includes(q)).map(p => {
+      const i = selIds.indexOf(p.id), on = i >= 0;
+      return { name: p.name, meta: p.meta, abbr: p.abbr, toggle: () => this.toggle(p.id),
+        dot: on ? COLORS[i] : 'transparent', ring: on ? COLORS[i] : '#CFCFCB', rowBg: on ? '#EFEFEC' : 'transparent', check: on ? '✓' : '',
+        tileBg: on ? COLORS[i] : '#F0F0ED', tileFg: on ? '#fff' : '#555', cardBd: on ? COLORS[i] : '#ECECE8' };
+    });
+    const rows = statKeys.map(k => {
+      const d = sd(k), vals = ents.map(e => e.s[k]);
+      const best = d.low ? Math.min(...vals) : Math.max(...vals);
+      return { label: d.label, note: d.low ? 'lower is better' : '',
+        cells: ents.map(e => { const b = ents.length > 1 && e.s[k] === best; return { txt: fmt(k, e.s[k]), bg: b ? '#111' : 'transparent', fg: b ? '#fff' : '#111' }; }) };
+    });
+    const bars = statKeys.map(k => ({ label: sd(k).label, note: sd(k).low ? 'lower is better' : '',
+      bars: ents.map(e => ({ color: e.color, txt: fmt(k, e.s[k]), w: Math.round((0.06 + 0.94 * norm01(k, e.s[k])) * 100) + '%' })) }));
+    // radar
+    const n = statKeys.length, RC = [260, 210], RR = 150;
+    const pt = (i, t) => { const a = -Math.PI / 2 + i * 2 * Math.PI / n; return [r1(RC[0] + Math.cos(a) * RR * t), r1(RC[1] + Math.sin(a) * RR * t)]; };
+    const radar = {
+      rings: [0.25, 0.5, 0.75, 1].map(t => ({ pts: statKeys.map((_, i) => pt(i, t).join(',')).join(' ') })),
+      spokes: statKeys.map((_, i) => { const p = pt(i, 1); return { x1: RC[0], y1: RC[1], x2: p[0], y2: p[1] }; }),
+      labels: statKeys.map((k, i) => { const p = pt(i, 1.13); const dx = p[0] - RC[0]; return { left: r1(p[0] / 520 * 100) + '%', top: r1(p[1] / 420 * 100) + '%', text: sd(k).label, tf: Math.abs(dx) < 8 ? 'translate(-50%,-50%)' : dx > 0 ? 'translate(0,-50%)' : 'translate(-100%,-50%)' }; }),
+      polys: ents.map(e => {
+        const ts = statKeys.map(k => { let t = norm01(k, e.s[k]); if (sd(k).low) t = 1 - t; return 0.12 + 0.88 * t; });
+        const ps = ts.map((t, i) => pt(i, t));
+        return { color: e.color, pts: ps.map(p => p.join(',')).join(' '), dots: ps.map(p => ({ x: p[0], y: p[1] })) };
+      })
+    };
+    // 3d
+    const [kx, ky, kz] = ax;
+    const N = (k, v) => 2 * norm01(k, v) - 1;
+    const L = (a, b) => { const p = this.proj(...a), q2 = this.proj(...b); return { x1: p[0], y1: p[1], x2: q2[0], y2: q2[1] }; };
+    const grid = [];
+    [-1, -0.5, 0, 0.5, 1].forEach(t => { grid.push(L([t, -1, -1], [t, -1, 1])); grid.push(L([-1, -1, t], [1, -1, t])); grid.push(L([-1, t, -1], [-1, t, 1])); grid.push(L([-1, -1, t], [-1, 1, t])); });
+    const edges = [];
+    const cs = [-1, 1];
+    cs.forEach(a => cs.forEach(b => { edges.push(L([-1, a, b], [1, a, b])); edges.push(L([a, -1, b], [a, 1, b])); edges.push(L([a, b, -1], [a, b, 1])); }));
+    const axes = [L([-1, -1, -1], [1, -1, -1]), L([-1, -1, -1], [-1, 1, -1]), L([-1, -1, -1], [-1, -1, 1])];
+    const pct = (x, y, W, H) => ({ left: r1(x / W * 100) + '%', top: r1(y / H * 100) + '%' });
+    const lab = (p3, text) => { const p = this.proj(...p3); return { ...pct(p[0], Math.max(10, p[1]), 600, 460), text, tf: p[0] < 300 ? 'translate(-100%,-50%)' : 'translate(0,-50%)' }; };
+    const labels = [lab([1.12, -1.1, -1], 'X · ' + sd(kx).label), lab([-1, 1.08, -1], 'Y · ' + sd(ky).label), lab([-1, -1.1, 1.12], 'Z · ' + sd(kz).label)];
+    const pts = D.pool.map(p => {
+      const x = N(kx, p.s[kx]), y = N(ky, p.s[ky]), z = N(kz, p.s[kz]);
+      const c = this.proj(x, y, z), f = this.proj(x, -1, z), i = selIds.indexOf(p.id), on = i >= 0;
+      return { z: c[2], cx: c[0], cy: c[1], fx: f[0], fy: f[1], r: on ? 7 : 4.5, fill: on ? COLORS[i] : '#C9C9C4',
+        drop: on ? COLORS[i] : '#E0E0DC', label: on ? p.short : '', lx: c[0] + 11, ly: c[1] + 4 };
+    }).sort((a, b) => b.z - a.z);
+    const tags = pts.filter(p => p.label).map(p => ({ ...pct(p.cx + 10, p.cy, 600, 460), text: p.label, tf: 'translate(0,-50%)' }));
+    const g3 = { grid, edges, axes, labels, pts, tags };
+    const mkTabs = key => [['num', 'Table'], ['2d', '2D chart'], ['3d', '3D chart']].map(([v, label]) => {
+      const on = st.view[key] === v;
+      return { label, onClick: () => this.setState(s => ({ view: { ...s.view, [key]: v } })), bg: on ? '#111' : 'transparent', fg: on ? '#fff' : '#555', ufg: on ? '#111' : '#8A8A85', ul: on ? '#111' : 'transparent' };
+    });
+    const flags = key => ({ num: st.view[key] === 'num', d2: st.view[key] === '2d', d3: st.view[key] === '3d', chips: st.view[key] !== '3d' });
+    return {
+      leagues: LEAGUES.map(l => ({ k: l.k, sub: l.sub, tag: l.on ? '' : 'SOON', bg: l.on ? '#111' : 'transparent', fg: l.on ? '#fff' : '#A5A5A0', subFg: l.on ? '#B5B5B0' : '#C5C5C0', darkFg: l.on ? '#fff' : '#6A6A66' })),
+      kindTabs: ['players', 'teams'].map(k => {
+        const on = st.kind === k;
+        return { label: DATA[k].label, onClick: () => this.setState({ kind: k, q: '', addOpen: false }), bg: on ? '#fff' : 'transparent', fg: on ? '#111' : '#7A7A75', sh: on ? '0 1px 2px rgba(0,0,0,.1)' : 'none', dbg: on ? '#111' : '#fff', dfg: on ? '#fff' : '#555' };
+      }),
+      kindLabel: D.label.toLowerCase(), kindSingular: D.single, poolLabel: D.poolLabel,
+      q: st.q, onQ: e => this.setState({ q: e.target.value }),
+      pool, ents, selCount: selIds.length, noEnts: ents.length === 0, canAdd: ents.length < 4,
+      addOpen: st.addOpen, toggleAdd: () => this.setState(s => ({ addOpen: !s.addOpen, q: '' })),
+      statChips: D.stats.map(d => { const on = statKeys.includes(d.k); return { label: d.label, toggle: () => this.toggleStat(d.k), bg: on ? '#111' : '#fff', fg: on ? '#fff' : '#111', bd: on ? '#111' : '#D6D6D2', check: on ? '✓' : '' }; }),
+      gridCols: 'minmax(170px,1.3fr) repeat(' + Math.max(ents.length, 1) + ', minmax(0,1fr))',
+      rows, bars, radar, radarOk: n >= 3, radarLow: n < 3, g3,
+      statOpts: D.stats.map(d => ({ k: d.k, label: d.label })),
+      axSel: ['X', 'Y', 'Z'].map((label, i) => ({ label, value: ax[i], onChange: e => { const v = e.target.value; this.setState(s => { const a = [...s.ax[s.kind]]; a[i] = v; return { ax: { ...s.ax, [s.kind]: a } }; }); } })),
+      readout: ents.map(e => ({ name: e.name, color: e.color, remove: e.remove, vals: ax.map((k, i) => ({ axis: 'XYZ'[i], label: sd(k).label, txt: fmt(k, e.s[k]) })) })),
+      tabsA: mkTabs('a'), tabsB: mkTabs('b'), tabsC: mkTabs('c'), A: flags('a'), B: flags('b'), C: flags('c'),
+      viewHintC: st.view.c === '3d' ? 'Pick three stats as axes — drag to rotate' : st.view.c === '2d' ? 'Bars scaled to league range' : 'Black = best among selected',
+      resetView: () => this.setState({ yaw: -0.65, pitch: 0.38 }),
+      pDown: e => { this.drag = { x: e.clientX, y: e.clientY, yaw: this.state.yaw, pitch: this.state.pitch }; try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {} },
+      pMove: e => { const d = this.drag; if (!d) return; this.setState({ yaw: d.yaw + (e.clientX - d.x) * 0.01, pitch: Math.max(-0.2, Math.min(1.3, d.pitch + (e.clientY - d.y) * 0.008)) }); },
+      pUp: () => { this.drag = null; }
+    };
+  }
+}
+</script>
+</body>
+</html>

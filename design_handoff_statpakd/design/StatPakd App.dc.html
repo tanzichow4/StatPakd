@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>body{margin:0;background:#fff;font-family:Geist,system-ui,sans-serif;color:#111}a{color:#111}a:hover{color:#555}button,input,select{font-family:inherit}</style>
+</helmet>
+<div style="min-height:100vh;display:flex;flex-direction:column;background:#fff">
+<header data-screen-label="Nav" style="display:flex;align-items:center;gap:24px;padding:12px 28px;background:#111;color:#fff;flex-wrap:wrap">
+<div style="display:flex;align-items:center;gap:2px;font-weight:700;font-size:20px;letter-spacing:-0.03em"><span>Stat</span><span style="background:#fff;color:#111;padding:0 6px 2px;border-radius:5px">Pakd</span></div>
+<nav style="display:flex;gap:18px;font-size:13px;font-weight:600">
+<sc-for list="{{ leagues }}" as="l" hint-placeholder-count="4"><span style="display:flex;gap:5px;align-items:center;color: {{ l.fg }}">{{ l.k }}<span style="font-size:10px;font-family:'Geist Mono',monospace;color:#6A6A66">{{ l.tag }}</span></span></sc-for>
+</nav>
+<div style="margin-left:auto;display:flex;align-items:center;gap:12px">
+<div style="display:flex;background:#2A2A28;border-radius:8px;padding:3px">
+<sc-for list="{{ kindTabs }}" as="t" hint-placeholder-count="2"><button onClick="{{ t.onClick }}" style="border:0;padding:6px 14px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;background: {{ t.bg }};color: {{ t.fg }}">{{ t.label }}</button></sc-for>
+</div>
+<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#A5A5A0">Season
+<select value="{{ season }}" onChange="{{ onSeason }}" style="background:#2A2A28;color:#fff;border:1px solid #3A3A37;border-radius:7px;padding:6px 10px;font-size:13px;font-weight:600;cursor:pointer"><sc-for list="{{ seasons }}" as="s"><option value="{{ s }}">{{ s }} Regular Season</option></sc-for></select>
+</label>
+</div>
+</header>
+
+<div style="width:100%;max-width:1360px;margin:0 auto;padding:24px 28px 40px;box-sizing:border-box;display:flex;flex-direction:column;gap:24px">
+<sc-if value="{{ isTeams }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+<div style="display:flex;background:#F2F2EF;border-radius:9px;padding:3px">
+<sc-for list="{{ teamModeTabs }}" as="t"><button onClick="{{ t.onClick }}" style="border:0;padding:7px 16px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;background: {{ t.bg }};color: {{ t.fg }};box-shadow: {{ t.sh }}">{{ t.label }}</button></sc-for>
+</div>
+<span style="font-size:13px;color:#7A7A75">{{ teamModeHint }}</span>
+</div>
+</sc-if>
+<sc-if value="{{ isCompare }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;flex-direction:column;gap:24px">
+<div data-screen-label="Picker" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px">
+<sc-for list="{{ ents }}" as="e" hint-placeholder-count="3"><div style="border:1px solid #E3E3E0;border-radius:12px;padding:16px 18px;display:flex;flex-direction:column;gap:10px;border-top:4px solid {{ e.color }}"><div style="display:flex;justify-content:space-between;align-items:flex-start"><span style="font-family:'Geist Mono',monospace;font-size:40px;font-weight:600;letter-spacing:-0.04em;line-height:1">{{ e.big }}</span><button onClick="{{ e.remove }}" aria-label="Remove" style="border:0;background:#F2F2EF;width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:14px;color:#555" style-hover="background:#E6E6E2">×</button></div><div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:17px;font-weight:600">{{ e.name }}</span><span style="font-size:13px;color:#7A7A75">{{ e.meta }}</span></div></div></sc-for>
+<sc-if value="{{ canAdd }}" hint-placeholder-val="{{ true }}">
+<div style="position:relative">
+<button onClick="{{ toggleAdd }}" style="width:100%;height:100%;min-height:124px;border:1.5px dashed #CFCFCB;border-radius:12px;background:#FAFAF8;cursor:pointer;font-size:14px;font-weight:600;color:#111;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px" style-hover="border-color:#111"><span style="font-size:24px;font-weight:400;line-height:1">+</span><span>Add {{ kindSingular }}</span><span style="font-size:12px;font-weight:400;color:#7A7A75">{{ slotsLeft }}</span></button>
+<sc-if value="{{ addOpen }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;top:calc(100% + 8px);left:0;width:360px;max-width:90vw;background:#fff;border:1px solid #DEDEDA;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.12);padding:12px;z-index:10;display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;gap:8px">
+<input value="{{ q }}" onChange="{{ onQ }}" autoFocus="{{ true }}" placeholder="Search {{ kindLabel }} or team" style="flex:1;border:1px solid #DEDEDA;border-radius:8px;padding:9px 12px;font-size:14px;outline:none;color:#111" style-focus="border-color:#111">
+<button onClick="{{ toggleAdd }}" style="border:0;background:#F2F2EF;border-radius:8px;padding:0 12px;font-size:13px;font-weight:600;cursor:pointer">Done</button>
+</div>
+<sc-if value="{{ isPlayers }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;gap:6px">
+<sc-for list="{{ posChips }}" as="c" hint-placeholder-count="5"><button onClick="{{ c.onClick }}" style="border:1px solid {{ c.bd }};padding:4px 10px;border-radius:999px;font-size:12px;font-weight:600;cursor:pointer;background: {{ c.bg }};color: {{ c.fg }}">{{ c.label }}</button></sc-for>
+</div>
+</sc-if>
+<div style="display:flex;flex-direction:column;gap:2px;max-height:340px;overflow:auto">
+<sc-for list="{{ results }}" as="p" hint-placeholder-count="6"><div style="display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:7px" style-hover="background:#F6F6F3"><span style="width:30px;height:30px;flex:none;border-radius:6px;background:#F0F0ED;font-family:'Geist Mono',monospace;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;color:#444">{{ p.tile }}</span><span style="display:flex;flex-direction:column;flex:1;min-width:0"><span style="font-size:14px;font-weight:500">{{ p.name }}</span><span style="font-size:12px;color:#7A7A75">{{ p.meta }}</span></span><button onClick="{{ p.add }}" disabled="{{ p.disabled }}" style="border:1px solid {{ p.bd }};background: {{ p.bg }};color: {{ p.fg }};border-radius:6px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer">{{ p.cta }}</button></div></sc-for>
+<sc-if value="{{ noResults }}" hint-placeholder-val="{{ false }}"><div style="padding:20px;text-align:center;font-size:13px;color:#7A7A75">No matches.</div></sc-if>
+</div>
+</div>
+</sc-if>
+</div>
+</sc-if>
+</div>
+
+<div style="display:flex;gap:32px;align-items:flex-start;flex-wrap:wrap">
+<div data-screen-label="Stats" style="flex:0 0 232px;display:flex;flex-direction:column;gap:16px">
+<sc-for list="{{ statGroups }}" as="g" hint-placeholder-count="3"><div style="display:flex;flex-direction:column;gap:1px"><div style="font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#8A8A85;padding:0 8px 6px">{{ g.name }}</div><sc-for list="{{ g.items }}" as="s"><button onClick="{{ s.toggle }}" style="display:flex;align-items:center;gap:10px;border:0;background:transparent;padding:7px 8px;border-radius:7px;cursor:pointer;font-size:14px;color:#111;text-align:left" style-hover="background:#F4F4F1"><span style="width:16px;height:16px;flex:none;border-radius:4px;border:1.5px solid {{ s.bd }};background: {{ s.bg }};color:#fff;font-size:10px;line-height:13px;text-align:center">{{ s.check }}</span>{{ s.label }}</button></sc-for><sc-if value="{{ g.canAdd }}" hint-placeholder-val="{{ true }}"><button onClick="{{ g.openAdd }}" style="display:flex;align-items:center;gap:10px;border:0;background:transparent;padding:7px 8px;border-radius:7px;cursor:pointer;font-size:13px;font-weight:600;color:#7A7A75;text-align:left" style-hover="background:#F4F4F1;color:#111"><span style="width:16px;height:16px;flex:none;box-sizing:border-box;border-radius:4px;border:1.5px dashed #BDBDB8;font-size:12px;line-height:12px;text-align:center">+</span>Add stat</button></sc-if><sc-if value="{{ g.open }}" hint-placeholder-val="{{ false }}"><div style="margin:2px 0 4px 26px;border:1px solid #E3E3E0;border-radius:8px;padding:4px;display:flex;flex-direction:column;background:#fff;box-shadow:0 4px 12px rgba(0,0,0,.06)"><sc-for list="{{ g.extras }}" as="x"><button onClick="{{ x.add }}" style="border:0;background:transparent;text-align:left;padding:7px 8px;border-radius:6px;font-size:13px;cursor:pointer;color:#111" style-hover="background:#F4F4F1">{{ x.label }}</button></sc-for></div></sc-if></div></sc-for>
+</div>
+
+<div style="flex:1 1 560px;min-width:0;display:flex;flex-direction:column;gap:16px">
+<div style="display:flex;align-items:flex-end;justify-content:space-between;border-bottom:1px solid #E8E8E5;gap:16px;flex-wrap:wrap">
+<div style="display:flex;gap:24px">
+<sc-for list="{{ tabs }}" as="t" hint-placeholder-count="3"><button onClick="{{ t.onClick }}" style="border:0;background:transparent;padding:0 0 10px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:-1px;color: {{ t.fg }};border-bottom:2px solid {{ t.ul }}">{{ t.label }}</button></sc-for>
+</div>
+<sc-if value="{{ is2d }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;background:#F2F2EF;border-radius:7px;padding:2px;margin-bottom:8px">
+<sc-for list="{{ chart2Tabs }}" as="t"><button onClick="{{ t.onClick }}" style="border:0;padding:4px 12px;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;background: {{ t.bg }};color: {{ t.fg }};box-shadow: {{ t.sh }}">{{ t.label }}</button></sc-for>
+</div>
+</sc-if>
+</div>
+<sc-if value="{{ noEnts }}" hint-placeholder-val="{{ false }}"><div style="padding:60px 20px;text-align:center;color:#7A7A75;font-size:14px;border:1px dashed #DADAD6;border-radius:12px">Add a {{ kindSingular }} to start comparing.</div></sc-if>
+
+<sc-if value="{{ isNum }}" hint-placeholder-val="{{ true }}">
+<div data-screen-label="Table" style="display:flex;flex-direction:column;gap:10px">
+<div style="border:1px solid #E6E6E3;border-radius:12px;overflow-x:auto"><div style="min-width: {{ tableMinW }}">
+<div style="display:grid;grid-template-columns: {{ gridCols }};background:#FAFAF8;border-bottom:1px solid #E6E6E3">
+<div style="padding:14px 18px;font-size:11px;color:#7A7A75;font-weight:600;text-transform:uppercase;letter-spacing:.08em;align-self:end">Stat</div>
+<sc-for list="{{ ents }}" as="e"><div style="padding:14px 18px;display:flex;flex-direction:column;gap:2px;align-items:flex-end;min-width:0"><div style="display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px;white-space:nowrap"><span style="width:8px;height:8px;border-radius:50%;flex:none;background: {{ e.color }}"></span>{{ e.colName }}</div><div style="font-size:12px;color:#7A7A75;white-space:nowrap">{{ e.colMeta }}</div></div></sc-for>
+</div>
+<sc-for list="{{ rows }}" as="r"><div style="display:grid;grid-template-columns: {{ gridCols }};border-bottom:1px solid #F0F0ED;align-items:center"><div style="padding:12px 18px;font-size:14px;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap">{{ r.label }}<span style="font-size:11px;color:#9A9A95">{{ r.note }}</span></div><sc-for list="{{ r.cells }}" as="c"><div style="padding:9px 18px;display:flex;justify-content:flex-end"><span style="font-family:'Geist Mono',monospace;font-size:17px;font-weight:500;padding:3px 9px;border-radius:6px;background: {{ c.bg }};color: {{ c.fg }}">{{ c.txt }}</span></div></sc-for></div></sc-for>
+</div></div>
+<div style="font-size:12px;color:#7A7A75">Black = best among selected · — = not applicable to position</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isBars }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Bars" style="display:flex;flex-direction:column">
+<sc-for list="{{ bars }}" as="g"><div style="display:grid;grid-template-columns:160px minmax(0,1fr);gap:20px;padding:14px 0;border-bottom:1px solid #F0F0ED;align-items:center"><div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:500">{{ g.label }}</span><span style="font-size:11px;color:#9A9A95">{{ g.note }}</span></div><div style="display:flex;flex-direction:column;gap:6px"><sc-for list="{{ g.bars }}" as="b"><div style="display:flex;align-items:center;gap:12px"><span style="width:110px;flex:none;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span style="width:8px;height:8px;border-radius:2px;flex:none;background: {{ b.color }}"></span>{{ b.name }}</span><div style="flex:1;min-width:0;height:16px;background:#F3F3F0;border-radius:3px;overflow:hidden"><div style="height:100%;border-radius:3px;width: {{ b.w }};background: {{ b.color }}"></div></div><span style="width:70px;text-align:right;font-family:'Geist Mono',monospace;font-size:13px">{{ b.txt }}</span></div></sc-for></div></div></sc-for>
+<div style="font-size:12px;color:#7A7A75;padding-top:10px">Bar length scaled to league range.</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isRadar }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Radar" style="display:flex;gap:24px;align-items:center;flex-wrap:wrap">
+<sc-if value="{{ radarOk }}" hint-placeholder-val="{{ true }}">
+<div style="position:relative;flex:1 1 420px;max-width:640px">
+<svg viewBox="0 0 520 420" style="width:100%;display:block">
+<sc-for list="{{ radar.rings }}" as="r"><polygon points="{{ r.pts }}" style="fill:none;stroke:#E6E6E2;stroke-width:1"></polygon></sc-for>
+<sc-for list="{{ radar.spokes }}" as="l"><line x1="{{ l.x1 }}" y1="{{ l.y1 }}" x2="{{ l.x2 }}" y2="{{ l.y2 }}" style="stroke:#E6E6E2;stroke-width:1"></line></sc-for>
+<sc-for list="{{ radar.polys }}" as="p"><g><polygon points="{{ p.pts }}" style="fill-opacity:.06;stroke-width:2;stroke-linejoin:round;fill: {{ p.color }};stroke: {{ p.color }}"></polygon><sc-for list="{{ p.dots }}" as="d"><circle cx="{{ d.x }}" cy="{{ d.y }}" r="3.5" style="stroke:#fff;stroke-width:1.5;fill: {{ p.color }}"></circle></sc-for></g></sc-for>
+</svg>
+<div style="position:absolute;inset:0;pointer-events:none"><sc-for list="{{ radar.labels }}" as="t"><div style="position:absolute;font-size:12px;font-weight:500;color:#333;white-space:nowrap;left: {{ t.left }};top: {{ t.top }};transform: {{ t.tf }}">{{ t.text }}</div></sc-for></div>
+</div>
+</sc-if>
+<sc-if value="{{ radarLow }}" hint-placeholder-val="{{ false }}"><div style="flex:1;padding:60px;text-align:center;color:#7A7A75;font-size:14px">Pick at least 3 stats for the radar.</div></sc-if>
+<div style="flex:0 0 200px;display:flex;flex-direction:column;gap:14px">
+<sc-for list="{{ ents }}" as="e"><div style="display:flex;flex-direction:column;gap:2px;padding-left:12px;border-left:3px solid {{ e.color }}"><span style="font-size:14px;font-weight:600">{{ e.name }}</span><span style="font-size:12px;color:#7A7A75">{{ e.meta }}</span></div></sc-for>
+<div style="font-size:12px;color:#7A7A75;line-height:1.5">Axes scaled to league range; "lower is better" stats are inverted so outward is always better.</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ is3d }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="3D" style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap">
+<div style="flex:1 1 520px;min-width:0;display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+<sc-for list="{{ axSel }}" as="a"><label style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:#7A7A75"><span style="font-family:'Geist Mono',monospace">{{ a.label }}</span><select value="{{ a.value }}" onChange="{{ a.onChange }}" style="border:1px solid #DEDEDA;border-radius:7px;padding:6px 8px;font-size:13px;background:#fff;color:#111"><sc-for list="{{ statOpts }}" as="o"><option value="{{ o.k }}">{{ o.label }}</option></sc-for></select></label></sc-for>
+<button onClick="{{ resetView }}" style="margin-left:auto;border:1px solid #DEDEDA;background:#fff;border-radius:7px;padding:6px 12px;font-size:13px;cursor:pointer">Reset view</button>
+</div>
+<div style="border:1px solid #E6E6E3;border-radius:12px;position:relative;background:#fff">
+<svg viewBox="0 0 600 460" style="width:100%;display:block;cursor:grab;touch-action:none;user-select:none" onPointerDown="{{ pDown }}" onPointerMove="{{ pMove }}" onPointerUp="{{ pUp }}" onPointerLeave="{{ pUp }}">
+<sc-for list="{{ g3.grid }}" as="l"><line x1="{{ l.x1 }}" y1="{{ l.y1 }}" x2="{{ l.x2 }}" y2="{{ l.y2 }}" style="stroke:#EDEDE9;stroke-width:1"></line></sc-for>
+<sc-for list="{{ g3.edges }}" as="l"><line x1="{{ l.x1 }}" y1="{{ l.y1 }}" x2="{{ l.x2 }}" y2="{{ l.y2 }}" style="stroke:#DADAD5;stroke-width:1"></line></sc-for>
+<sc-for list="{{ g3.axes }}" as="l"><line x1="{{ l.x1 }}" y1="{{ l.y1 }}" x2="{{ l.x2 }}" y2="{{ l.y2 }}" style="stroke:#111;stroke-width:1.5"></line></sc-for>
+<sc-for list="{{ g3.pts }}" as="p"><g><line x1="{{ p.cx }}" y1="{{ p.cy }}" x2="{{ p.fx }}" y2="{{ p.fy }}" style="stroke-width:1;stroke-dasharray:3 3;stroke: {{ p.drop }}"></line><circle cx="{{ p.cx }}" cy="{{ p.cy }}" r="{{ p.r }}" style="stroke:#fff;stroke-width:1.5;fill: {{ p.fill }}"></circle></g></sc-for>
+</svg>
+<div style="position:absolute;inset:0;pointer-events:none"><sc-for list="{{ g3.labels }}" as="t"><div style="position:absolute;font-size:12px;font-weight:600;color:#111;white-space:nowrap;left: {{ t.left }};top: {{ t.top }};transform: {{ t.tf }}">{{ t.text }}</div></sc-for><sc-for list="{{ g3.tags }}" as="t"><div style="position:absolute;font-size:12px;font-weight:600;color:#111;white-space:nowrap;background:rgba(255,255,255,.85);padding:0 3px;border-radius:3px;left: {{ t.left }};top: {{ t.top }};transform: {{ t.tf }}">{{ t.text }}</div></sc-for></div>
+<div style="position:absolute;left:16px;bottom:12px;font-size:12px;color:#7A7A75">Drag to rotate · gray dots = rest of league</div>
+</div>
+</div>
+<aside data-screen-label="Readout" style="flex:0 0 280px;display:flex;flex-direction:column;gap:12px">
+<div style="font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#8A8A85">Readout</div>
+<sc-for list="{{ readout }}" as="e" hint-placeholder-count="3"><div style="border:1px solid #E6E6E3;border-radius:10px;overflow:hidden"><div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #F0F0ED"><span style="width:10px;height:10px;border-radius:2px;background: {{ e.color }}"></span><span style="font-size:14px;font-weight:600;flex:1">{{ e.name }}</span></div><div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr))"><sc-for list="{{ e.vals }}" as="v"><div style="padding:9px 12px;display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-size:10px;color:#7A7A75;font-family:'Geist Mono',monospace">{{ v.axis }}</span><span style="font-family:'Geist Mono',monospace;font-size:15px;font-weight:600">{{ v.txt }}</span><span style="font-size:10px;color:#9A9A95;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ v.label }}</span></div></sc-for></div></div></sc-for>
+</aside>
+</div>
+</sc-if>
+</div>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{ isInside }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Team breakdown" style="display:flex;flex-direction:column;gap:22px">
+<div style="display:flex;gap:6px;flex-wrap:wrap">
+<sc-for list="{{ teamChips }}" as="t"><button onClick="{{ t.onClick }}" style="border:1px solid {{ t.bd }};padding:7px 12px;border-radius:8px;font-family:'Geist Mono',monospace;font-size:13px;font-weight:600;cursor:pointer;background: {{ t.bg }};color: {{ t.fg }}">{{ t.abbr }}</button></sc-for>
+</div>
+<div style="display:flex;gap:22px;align-items:center;flex-wrap:wrap;border:1px solid #E3E3E0;border-top:4px solid #111;border-radius:12px;padding:18px 22px">
+<span style="font-family:'Geist Mono',monospace;font-size:44px;font-weight:600;letter-spacing:-0.04em;line-height:1">{{ tb.abbr }}</span>
+<div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:22px;font-weight:600;letter-spacing:-0.01em">{{ tb.name }}</span><span style="font-size:13px;color:#7A7A75">{{ tb.meta }}</span></div>
+<div style="margin-left:auto;display:flex;gap:32px;flex-wrap:wrap">
+<sc-for list="{{ tb.summary }}" as="s"><div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#8A8A85">{{ s.label }}</span><span style="font-family:'Geist Mono',monospace;font-size:22px;font-weight:600">{{ s.txt }}</span></div></sc-for>
+</div>
+</div>
+<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+<div style="display:flex;flex-direction:column;gap:2px"><h2 style="margin:0;font-size:18px;font-weight:600">Share of team production</h2><span style="font-size:13px;color:#7A7A75">How the workload splits across the roster</span></div>
+<div style="display:flex;background:#F2F2EF;border-radius:8px;padding:3px">
+<sc-for list="{{ unitTabs }}" as="t"><button onClick="{{ t.onClick }}" style="border:0;padding:6px 14px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;background: {{ t.bg }};color: {{ t.fg }};box-shadow: {{ t.sh }}">{{ t.label }}</button></sc-for>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:12px">
+<sc-for list="{{ tb.shares }}" as="s"><div style="display:grid;grid-template-columns:150px minmax(0,1fr) 150px;gap:16px;align-items:center"><div style="display:flex;flex-direction:column;gap:1px"><span style="font-size:14px;font-weight:500">{{ s.label }}</span><span style="font-size:11px;color:#9A9A95;font-family:'Geist Mono',monospace">{{ s.total }}</span></div><div style="display:flex;height:30px;border-radius:5px;overflow:hidden;gap:2px;background:#F3F3F0"><sc-for list="{{ s.segs }}" as="g"><div title="{{ g.title }}" style="height:100%;flex-basis:0;min-width:3px;display:flex;align-items:center;justify-content:center;overflow:hidden;white-space:nowrap;font-size:11px;font-weight:600;color:#fff;flex-grow: {{ g.v }};background: {{ g.color }}">{{ g.txt }}</div></sc-for></div><span style="font-size:12px;color:#555;text-align:right">{{ s.lead }}</span></div></sc-for>
+</div>
+<div style="display:flex;gap:16px;flex-wrap:wrap">
+<sc-for list="{{ tb.legend }}" as="l"><span style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500"><span style="width:10px;height:10px;border-radius:2px;background: {{ l.color }}"></span>{{ l.name }}</span></sc-for>
+</div>
+<div style="display:flex;flex-direction:column;gap:8px">
+<h2 style="margin:0;font-size:18px;font-weight:600">Roster</h2>
+<div style="border:1px solid #E6E6E3;border-radius:12px;overflow-x:auto"><div style="min-width:820px">
+<div style="display:grid;grid-template-columns: {{ tb.cols }};background:#FAFAF8;border-bottom:1px solid #E6E6E3">
+<div style="padding:12px 18px;font-size:11px;color:#7A7A75;font-weight:600;text-transform:uppercase;letter-spacing:.08em">Player</div>
+<sc-for list="{{ tb.heads }}" as="h"><button onClick="{{ h.onClick }}" style="border:0;background:transparent;padding:12px 18px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;cursor:pointer;text-align:right;color: {{ h.fg }}">{{ h.label }} {{ h.arrow }}</button></sc-for>
+</div>
+<sc-for list="{{ tb.rows }}" as="r"><div style="display:grid;grid-template-columns: {{ tb.cols }};border-bottom:1px solid #F0F0ED;align-items:center"><div style="padding:10px 18px;display:flex;align-items:center;gap:10px;min-width:0"><span style="width:10px;height:10px;border-radius:2px;flex:none;background: {{ r.color }}"></span><span style="display:flex;flex-direction:column;min-width:0"><span style="font-size:14px;font-weight:600;white-space:nowrap">{{ r.name }}</span><span style="font-size:12px;color:#7A7A75">{{ r.meta }}</span></span></div><sc-for list="{{ r.cells }}" as="c"><div style="padding:8px 18px;display:flex;flex-direction:column;align-items:flex-end;gap:4px"><span style="font-family:'Geist Mono',monospace;font-size:15px;font-weight:500;padding:2px 8px;border-radius:5px;background: {{ c.bg }};color: {{ c.fg }}">{{ c.txt }}</span><div style="width:72px;height:4px;border-radius:2px;background:#EDEDE9;overflow:hidden;display: {{ c.barDisp }}"><div style="height:100%;background:#111;width: {{ c.barW }}"></div></div></div></sc-for></div></sc-for>
+</div></div>
+<div style="font-size:12px;color:#7A7A75">Click a column to sort · Black = team leader</div>
+</div>
+</div>
+</sc-if>
+<div style="font-size:12px;color:#9A9A95;border-top:1px solid #F0F0ED;padding-top:14px">Sample data for design purposes.</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const COLORS = ['#111111', '#E0472B', '#2F5FD0', '#14946A', '#D9921A', '#7B4FC9', '#1A9AA8', '#D6457F'];
+const MAX = 8;
+const ROSTERS = {
+  kc: { off: [['Patrick Mahomes', 'QB', 15], ['Kareem Hunt', 'RB1', 29], ['Isiah Pacheco', 'RB2', 10], ['Xavier Worthy', 'WR1', 1], ['DeAndre Hopkins', 'WR2', 8], ['JuJu Smith-Schuster', 'WR3', 9], ['Travis Kelce', 'TE', 87]], def: [['George Karlaftis', 'EDGE', 56], ['Chris Jones', 'DT', 95], ['Nick Bolton', 'LB', 32], ['Trent McDuffie', 'CB', 22], ['Justin Reid', 'S', 20]] },
+  buf: { off: [['Josh Allen', 'QB', 17], ['James Cook', 'RB1', 4], ['Ray Davis', 'RB2', 22], ['Khalil Shakir', 'WR1', 10], ['Keon Coleman', 'WR2', 0], ['Amari Cooper', 'WR3', 18], ['Dalton Kincaid', 'TE', 86]], def: [['Greg Rousseau', 'EDGE', 50], ['Ed Oliver', 'DT', 91], ['Terrel Bernard', 'LB', 43], ['Christian Benford', 'CB', 47], ['Taylor Rapp', 'S', 20]] },
+  bal: { off: [['Lamar Jackson', 'QB', 8], ['Derrick Henry', 'RB1', 22], ['Justice Hill', 'RB2', 43], ['Zay Flowers', 'WR1', 4], ['Rashod Bateman', 'WR2', 7], ['Nelson Agholor', 'WR3', 15], ['Mark Andrews', 'TE', 89]], def: [['Odafe Oweh', 'EDGE', 99], ['Nnamdi Madubuike', 'DT', 92], ['Roquan Smith', 'LB', 0], ['Marlon Humphrey', 'CB', 44], ['Kyle Hamilton', 'S', 14]] },
+  det: { off: [['Jared Goff', 'QB', 16], ['Jahmyr Gibbs', 'RB1', 26], ['David Montgomery', 'RB2', 5], ['Amon-Ra St. Brown', 'WR1', 14], ['Jameson Williams', 'WR2', 9], ['Tim Patrick', 'WR3', 17], ['Sam LaPorta', 'TE', 87]], def: [["Za'Darius Smith", 'EDGE', 99], ['Alim McNeill', 'DT', 54], ['Jack Campbell', 'LB', 46], ['Amik Robertson', 'CB', 21], ['Kerby Joseph', 'S', 31]] },
+  phi: { off: [['Jalen Hurts', 'QB', 1], ['Saquon Barkley', 'RB1', 26], ['Kenneth Gainwell', 'RB2', 14], ['A.J. Brown', 'WR1', 11], ['DeVonta Smith', 'WR2', 6], ['Jahan Dotson', 'WR3', 3], ['Dallas Goedert', 'TE', 88]], def: [['Josh Sweat', 'EDGE', 19], ['Jalen Carter', 'DT', 98], ['Zack Baun', 'LB', 53], ['Quinyon Mitchell', 'CB', 27], ['C.J. Gardner-Johnson', 'S', 8]] },
+  min: { off: [['Sam Darnold', 'QB', 14], ['Aaron Jones', 'RB1', 33], ['Cam Akers', 'RB2', 31], ['Justin Jefferson', 'WR1', 18], ['Jordan Addison', 'WR2', 3], ['Jalen Nailor', 'WR3', 83], ['T.J. Hockenson', 'TE', 87]], def: [['Jonathan Greenard', 'EDGE', 58], ['Harrison Phillips', 'DT', 97], ['Blake Cashman', 'LB', 51], ['Byron Murphy Jr.', 'CB', 7], ['Camryn Bynum', 'S', 24]] },
+  gb: { off: [['Jordan Love', 'QB', 10], ['Josh Jacobs', 'RB1', 8], ['Emanuel Wilson', 'RB2', 23], ['Jayden Reed', 'WR1', 11], ['Romeo Doubs', 'WR2', 87], ['Christian Watson', 'WR3', 9], ['Tucker Kraft', 'TE', 85]], def: [['Rashan Gary', 'EDGE', 52], ['Kenny Clark', 'DT', 97], ['Quay Walker', 'LB', 7], ['Jaire Alexander', 'CB', 23], ['Xavier McKinney', 'S', 29]] },
+  sf: { off: [['Brock Purdy', 'QB', 13], ['Jordan Mason', 'RB1', 24], ['Isaac Guerendo', 'RB2', 31], ['Jauan Jennings', 'WR1', 15], ['Deebo Samuel', 'WR2', 19], ['Brandon Aiyuk', 'WR3', 11], ['George Kittle', 'TE', 85]], def: [['Nick Bosa', 'EDGE', 97], ['Javon Hargrave', 'DT', 98], ['Fred Warner', 'LB', 54], ['Deommodore Lenoir', 'CB', 2], ['Talanoa Hufanga', 'S', 29]] }
+};
+const OFF_T = { QB: { snap: 99, ca: 80, ry: 350, rtd: 3, rec: 0, rcy: 0, rctd: 0 }, RB1: { snap: 62, ca: 240, ry: 1050, rtd: 9, rec: 40, rcy: 300, rctd: 1 }, RB2: { snap: 36, ca: 110, ry: 470, rtd: 3, rec: 20, rcy: 150, rctd: 0 }, WR1: { snap: 90, ca: 4, ry: 20, rtd: 0, rec: 92, rcy: 1200, rctd: 8 }, WR2: { snap: 82, ca: 2, ry: 8, rtd: 0, rec: 60, rcy: 760, rctd: 5 }, WR3: { snap: 62, ca: 1, ry: 4, rtd: 0, rec: 36, rcy: 420, rctd: 2 }, TE: { snap: 80, ca: 0, ry: 0, rtd: 0, rec: 62, rcy: 650, rctd: 5 } };
+const DEF_T = { EDGE: { snap: 76, tkl: 42, sk: 9, int: 0, pd: 2, ff: 2 }, DT: { snap: 68, tkl: 38, sk: 5, int: 0, pd: 1, ff: 1 }, LB: { snap: 97, tkl: 118, sk: 2, int: 1, pd: 5, ff: 1 }, CB: { snap: 94, tkl: 55, sk: 0, int: 3, pd: 12, ff: 1 }, S: { snap: 98, tkl: 84, sk: 1, int: 3, pd: 8, ff: 1 } };
+const OFF_COLS = [['snap', 'Snap %'], ['touch', 'Touches'], ['tgt', 'Targets'], ['scrim', 'Scrim Yds'], ['td', 'TD'], ['ypt', 'Yds / Touch']];
+const DEF_COLS = [['snap', 'Snap %'], ['tkl', 'Tackles'], ['sk', 'Sacks'], ['int', 'INT'], ['pd', 'Pass Def'], ['ff', 'Forced Fum']];
+const OFF_SHARE = [['touch', 'Touches'], ['tgt', 'Targets'], ['scrim', 'Scrimmage Yds'], ['td', 'Touchdowns']];
+const DEF_SHARE = [['tkl', 'Tackles'], ['sk', 'Sacks'], ['take', 'Takeaways'], ['pd', 'Passes Defended']];
+const SEASONS = ['2024', '2023', '2022'];
+const LEAGUES = [{ k: 'NFL', on: true }, { k: 'NBA' }, { k: 'MLB' }, { k: 'NHL' }];
+const POS = ['All', 'QB', 'RB', 'WR', 'TE'];
+// [id, name, short, team, pos, num, {pa,ptd,int,cmp,rate, ra,ry,rtd, rec,rcy,rctd}]
+const RAW_P = [
+  ['allen', 'Josh Allen', 'J. Allen', 'BUF', 'QB', 17, { pa: 3731, ptd: 28, int: 6, cmp: 63.6, rate: 101.4, ra: 102, ry: 531, rtd: 12 }],
+  ['jackson', 'Lamar Jackson', 'L. Jackson', 'BAL', 'QB', 8, { pa: 4172, ptd: 41, int: 4, cmp: 66.7, rate: 119.6, ra: 139, ry: 915, rtd: 4 }],
+  ['mahomes', 'Patrick Mahomes', 'P. Mahomes', 'KC', 'QB', 15, { pa: 3928, ptd: 26, int: 11, cmp: 67.5, rate: 93.5, ra: 58, ry: 307, rtd: 2 }],
+  ['burrow', 'Joe Burrow', 'J. Burrow', 'CIN', 'QB', 9, { pa: 4918, ptd: 43, int: 9, cmp: 70.6, rate: 108.5, ra: 42, ry: 201, rtd: 2 }],
+  ['goff', 'Jared Goff', 'J. Goff', 'DET', 'QB', 16, { pa: 4629, ptd: 37, int: 12, cmp: 72.4, rate: 111.8, ra: 29, ry: 56, rtd: 0 }],
+  ['hurts', 'Jalen Hurts', 'J. Hurts', 'PHI', 'QB', 1, { pa: 2903, ptd: 18, int: 5, cmp: 68.7, rate: 103.7, ra: 150, ry: 630, rtd: 14 }],
+  ['daniels', 'Jayden Daniels', 'J. Daniels', 'WAS', 'QB', 5, { pa: 3568, ptd: 25, int: 9, cmp: 69.0, rate: 100.1, ra: 148, ry: 891, rtd: 6 }],
+  ['barkley', 'Saquon Barkley', 'S. Barkley', 'PHI', 'RB', 26, { ra: 345, ry: 2005, rtd: 13, rec: 33, rcy: 278, rctd: 2 }],
+  ['henry', 'Derrick Henry', 'D. Henry', 'BAL', 'RB', 22, { ra: 325, ry: 1921, rtd: 16, rec: 19, rcy: 193, rctd: 2 }],
+  ['robinson', 'Bijan Robinson', 'B. Robinson', 'ATL', 'RB', 7, { ra: 304, ry: 1456, rtd: 14, rec: 61, rcy: 431, rctd: 1 }],
+  ['gibbs', 'Jahmyr Gibbs', 'J. Gibbs', 'DET', 'RB', 26, { ra: 250, ry: 1412, rtd: 16, rec: 52, rcy: 517, rctd: 4 }],
+  ['chase', "Ja'Marr Chase", 'J. Chase', 'CIN', 'WR', 1, { ra: 3, ry: 32, rtd: 0, rec: 127, rcy: 1708, rctd: 17 }],
+  ['jefferson', 'Justin Jefferson', 'J. Jefferson', 'MIN', 'WR', 18, { ra: 1, ry: 2, rtd: 0, rec: 103, rcy: 1533, rctd: 10 }],
+  ['lamb', 'CeeDee Lamb', 'C. Lamb', 'DAL', 'WR', 88, { ra: 9, ry: 70, rtd: 0, rec: 101, rcy: 1194, rctd: 6 }],
+  ['stbrown', 'Amon-Ra St. Brown', 'A. St. Brown', 'DET', 'WR', 14, { ra: 1, ry: 6, rtd: 0, rec: 115, rcy: 1263, rctd: 12 }],
+  ['bowers', 'Brock Bowers', 'B. Bowers', 'LV', 'TE', 89, { ra: 5, ry: 13, rtd: 0, rec: 112, rcy: 1194, rctd: 5 }],
+  ['kittle', 'George Kittle', 'G. Kittle', 'SF', 'TE', 85, { ra: 0, ry: 0, rtd: 0, rec: 78, rcy: 1106, rctd: 8 }]
+];
+const RAW_T = [
+  ['kc', 'Kansas City Chiefs', 'KC', 'AFC West', [22.6, 335.6, 225.0, 110.6, 19.2, -1, 47.4, 88.2]],
+  ['buf', 'Buffalo Bills', 'BUF', 'AFC East', [30.9, 352.4, 215.0, 137.4, 21.6, 24, 47.2, 76.5]],
+  ['bal', 'Baltimore Ravens', 'BAL', 'AFC North', [30.5, 424.9, 237.4, 187.6, 22.2, 7, 45.1, 70.6]],
+  ['det', 'Detroit Lions', 'DET', 'NFC North', [33.2, 409.5, 252.0, 157.5, 20.1, 6, 48.5, 88.2]],
+  ['phi', 'Philadelphia Eagles', 'PHI', 'NFC East', [27.2, 367.2, 179.2, 188.0, 17.8, 11, 41.0, 82.4]],
+  ['min', 'Minnesota Vikings', 'MIN', 'NFC North', [25.4, 346.4, 236.6, 109.8, 18.6, 3, 42.8, 82.4]],
+  ['gb', 'Green Bay Packers', 'GB', 'NFC North', [27.1, 363.3, 216.9, 146.4, 19.9, 9, 40.3, 64.7]],
+  ['sf', 'San Francisco 49ers', 'SF', 'NFC West', [23.6, 365.6, 241.3, 124.3, 25.6, -11, 42.2, 35.3]]
+];
+const STATS = {
+  players: [
+    { k: 'passYds', label: 'Pass Yds', g: 'Passing' }, { k: 'passTd', label: 'Pass TD', g: 'Passing' },
+    { k: 'int', label: 'Interceptions', g: 'Passing', low: true }, { k: 'cmp', label: 'Comp %', g: 'Passing', dec: 1 },
+    { k: 'rate', label: 'Passer Rating', g: 'Passing', dec: 1 },
+    { k: 'rushYds', label: 'Rush Yds', g: 'Rushing' }, { k: 'rushTd', label: 'Rush TD', g: 'Rushing' }, { k: 'ypc', label: 'Yds / Carry', g: 'Rushing', dec: 1 },
+    { k: 'rec', label: 'Receptions', g: 'Receiving' }, { k: 'recYds', label: 'Rec Yds', g: 'Receiving' },
+    { k: 'recTd', label: 'Rec TD', g: 'Receiving' }, { k: 'ypr', label: 'Yds / Catch', g: 'Receiving', dec: 1 },
+    { k: 'scrim', label: 'Scrimmage Yds', g: 'Totals' }, { k: 'totTd', label: 'Scrimmage TD', g: 'Totals' },
+    { k: 'passYpg', label: 'Pass Yds / G', g: 'Passing', dec: 1, extra: true }, { k: 'tdInt', label: 'TD : INT', g: 'Passing', dec: 1, extra: true },
+    { k: 'carries', label: 'Carries', g: 'Rushing', extra: true }, { k: 'rushYpg', label: 'Rush Yds / G', g: 'Rushing', dec: 1, extra: true },
+    { k: 'tgt', label: 'Targets', g: 'Receiving', extra: true }, { k: 'recYpg', label: 'Rec Yds / G', g: 'Receiving', dec: 1, extra: true },
+    { k: 'touches', label: 'Touches', g: 'Totals', extra: true }, { k: 'ypt', label: 'Yds / Touch', g: 'Totals', dec: 1, extra: true }
+  ],
+  teams: [
+    { k: 'ppg', label: 'Points / G', g: 'Offense', dec: 1 }, { k: 'ypg', label: 'Yards / G', g: 'Offense', dec: 1 },
+    { k: 'pass', label: 'Pass Yds / G', g: 'Offense', dec: 1 }, { k: 'rush', label: 'Rush Yds / G', g: 'Offense', dec: 1 },
+    { k: 'third', label: '3rd Down %', g: 'Offense', dec: 1 }, { k: 'papg', label: 'Pts Allowed / G', g: 'Defense', dec: 1, low: true },
+    { k: 'to', label: 'Turnover Diff', g: 'Overall', sign: true }, { k: 'win', label: 'Win %', g: 'Overall', dec: 1 },
+    { k: 'totPts', label: 'Total Points', g: 'Offense', extra: true }, { k: 'passPct', label: 'Pass Yds Share %', g: 'Offense', dec: 1, extra: true },
+    { k: 'yapg', label: 'Yds Allowed / G', g: 'Defense', dec: 1, low: true, extra: true },
+    { k: 'pdiff', label: 'Point Diff / G', g: 'Overall', dec: 1, sign: true, extra: true }, { k: 'wins', label: 'Wins', g: 'Overall', extra: true }
+  ]
+};
+const ORDER = {}; Object.keys(STATS).forEach(k => { const gs = [...new Set(STATS[k].map(d => d.g))]; ORDER[k] = gs.flatMap(g => STATS[k].filter(d => d.g === g).map(d => d.k)); });
+const RATE = { cmp: 1, rate: 1, third: 1, win: 1 };
+const rnd = (str) => { let h = 2166136261; for (const c of str) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return ((h >>> 0) % 10000) / 10000; };
+const vary = (id, season, key, v, isInt) => {
+  if (v == null || season === '2024') return v;
+  const r = rnd(id + season + key), f = RATE[key] ? 0.93 + 0.1 * r : 0.74 + 0.36 * r;
+  const out = key === 'to' ? Math.round(v * (r * 1.6 - 0.4)) : v * f;
+  return isInt ? Math.round(out) : Math.round(out * 10) / 10;
+};
+function buildPlayers(season) {
+  return RAW_P.map(([id, name, short, team, pos, num, b]) => {
+    const V = (k, isInt = true) => vary(id, season, k, b[k], isInt);
+    const isQB = pos === 'QB';
+    const ra = V('ra'), ry = V('ry'), rtd = V('rtd'), rec = isQB ? null : V('rec'), rcy = isQB ? null : V('rcy'), rctd = isQB ? null : V('rctd');
+    const s = {
+      passYds: isQB ? V('pa') : null, passTd: isQB ? V('ptd') : null, int: isQB ? V('int') : null,
+      cmp: isQB ? V('cmp', false) : null, rate: isQB ? V('rate', false) : null,
+      rushYds: ry, rushTd: rtd, ypc: ra >= 30 ? Math.round(ry / ra * 10) / 10 : null,
+      rec, recYds: rcy, recTd: rctd, ypr: rec >= 10 ? Math.round(rcy / rec * 10) / 10 : null,
+      scrim: ry + (rcy || 0), totTd: rtd + (rctd || 0)
+    };
+    const r = v => Math.round(v * 10) / 10, tch = ra + (rec || 0);
+    Object.assign(s, { passYpg: isQB ? r(s.passYds / 17) : null, tdInt: isQB ? r(s.passTd / Math.max(s.int, 1)) : null, carries: ra, rushYpg: r(ry / 17),
+      tgt: isQB ? null : Math.round(rec / 0.7), recYpg: isQB ? null : r(rcy / 17), touches: tch, ypt: tch >= 20 ? r(s.scrim / tch) : null });
+    return { id, name, short, pos, team, abbr: team, tile: pos, big: '#' + num, meta: team + ' · ' + pos + ' · #' + num, s };
+  });
+}
+function buildTeams(season) {
+  const keys = ['ppg', 'ypg', 'pass', 'rush', 'papg', 'to', 'third', 'win'];
+  return RAW_T.map(([id, name, abbr, div, a]) => {
+    const s = {}; keys.forEach((k, i) => { s[k] = vary(id, season, k, a[i], k === 'to'); });
+    s.win = Math.min(100, s.win); const w = Math.round(s.win * 17 / 100);
+    const r = v => Math.round(v * 10) / 10;
+    Object.assign(s, { totPts: Math.round(s.ppg * 17), passPct: r(s.pass / s.ypg * 100), yapg: r(s.papg * 15.2 + rnd(id + season + 'ya') * 40 - 20), pdiff: r(s.ppg - s.papg), wins: w });
+    return { id, name, short: abbr, abbr, tile: abbr, pos: 'All', big: abbr, meta: div + ' · ' + w + '–' + (17 - w), s };
+  });
+}
+const r1 = v => Math.round(v * 10) / 10;
+function buildRoster(teamId, unit, season) {
+  return ROSTERS[teamId][unit].map(([name, role, num], i) => {
+    const pos = role.replace(/\d/, ''), key = name + season;
+    const J = (k, v, lo = 0.7, sp = 0.5) => v * (lo + sp * rnd(key + k));
+    if (unit === 'off') {
+      const t = OFF_T[role], real = RAW_P.find(p => p[1] === name);
+      let b = { ca: J('ca', t.ca), ry: J('ry', t.ry), rtd: J('rtd', t.rtd), rec: J('rec', t.rec), rcy: J('rcy', t.rcy), rctd: J('rctd', t.rctd) };
+      if (real) { const s = real[6]; b = { ca: s.ra || 0, ry: s.ry || 0, rtd: s.rtd || 0, rec: s.rec || 0, rcy: s.rcy || 0, rctd: s.rctd || 0 };
+        if (season !== '2024') Object.keys(b).forEach(k => { b[k] = J(k, b[k], 0.75, 0.4); }); }
+      Object.keys(b).forEach(k => { b[k] = Math.round(b[k]); });
+      const touch = b.ca + b.rec, scrim = b.ry + b.rcy;
+      return { name, pos, num, i, s: { snap: Math.min(100, Math.round(J('snap', t.snap, 0.9, 0.12))), touch, tgt: Math.round(b.rec / 0.7), scrim, td: b.rtd + b.rctd, ypt: touch ? r1(scrim / touch) : null } };
+    }
+    const t = DEF_T[role], s = {}; ['tkl', 'sk', 'int', 'pd', 'ff'].forEach(k => { s[k] = Math.round(J(k, t[k], 0.6, 0.8)); });
+    s.snap = Math.min(100, Math.round(J('snap', t.snap, 0.9, 0.12))); s.take = s.int + s.ff;
+    return { name, pos, num, i, s };
+  });
+}
+
+class Component extends DCLogic {
+  state = {
+    kind: 'players', shown: { players: [], teams: [] }, addStatOpen: null, teamMode: 'compare', teamId: 'phi', unit: 'off', tSort: { k: 'snap', d: -1 }, season: '2024', q: '', pos: 'All', addOpen: false, view: '3d', chart2: 'bars', yaw: -0.65, pitch: 0.38,
+    sel: { players: ['allen', 'barkley', 'chase'], teams: ['kc', 'det', 'bal'] },
+    stats: { players: ['passYds', 'passTd', 'rushYds', 'recYds', 'scrim', 'totTd'], teams: ['ppg', 'ypg', 'third', 'papg', 'to', 'win'] },
+    ax: { players: ['rushYds', 'recYds', 'totTd'], teams: ['ppg', 'papg', 'to'] }
+  };
+  toggle(id) {
+    this.setState(s => {
+      const k = s.kind; let a = s.sel[k];
+      a = a.includes(id) ? a.filter(x => x !== id) : (a.length >= MAX ? a : [...a, id]);
+      return { sel: { ...s.sel, [k]: a }, addOpen: a.length >= MAX ? false : s.addOpen };
+    });
+  }
+  toggleStat(key) {
+    this.setState(s => {
+      const k = s.kind, a = s.stats[k], order = ORDER[k];
+      let n = a.includes(key) ? (a.length > 1 ? a.filter(x => x !== key) : a) : [...a, key];
+      return { stats: { ...s.stats, [k]: order.filter(x => n.includes(x)) } };
+    });
+  }
+  proj(x, y, z) {
+    const { yaw, pitch } = this.state;
+    const cy = Math.cos(yaw), sy = Math.sin(yaw);
+    const X = x * cy + z * sy; let Z = -x * sy + z * cy;
+    const cp = Math.cos(pitch), sp = Math.sin(pitch);
+    const Y = y * cp - Z * sp; Z = y * sp + Z * cp;
+    const f = 4.5 / (4.5 + Z), S = 128;
+    return [r1(300 + X * S * f), r1(242 - Y * S * f), Z];
+  }
+  renderVals() {
+    const st = this.state, kind = st.kind, isPlayers = kind === 'players';
+    const poolAll = isPlayers ? buildPlayers(st.season) : buildTeams(st.season);
+    const SD = STATS[kind], sd = k => SD.find(s => s.k === k);
+    const selIds = st.sel[kind], statKeys = st.stats[kind], ax = st.ax[kind];
+    const range = k => { const v = poolAll.map(p => p.s[k]).filter(x => x != null); return [Math.min(...v), Math.max(...v)]; };
+    const fmt = (k, v) => { if (v == null) return '—'; const d = sd(k); const t = d.dec ? v.toFixed(d.dec) : v.toLocaleString('en-US'); return d.sign && v > 0 ? '+' + t : t; };
+    const n01 = (k, v) => { if (v == null) return 0; const [a, b] = range(k); return b === a ? 0.5 : (v - a) / (b - a); };
+    const ents = selIds.map((id, i) => ({ ...poolAll.find(p => p.id === id), color: COLORS[i], remove: () => this.toggle(id) }));
+    const full = selIds.length >= MAX, q = st.q.toLowerCase();
+    const results = poolAll.filter(p => (!q || p.name.toLowerCase().includes(q) || p.abbr.toLowerCase().includes(q)) && (!isPlayers || st.pos === 'All' || p.pos === st.pos)).map(p => {
+      const on = selIds.includes(p.id), dis = !on && full;
+      return { name: p.name, meta: p.meta, tile: p.tile, add: () => this.toggle(p.id), disabled: dis,
+        cta: on ? 'Remove' : 'Add', bg: on ? '#fff' : '#111', fg: on ? '#111' : '#fff', bd: on ? '#DADAD6' : '#111' };
+    });
+    const rows = statKeys.map(k => {
+      const d = sd(k), vals = ents.map(e => e.s[k]).filter(v => v != null);
+      const best = d.low ? Math.min(...vals) : Math.max(...vals);
+      return { label: d.label, note: d.low ? 'lower is better' : '',
+        cells: ents.map(e => { const v = e.s[k], b = vals.length > 1 && v != null && v === best;
+          return { txt: fmt(k, v), bg: b ? '#111' : 'transparent', fg: b ? '#fff' : v == null ? '#B5B5B0' : '#111' }; }) };
+    });
+    const bars = statKeys.map(k => ({ label: sd(k).label, note: sd(k).low ? 'lower is better' : '',
+      bars: ents.map(e => { const p = e.s[k] == null ? 0 : Math.round((0.05 + 0.95 * n01(k, e.s[k])) * 100), lbl = e.short;
+      return { color: e.color, txt: fmt(k, e.s[k]), w: p + '%', name: lbl }; }) }));
+    const n = statKeys.length, RC = [260, 210], RR = 150;
+    const pt = (i, t) => { const a = -Math.PI / 2 + i * 2 * Math.PI / n; return [r1(RC[0] + Math.cos(a) * RR * t), r1(RC[1] + Math.sin(a) * RR * t)]; };
+    const radar = {
+      rings: [0.25, 0.5, 0.75, 1].map(t => ({ pts: statKeys.map((_, i) => pt(i, t).join(',')).join(' ') })),
+      spokes: statKeys.map((_, i) => { const p = pt(i, 1); return { x1: RC[0], y1: RC[1], x2: p[0], y2: p[1] }; }),
+      labels: statKeys.map((k, i) => { const p = pt(i, 1.12), dx = p[0] - RC[0];
+        return { left: r1(p[0] / 520 * 100) + '%', top: r1(p[1] / 420 * 100) + '%', text: sd(k).label, tf: Math.abs(dx) < 8 ? 'translate(-50%,-50%)' : dx > 0 ? 'translate(0,-50%)' : 'translate(-100%,-50%)' }; }),
+      polys: ents.map(e => {
+        const ps = statKeys.map((k, i) => { let t = n01(k, e.s[k]); if (sd(k).low && e.s[k] != null) t = 1 - t; return pt(i, 0.08 + 0.92 * t); });
+        return { color: e.color, pts: ps.map(p => p.join(',')).join(' '), dots: ps.map(p => ({ x: p[0], y: p[1] })) };
+      })
+    };
+    const [kx, ky, kz] = ax, N = (k, v) => 2 * n01(k, v) - 1;
+    const L = (a, b) => { const p = this.proj(...a), q2 = this.proj(...b); return { x1: p[0], y1: p[1], x2: q2[0], y2: q2[1] }; };
+    const grid = [];
+    [-1, -0.5, 0, 0.5, 1].forEach(t => { grid.push(L([t, -1, -1], [t, -1, 1]), L([-1, -1, t], [1, -1, t]), L([-1, t, -1], [-1, t, 1]), L([-1, -1, t], [-1, 1, t])); });
+    const edges = [], cs = [-1, 1];
+    cs.forEach(a => cs.forEach(b => { edges.push(L([-1, a, b], [1, a, b]), L([a, -1, b], [a, 1, b]), L([a, b, -1], [a, b, 1])); }));
+    const axes = [L([-1, -1, -1], [1, -1, -1]), L([-1, -1, -1], [-1, 1, -1]), L([-1, -1, -1], [-1, -1, 1])];
+    const pct = (x, y) => ({ left: r1(x / 600 * 100) + '%', top: r1(y / 460 * 100) + '%' });
+    const lab = (p3, text) => { const p = this.proj(...p3); return { ...pct(p[0], Math.max(10, p[1])), text, tf: p[0] < 300 ? 'translate(-100%,-50%)' : 'translate(0,-50%)' }; };
+    const labels = [lab([1.12, -1.1, -1], 'X · ' + sd(kx).label), lab([-1, 1.08, -1], 'Y · ' + sd(ky).label), lab([-1, -1.1, 1.12], 'Z · ' + sd(kz).label)];
+    const pts = poolAll.filter(p => p.s[kx] != null && p.s[ky] != null && p.s[kz] != null || selIds.includes(p.id)).map(p => {
+      const x = N(kx, p.s[kx]), y = N(ky, p.s[ky]), z = N(kz, p.s[kz]);
+      const c = this.proj(x, y, z), f = this.proj(x, -1, z), i = selIds.indexOf(p.id), on = i >= 0;
+      return { z: c[2], cx: c[0], cy: c[1], fx: f[0], fy: f[1], r: on ? 7 : 4.5, fill: on ? COLORS[i] : '#C9C9C4', drop: on ? COLORS[i] : '#E0E0DC', label: on ? p.short : '' };
+    }).sort((a, b) => b.z - a.z);
+    const tags = pts.filter(p => p.label).map(p => ({ ...pct(p.cx + 10, p.cy), text: p.label, tf: 'translate(0,-50%)' }));
+    const groups = [];
+    const shown = st.shown[kind];
+    SD.forEach(d => { let g = groups.find(x => x.name === d.g); if (!g) groups.push(g = { name: d.g, items: [], extras: [] });
+      if (!statKeys.includes(d.k)) { g.extras.push({ label: d.label, add: () => this.setState(s => ({ addStatOpen: null, shown: { ...s.shown, [s.kind]: [...s.shown[s.kind], d.k] }, stats: { ...s.stats, [s.kind]: ORDER[s.kind].filter(x => x === d.k || s.stats[s.kind].includes(x)) } })) }); return; }
+      const on = statKeys.includes(d.k);
+      g.items.push({ label: d.label, toggle: () => this.toggleStat(d.k), bg: on ? '#111' : '#fff', bd: on ? '#111' : '#CFCFCB', check: on ? '✓' : '' }); });
+    groups.forEach(g => { g.canAdd = g.extras.length > 0; g.open = st.addStatOpen === g.name && g.canAdd; g.openAdd = () => this.setState(s => ({ addStatOpen: s.addStatOpen === g.name ? null : g.name })); });
+    const has = ents.length > 0;
+    ents.forEach(e => { e.colName = ents.length > 4 ? e.short : e.name; e.colMeta = ents.length > 4 ? e.big : e.meta; });
+    const isInside = !isPlayers && st.teamMode === 'inside';
+    const allTeams = isPlayers ? buildTeams(st.season) : poolAll, team = allTeams.find(t => t.id === st.teamId);
+    const TSD = STATS.teams, tf = (k, v) => { const d = TSD.find(x => x.k === k); const t = d.dec ? v.toFixed(d.dec) : String(v); return d.sign && v > 0 ? '+' + t : t; };
+    const roster = buildRoster(st.teamId, st.unit, st.season);
+    const cols = st.unit === 'off' ? OFF_COLS : DEF_COLS, shares = st.unit === 'off' ? OFF_SHARE : DEF_SHARE;
+    const sorted = [...roster].sort((a, b) => ((a.s[st.tSort.k] ?? -1) - (b.s[st.tSort.k] ?? -1)) * st.tSort.d);
+    const last = n => n.split(' ').slice(1).join(' ') || n;
+    const tb = {
+      abbr: team.abbr, name: team.name, meta: team.meta + ' · ' + st.season,
+      summary: [['ppg', 'Pts / G'], ['ypg', 'Yds / G'], ['papg', 'Allowed / G'], ['to', 'TO Diff']].map(([k, label]) => ({ label, txt: tf(k, team.s[k]) })),
+      shares: shares.map(([k, label]) => {
+        const tot = roster.reduce((a, p) => a + (p.s[k] || 0), 0);
+        const segs = roster.filter(p => p.s[k] > 0).map(p => { const pc = Math.round(p.s[k] / tot * 100); return { v: p.s[k], color: COLORS[p.i], txt: pc >= 9 ? pc + '%' : '', title: p.name + ' · ' + p.s[k] + ' (' + pc + '%)' }; });
+        const top = roster.reduce((a, p) => (p.s[k] || 0) > (a.s[k] || 0) ? p : a, roster[0]);
+        return { label, total: tot.toLocaleString('en-US') + ' total', segs, lead: tot ? 'Leader: ' + last(top.name) + ' ' + Math.round(top.s[k] / tot * 100) + '%' : '' };
+      }),
+      legend: roster.map(p => ({ name: p.name, color: COLORS[p.i] })),
+      cols: 'minmax(220px,1.6fr) repeat(' + cols.length + ', minmax(96px,1fr))',
+      heads: cols.map(([k, label]) => { const on = st.tSort.k === k;
+        return { label, arrow: on ? (st.tSort.d < 0 ? '↓' : '↑') : '', fg: on ? '#111' : '#7A7A75', onClick: () => this.setState(s => ({ tSort: { k, d: s.tSort.k === k ? -s.tSort.d : -1 } })) }; }),
+      rows: sorted.map(p => ({ name: p.name, meta: p.pos + ' · #' + p.num, color: COLORS[p.i],
+        cells: cols.map(([k]) => { const v = p.s[k], mx = Math.max(...roster.map(r => r.s[k] ?? -1)), b = v != null && v > 0 && v === mx;
+          return { txt: v == null ? '—' : k === 'ypt' ? v.toFixed(1) : k === 'snap' ? v + '%' : v.toLocaleString('en-US'), bg: b ? '#111' : 'transparent', fg: b ? '#fff' : '#111', barDisp: k === 'snap' ? 'block' : 'none', barW: (k === 'snap' ? v : 0) + '%' }; }) }))
+    };
+    return {
+      isTeams: !isPlayers, isCompare: !isInside, isInside, tb, tableMinW: (190 + ents.length * 130) + 'px',
+      teamModeHint: isInside ? 'Compare players within one team' : 'Compare up to ' + MAX + ' teams side by side',
+      teamModeTabs: [['compare', 'Compare teams'], ['inside', 'Team breakdown']].map(([v, label]) => { const on = st.teamMode === v;
+        return { label, onClick: () => this.setState({ teamMode: v, addOpen: false }), bg: on ? '#fff' : 'transparent', fg: on ? '#111' : '#7A7A75', sh: on ? '0 1px 2px rgba(0,0,0,.1)' : 'none' }; }),
+      teamChips: allTeams.map(t => { const on = t.id === st.teamId; return { abbr: t.abbr, onClick: () => this.setState({ teamId: t.id }), bg: on ? '#111' : '#fff', fg: on ? '#fff' : '#111', bd: on ? '#111' : '#DADAD6' }; }),
+      unitTabs: [['off', 'Offense'], ['def', 'Defense']].map(([v, label]) => { const on = st.unit === v;
+        return { label, onClick: () => this.setState({ unit: v, tSort: { k: 'snap', d: -1 } }), bg: on ? '#fff' : 'transparent', fg: on ? '#111' : '#7A7A75', sh: on ? '0 1px 2px rgba(0,0,0,.1)' : 'none' }; }),
+      leagues: LEAGUES.map(l => ({ k: l.k, tag: l.on ? '' : 'SOON', fg: l.on ? '#fff' : '#6A6A66' })),
+      kindTabs: ['players', 'teams'].map(k => { const on = kind === k;
+        return { label: k === 'players' ? 'Players' : 'Teams', onClick: () => this.setState({ kind: k, q: '', pos: 'All', addOpen: false }), bg: on ? '#fff' : 'transparent', fg: on ? '#111' : '#A5A5A0' }; }),
+      seasons: SEASONS, season: st.season, onSeason: e => this.setState({ season: e.target.value }),
+      isPlayers, kindSingular: isPlayers ? 'player' : 'team', kindLabel: isPlayers ? 'players' : 'teams',
+      ents, noEnts: !has, canAdd: !full, slotsLeft: (MAX - selIds.length) + ' of ' + MAX + ' slots open',
+      addOpen: st.addOpen, toggleAdd: () => this.setState(s => ({ addOpen: !s.addOpen, q: '' })),
+      q: st.q, onQ: e => this.setState({ q: e.target.value }),
+      posChips: POS.map(p => { const on = st.pos === p; return { label: p, onClick: () => this.setState({ pos: p }), bg: on ? '#111' : '#fff', fg: on ? '#fff' : '#111', bd: on ? '#111' : '#DADAD6' }; }),
+      results, noResults: results.length === 0, statGroups: groups,
+      tabs: [['num', 'Table'], ['2d', '2D chart'], ['3d', '3D chart']].map(([v, label]) => { const on = st.view === v;
+        return { label, onClick: () => this.setState({ view: v }), fg: on ? '#111' : '#8A8A85', ul: on ? '#111' : 'transparent' }; }),
+      chart2Tabs: [['bars', 'Bars'], ['radar', 'Radar']].map(([v, label]) => { const on = st.chart2 === v;
+        return { label, onClick: () => this.setState({ chart2: v }), bg: on ? '#fff' : 'transparent', fg: on ? '#111' : '#7A7A75', sh: on ? '0 1px 2px rgba(0,0,0,.1)' : 'none' }; }),
+      is2d: st.view === '2d', isNum: has && st.view === 'num', isBars: has && st.view === '2d' && st.chart2 === 'bars',
+      isRadar: has && st.view === '2d' && st.chart2 === 'radar', is3d: st.view === '3d',
+      gridCols: 'minmax(170px,1.3fr) repeat(' + Math.max(ents.length, 1) + ', minmax(0,1fr))',
+      rows, bars, radar, radarOk: n >= 3, radarLow: n < 3,
+      g3: { grid, edges, axes, labels, pts, tags },
+      statOpts: SD.map(d => ({ k: d.k, label: d.label })),
+      axSel: ['X', 'Y', 'Z'].map((label, i) => ({ label, value: ax[i], onChange: e => { const v = e.target.value; this.setState(s => { const a = [...s.ax[s.kind]]; a[i] = v; return { ax: { ...s.ax, [s.kind]: a } }; }); } })),
+      readout: ents.map(e => ({ name: e.name, color: e.color, vals: ax.map((k, i) => ({ axis: 'XYZ'[i], label: sd(k).label, txt: fmt(k, e.s[k]) })) })),
+      resetView: () => this.setState({ yaw: -0.65, pitch: 0.38 }),
+      pDown: e => { this.drag = { x: e.clientX, y: e.clientY, yaw: this.state.yaw, pitch: this.state.pitch }; try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {} },
+      pMove: e => { const d = this.drag; if (!d) return; this.setState({ yaw: d.yaw + (e.clientX - d.x) * 0.01, pitch: Math.max(-0.2, Math.min(1.3, d.pitch + (e.clientY - d.y) * 0.008)) }); },
+      pUp: () => { this.drag = null; }
+    };
+  }
+}
+</script>
+</body>
+</html>
