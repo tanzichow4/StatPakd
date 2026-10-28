@@ -22,3 +22,7 @@ Thumbs.db
 
 # Personal agent setup
 lite/
+.env.*
+!.env.example
+*.log
+.claude/settings.local.json
