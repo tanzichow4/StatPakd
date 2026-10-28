@@ -1,0 +1,41 @@
+.root {
+  display: flex;
+  align-items: center;
+  gap: var(--space-10);
+  font-size: var(--text-14);
+  cursor: pointer;
+}
+
+.box {
+  appearance: none;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  display: grid;
+  place-content: center;
+  border: 1.5px solid var(--color-checkbox-off);
+  border-radius: var(--radius-4);
+  background: var(--color-white);
+  cursor: inherit;
+}
+
+.box:checked {
+  background: var(--color-ink);
+  border-color: var(--color-ink);
+}
+
+.box:checked::after {
+  content: '\2713';
+  color: var(--color-white);
+  font-size: 11px;
+  line-height: 1;
+}
+
+.box:disabled {
+  opacity: 0.5;
+}
+
+.label {
+  min-width: 0;
+}

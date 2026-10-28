@@ -1,0 +1,18 @@
+.btn {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--color-track);
+  font-size: var(--text-15);
+  line-height: 1;
+  color: var(--color-text-muted);
+}
+
+.btn:hover {
+  background: #e6e6e2;
+}

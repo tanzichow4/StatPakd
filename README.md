@@ -25,10 +25,28 @@ ruff format .          format
 python -m statpakd     run the app
 ```
 
+## Web app
+
+The frontend lives in `web/` (React + TypeScript + Vite). Requires Node 20+.
+The same scripts also work from the repo root (`npm run dev`, `npm test`, ...), where they forward to `web/`; run `npm run install:web` once first.
+
+```
+cd web
+npm install
+npm run dev          dev server
+npm test             unit tests (Vitest)
+npm run lint         lint (oxlint)
+npm run typecheck    type check
+npm run format       format (Prettier)
+npm run build        production build
+```
+
 ## Layout
 
 ```
-src/statpakd/   application code
+src/statpakd/   Python package
 tests/          pytest tests
-.github/        CI (ruff + pytest)
+web/            React frontend
+docs/           plan and tickets
+.github/        CI (Python: ruff + pytest, web: lint, types, tests, build)
 ```

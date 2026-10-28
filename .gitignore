@@ -26,3 +26,8 @@ lite/
 !.env.example
 *.log
 .claude/settings.local.json
+
+# Web
+node_modules/
+web/dist/
+coverage/

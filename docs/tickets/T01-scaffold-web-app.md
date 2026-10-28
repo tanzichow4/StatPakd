@@ -6,7 +6,7 @@ A runnable React + TypeScript + Vite app in `web/` with lint, format, type check
 
 ## Scope
 - Create `web/` with Vite React-TS template; strict TypeScript.
-- Add ESLint, Prettier, Vitest + Testing Library + jsdom, `npm run lint | typecheck | test | format | build`.
+- Add oxlint (the Vite template default, with the jsx-a11y plugin), Prettier, Vitest + Testing Library + jsdom, `npm run lint | typecheck | test | format | build`.
 - Load Geist and Geist Mono from Google Fonts in `index.html`.
 - Add a `web` job to `.github/workflows/ci.yml` (Node LTS, `npm ci`, lint, typecheck, test, build). Keep the Python job.
 - Update `.gitignore` (`node_modules/`, `web/dist/`, `coverage/`), `README.md` and `CLAUDE.md` with the web commands and layout.
