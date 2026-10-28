@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "my-project"
+name = "statpakd"
 version = "0.1.0"
 description = "A new project"
 readme = "README.md"
@@ -21,7 +21,7 @@ dev = [
 ]
 
 [project.scripts]
-my-project = "my_project.main:main"
+statpakd = "statpakd.main:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """One-shot project setup: rename the template, create .venv, install deps, init tooling.
 
 Usage: python scripts/setup.py [--fresh-git]

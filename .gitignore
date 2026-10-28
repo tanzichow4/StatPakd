@@ -19,3 +19,6 @@ htmlcov/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Personal agent setup
+lite/

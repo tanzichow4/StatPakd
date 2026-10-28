@@ -1,4 +1,4 @@
-# Boilerplate
+# StatPakd
 
 A reusable Python project template. Clone, run one script, start coding.
 
@@ -15,7 +15,7 @@ The project name is taken from the folder you cloned into. Optional argument: `-
 (drops the template's git history and starts a clean repo — recommended for new projects).
 
 The script will:
-1. Rename the `my_project` placeholder package to the folder name (e.g. `my-new-project` -> package `my_new_project`)
+1. Rename the `statpakd` placeholder package to the folder name (e.g. `my-new-project` -> package `my_new_project`)
 2. Create `.venv` and install the project plus dev tools (`pip install -e ".[dev]"`)
 3. Create `.env` from `.env.example`
 4. Install pre-commit hooks (ruff lint + format)
