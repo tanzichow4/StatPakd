@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { useState } from 'react'
+import { createRef, useState } from 'react'
 import { vi } from 'vitest'
 
 import { Checkbox, Chip, IconButton, Pill, SegmentedControl, Select, TabPanel, Tabs } from '.'
@@ -81,6 +81,81 @@ describe('Checkbox', () => {
     render(<Checkbox label="Pass Yds" checked onChange={onChange} disabled />)
     await userEvent.click(screen.getByLabelText('Pass Yds'))
     expect(onChange).not.toHaveBeenCalled()
+  })
+
+  test('AC9: locked sets aria-disabled and stays checked after click', async () => {
+    const onChange = vi.fn()
+    render(<Checkbox label="Pass Yds" checked onChange={onChange} locked />)
+    const box = screen.getByRole('checkbox', { name: 'Pass Yds' })
+    expect(box).toHaveAttribute('aria-disabled', 'true')
+    await userEvent.click(box)
+    expect(box).toBeChecked()
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  test('AC9: locked ignores the Space key and clicks on the label text', async () => {
+    const onChange = vi.fn()
+    render(<Checkbox label="Pass Yds" checked onChange={onChange} locked />)
+    const box = screen.getByRole('checkbox', { name: 'Pass Yds' })
+    box.focus()
+    await userEvent.keyboard(' ')
+    await userEvent.click(screen.getByText('Pass Yds'))
+    expect(box).toBeChecked()
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  test('AC21: locked checkbox is not natively disabled and is reachable by Tab', async () => {
+    render(<Checkbox label="Pass Yds" checked onChange={vi.fn()} locked />)
+    const box = screen.getByRole('checkbox', { name: 'Pass Yds' })
+    expect(box).toBeEnabled()
+    await userEvent.tab()
+    expect(box).toHaveFocus()
+  })
+
+  test('AC9: without locked there is no aria-disabled and onChange fires', async () => {
+    const onChange = vi.fn()
+    render(<Checkbox label="Pass Yds" checked onChange={onChange} />)
+    const box = screen.getByRole('checkbox', { name: 'Pass Yds' })
+    expect(box).not.toHaveAttribute('aria-disabled')
+    await userEvent.click(box)
+    expect(onChange).toHaveBeenCalledWith(false)
+  })
+
+  test('AC9: locked={false} behaves like an unlocked checkbox', async () => {
+    const onChange = vi.fn()
+    render(<Checkbox label="Pass Yds" checked onChange={onChange} locked={false} />)
+    const box = screen.getByRole('checkbox', { name: 'Pass Yds' })
+    expect(box).not.toHaveAttribute('aria-disabled', 'true')
+    await userEvent.click(box)
+    expect(onChange).toHaveBeenCalledWith(false)
+  })
+
+  test('AC19: inputRef receives the input element (object ref)', () => {
+    const ref = createRef<HTMLInputElement>()
+    render(<Checkbox label="Pass Yds" checked onChange={vi.fn()} inputRef={ref} />)
+    expect(ref.current).toBe(screen.getByRole('checkbox', { name: 'Pass Yds' }))
+  })
+
+  test('AC19: inputRef works as a callback ref', () => {
+    const seen: (HTMLInputElement | null)[] = []
+    render(
+      <Checkbox
+        label="Pass Yds"
+        checked
+        onChange={vi.fn()}
+        inputRef={(n) => {
+          seen.push(n)
+        }}
+      />,
+    )
+    expect(seen).toContain(screen.getByRole('checkbox', { name: 'Pass Yds' }))
+  })
+
+  test('AC3: className is merged onto the label element', () => {
+    render(<Checkbox label="Pass Yds" checked onChange={vi.fn()} className="rowStyle" />)
+    const label = screen.getByRole('checkbox', { name: 'Pass Yds' }).closest('label')
+    expect(label).toHaveClass('rowStyle')
+    expect(label?.className.split(' ').length).toBeGreaterThan(1)
   })
 })
 

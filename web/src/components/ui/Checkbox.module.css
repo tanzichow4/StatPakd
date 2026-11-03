@@ -32,7 +32,8 @@
   line-height: 1;
 }
 
-.box:disabled {
+.box:disabled,
+.box[aria-disabled='true'] {
   opacity: 0.5;
 }
 
