@@ -1,387 +1,314 @@
-# T09 plan: Stat sidebar and Add stat menu
+# Plan: T10 Compare panel, tabs and Table view
 
-Source: `docs/tickets/T09-stat-sidebar.md`, requirements `docs/plans/00-requirements.md` (T09).
-Runs non-interactively: the recorded assumptions in 00-requirements.md are treated as decided.
+Source: `docs/tickets/T10-compare-panel-and-table.md`, requirements `docs/plans/00-requirements.md`
+(contract: AC1 to AC30, assumptions A1 to A12). Run non-interactively: assumptions apply as recorded.
 
 ## 1. Goal and out of scope
 
-Goal: below the entity picker, show a 232px stat sidebar beside an empty main content area. The
-sidebar lists only the selected stats of the current kind, grouped by `StatDef.group`, lets the user
-deselect stats (never the last one) and add any unselected stat of a group (including `extra` ones)
-through an inline "+ Add stat" menu, by mouse or keyboard alone at 375px and 1280px.
+Goal: fill the empty "Stat views" region beside the stat sidebar with the Compare main panel
+(tabs "Table" / "2D chart" / "3D chart", a Bars | Radar control while 2D is active, chart
+placeholders, and an empty state). The Table tab shows a real, accessible `<table>` of the selected
+entities against the selected stats, with best-value pills, "—" for N/A and horizontal scrolling
+instead of squashing, keyboard-operable at 375px and 1280px.
 
-Out of scope (from requirements): main panel content (Table / 2D / 3D, T10+); hiding the sidebar in
-Team breakdown mode; arrow-key / type-ahead / ARIA `menu` roving focus in the menu; reordering stats,
-persistence, URL state; changing 3D axes on deselect; animations; changing `DataProvider`, mock data
-or stat definitions; a collapsible/drawer sidebar on narrow screens.
+Out of scope (from requirements): real Bars (T11), Radar and its "pick 3 stats" message (T12), 3D
+math/chart/axes/camera (T13, T14); Team breakdown mode and its control (T15 to T17; `teamMode:
+inside` renders as compare, A9); sorting, reordering or removing entities from the table; changes
+to domain types, DataProvider, MockProvider data or the reducer (default `view` stays `3d`);
+contrast fixes, touch targets, axe audit (T18); Playwright (T19).
 
 ## 2. Acceptance criteria
 
-AC1-AC26 are exactly as written in `docs/plans/00-requirements.md` (same numbers, same text; that
-file is the contract and is not repeated here to avoid drift). Short index:
+AC1 to AC30 are copied by number from `docs/plans/00-requirements.md` and are not repeated in full
+here to avoid drift; that file is the contract. Short index for task linking:
 
-- Data and grouping: AC1 data from provider, no league literals; AC2 group order; AC3 only selected
-  rows, canonical order; AC4 empty group keeps heading + Add; AC5 per-kind groups and selection;
-  AC6 stale / loading / failure safe; AC7 unknown selected keys not rendered.
-- Deselect: AC8 click / Space deselects; AC9 last stat locked and exposed as not changeable.
-- Add menu: AC10 Add button only when the group has unselected stats; AC11 open / toggle / one at a
-  time, items in definition order; AC12 `aria-expanded`, `aria-controls`, name "Add stat to <group>";
-  AC13 pick selects in canonical position and closes; AC14 Escape; AC15 outside press; AC16 kind
-  switch closes.
-- Focus: AC17 open focuses first item; AC18 Escape returns to Add button; AC19 pick focuses new
-  checkbox; AC20 outside close moves no focus; AC21 keyboard-only operation, visible focus.
-- Layout: AC22 body row with sidebar region "Stats" + empty labelled main region; AC23 1280px;
-  AC24 375px wraps, no horizontal scroll; AC25 existing behaviour unchanged.
-- Tests: AC26.
+- AC1 region "Stat views" in main after sidebar, contains panel, tab list first. AC2 wrap at 375px,
+  side-by-side at 1280px. AC3 the single deliberate App.sidebar.test change (section 7, T7).
+- AC4 tab list "View", tabs Table/2D chart/3D chart = `num`/`2d`/`3d`, default 3D selected.
+  AC5 click and keyboard (roving tabindex, arrows wrap, Home/End). AC6 every `aria-controls`
+  resolves to a `tabpanel` with `aria-labelledby`; non-selected panels hidden. AC7 "Chart type"
+  Bars/Radar control only on 2D, `aria-pressed`, wraps at 375px. AC8 placeholders.
+- AC9 columns = `sel[kind]` order, `seriesColor(index in sel)`, unknown ids skipped. AC10 rows =
+  `stats[kind]` with a def, canonical order, `StatDef.label`. AC11 kind and season switching.
+- AC12 default 3 x 6 for both kinds. AC13 `formatStat`. AC14 N/A "—" + "not applicable" for AT.
+  AC15 `bestIndex` pills + "best" for AT. AC16 "lower is better" note. AC17 compact headers at
+  5 to 8 entities (`shortName` + `badge`, A4). AC18 visible caption.
+- AC19 real `<table>`, `th scope=col/row`, roles survive grid CSS in a browser. AC20 focusable named
+  scroll region "Comparison table". AC21 grid template and min-width `190 + 130n`.
+- AC22 empty state for both kinds, every tab, no table/caption. AC23 no empty state while loading.
+- AC24 to AC27 browser checks. AC28 no league literals + guard test. AC29 component tests list.
+  AC30 lint, typecheck, test, build pass.
 
-Added (gap found: after a keyboard deselect the focused checkbox is removed from the DOM, so focus
-falls to `<body>` and the keyboard user loses their place, which undermines AC21):
+Added criteria (gaps found while planning):
 
-- **AC27 (added).** After a stat is deselected, focus moves to the next stat checkbox in the same
-  group; if there is none, to the previous one; if the group has no rows left, to that group's
-  "+ Add stat" button (which always exists then, because the group now has an unselected stat).
+- AC31 (added): While a non-empty selection is still loading (entities or stat defs not yet
+  resolved) the Table tab renders neither the table nor the caption nor the empty state (no
+  zero-column or zero-row table flashes). Refines AC23.
+- AC32 (added): Hidden tab panels render no content (A10), so the table and its stat labels / entity
+  names never appear in the DOM unless the Table tab is selected. This keeps existing App-level
+  `getByText` queries (picker names, sidebar labels) unambiguous on the default 3D view.
 
 ## 3. Architecture
 
-### Reducer decision (AC14-AC16)
+Approach: one new folder `web/src/components/compare/`, mounted inside the existing `<section
+aria-label="Stat views">` in `App.tsx`. Data via existing hooks (A1); pure logic in a helper module
+that is unit-tested on its own. Two additive, backwards-compatible props on ui primitives.
 
-Decision: add one new action `{ type: 'closeAddStatMenu' }`. Do **not** change `setKind`.
+Files (all new unless marked):
 
-- Reason: T06 deliberately pinned `setKind` to keep `addStatOpen` (test "AC14: does not reset
-  addStatOpen (assumption A7)" in `web/src/state/appState.test.ts`). Changing `setKind` would invert
-  that test; a new action leaves every existing test untouched and green. Escape and outside click
-  need a close that is not a toggle anyway: an idempotent close is safe against ordering between the
-  outside `pointerdown` and a following `click`.
-- Exact reducer change in `web/src/state/appState.ts`:
-  - `AppAction` gains `| { type: 'closeAddStatMenu' }`.
-  - Case: `return state.addStatOpen === null ? state : { ...state, addStatOpen: null }`.
-  - Pure, league-free, same-reference no-op (matches `closeAdd`).
-- AC16 (kind switch) is handled in the sidebar: a `useLayoutEffect` in `StatSidebar` compares the
-  current `kind` with a `prevKind` ref and, when it changed, dispatches `closeAddStatMenu`. Layout
-  effect (not plain effect) so no frame with a stale open menu is painted. This covers kind switches
-  that involve no pointer press (keyboard on the nav segmented control); `GlobalNav` is not touched.
-  In addition the sidebar only treats a menu as open when `addStatOpen` names a group of the current
-  kind's loaded defs that still has unselected stats (assumption 3), so a stale value never renders
-  a menu.
-- Existing T06 tests to update: **none change**. Extensions only (new action):
-  - New `describe('T09: closeAddStatMenu')` in `appState.test.ts`: sets `addStatOpen` to null from
-    'Passing'; changes nothing else (`changedOutside(before, s, ['addStatOpen'])` is `[]`).
-  - Append to the AC32 no-op table: `['T09 closeAddStatMenu when already closed', initial,
-    { type: 'closeAddStatMenu' }]`.
-  - Append `{ type: 'closeAddStatMenu' }` to the AC26 purity `actions` list.
-  - The existing "does not reset addStatOpen (assumption A7)" test stays as is and must stay green.
+| File | Exports | Role |
+|---|---|---|
+| `web/src/components/compare/ComparePanel.tsx` + `ComparePanel.module.css` | `ComparePanel` | Reads `useAppState`, `useEntities(kind, season)`, `useStatDefs(kind)`. Renders root (flex column, gap 16, `min-width: 0`), tab row, three `TabPanel`s, empty state, placeholders, table. |
+| `web/src/components/compare/CompareTable.tsx` + `CompareTable.module.css` | `CompareTable` (props `kind`, `columns: CompareColumn[]`, `rows: StatDef[]`) | Scroll region, `<table>`, caption note below. |
+| `web/src/components/compare/ChartPlaceholder.tsx` + `.module.css` | `ChartPlaceholder` (prop `title: string`) | Static box, text `` `${title} — coming soon` ``. No interactive elements. |
+| `web/src/components/compare/EmptyState.tsx` + `.module.css` | `EmptyState` (prop `kind: EntityKind`) | `<p>` "Add a {kindSingular(kind)} to start comparing." |
+| `web/src/components/compare/compareTable.ts` | see below | Pure helpers, no React. |
+| `web/src/components/compare/index.ts` | `ComparePanel` | Barrel. |
+| `web/src/components/compare/noLeagueLiterals.test.ts` | | AC28 guard. |
+| `web/src/App.tsx` (edit) | | `<section className={styles.panel} aria-label="Stat views"><ComparePanel /></section>`. Section stays in App (AC1). |
+| `web/src/components/ui/Tabs.tsx` (edit, additive) | `Tabs` gets optional `className?: string` (merged onto the tablist root); `TabPanel` gets optional `hidden?: boolean` (sets the `hidden` attribute). Defaults keep today's output, so `ui.test.tsx` is unchanged. |
+| `web/src/components/ui/SegmentedControl.tsx` + `.module.css` (edit, additive) | optional `size?: 'md' \| 'sm'` (default `'md'`). `.sm`: track padding 2px, gap 0, radius 7; item 12px/600, padding `4px 12px`, radius 5; active white + `--shadow-segmented`. (A12) |
 
-### Components and files (all new unless noted)
+`compareTable.ts` exports (signatures are the contract for the test-writer):
 
-`web/src/components/sidebar/`
-- `useStatDefs.ts`: `export function useStatDefs(kind: EntityKind): StatDef[]`. Same pattern as
-  `useEntities`: `useDataProvider()` + `useActiveLeagueId()`, effect with a `cancelled` flag, result
-  tagged `{ leagueId, kind, defs }` and returned only when it matches the current league and kind;
-  returns `[]` while loading, on failure, when the league is null, or when stale (AC1, AC6).
-- `groupStats.ts`: pure helper, no React.
-  `export interface StatGroupModel { name: string; selected: StatDef[]; unselected: StatDef[] }`
-  `export function groupStats(defs: readonly StatDef[], selectedKeys: readonly string[]): StatGroupModel[]`
-  Groups in first-appearance order; `selected` = defs of the group whose key is selected, in
-  definition order (equals canonical order); `unselected` = the rest, in definition order, extras
-  included. Selected keys without a def are ignored (AC2, AC3, AC4, AC7, AC10, AC11, AC13).
-- `StatSidebar.tsx` (+ `StatSidebar.module.css`): `export function StatSidebar()`. Reads
-  `useAppState()`, calls `useStatDefs(kind)` and `groupStats`. Renders `<aside aria-label="Stats">`
-  with one `StatGroup` per group. Owns: checkbox ref map (by stat key), Add-button ref map (by group
-  index), pending-focus ref, the kind-change close effect, and the derived open group (assumption 3).
-  Dispatches `toggleStat`, `addStat`, `toggleAddStatMenu`, `closeAddStatMenu`.
-- `StatGroup.tsx` (+ `StatGroup.module.css`): `export function StatGroup(props)`. Props: `group:
-  StatGroupModel`, `locked: boolean` (true when the kind has exactly one selected stat), `open:
-  boolean`, `menuId: string`, `headingId: string`, `onDeselect(key, rowIndex)`, `onToggleMenu()`,
-  `onPick(key)`, `onClose(reason: 'escape' | 'outside')`, `checkboxRef(key, node)`,
-  `addButtonRef(node)`. Renders heading, rows, Add button and (when open) `AddStatMenu`. Owns the
-  Escape key handler and the outside-press listener for its own open menu.
-- `AddStatMenu.tsx` (+ `AddStatMenu.module.css`): `export function AddStatMenu({ id, groupName,
-  items, onPick })`. Plain buttons; focuses its first item in a mount effect (AC17).
-- `index.ts`: `export { StatSidebar } from './StatSidebar'`.
+```ts
+export const COMPACT_HEADER_MIN = 5            // 5+ entities => compact headers (AC17)
+export interface CompareColumn { entity: Entity; colorIndex: number }
+export function resolveColumns(selIds: readonly EntityId[], entities: readonly Entity[]): CompareColumn[]
+  // sel order; colorIndex = index in selIds; ids not found are skipped (AC9)
+export function resolveRows(statKeys: readonly string[], defs: readonly StatDef[]): StatDef[]
+  // keys that have a def, ordered by canonicalStatOrder(defs) (AC10, A2)
+export function tableMinWidth(n: number): number   // 190 + 130 * n (AC21)
+export function gridColumns(n: number): string     // `minmax(170px,1.3fr) repeat(${n}, minmax(0,1fr))`
+export function headerLines(entity: Entity, compact: boolean): { title: string; sub: string }
+  // compact ? { shortName, badge } : { name, meta }  (AC17, A4)
+```
 
-Modified
-- `web/src/components/ui/Checkbox.tsx` / `.module.css` (additive, existing props unchanged):
-  `className?: string` (merged on the `<label>` with `cx`), `inputRef?: Ref<HTMLInputElement>`,
-  `locked?: boolean`. `locked` sets `aria-disabled="true"` on the input, keeps it focusable, and does
-  not call `onChange` (React restores the controlled `checked`). CSS:
-  `.box[aria-disabled='true'] { opacity: 0.5 }` (same look as `:disabled`, assumption 4). Native
-  `disabled` is not used for the last stat because it removes the checkbox from the tab order, which
-  would break AC21 ("reach every stat checkbox").
-- `web/src/App.tsx`: inside `<main>` after `<EntityPicker />`:
-  `<div className={styles.body}><StatSidebar /><section className={styles.panel} aria-label="Stat views" /></div>`.
-- `web/src/App.module.css`: `.body` and `.panel` (values in section 4).
-- `web/src/state/appState.ts`: `closeAddStatMenu` (above).
-- `web/src/test/fixtureProvider.ts` (test data, additive): `fixtureSidebarStatDefs()` and
-  `fixtureSidebarUiDefaults()` (contents in T5).
+ComparePanel logic:
 
-### Data and API
+- `hasSelection = sel[kind].length > 0`; `columns = resolveColumns(...)`; `rows = resolveRows(...)`;
+  `ready = columns.length > 0 && rows.length > 0`.
+- Tab ids from `useId()`; options `[{num,'Table'},{2d,'2D chart'},{3d,'3D chart'}]`; `onChange`
+  dispatches `setView`. Bars | Radar `SegmentedControl` (`label="Chart type"`, `size="sm"`,
+  options `bars`/'Bars', `radar`/'Radar', dispatches `setChart2`) rendered only when
+  `view === '2d'`, after the tablist in DOM order, inside the tab row.
+- Three `TabPanel`s always in the DOM; `hidden={value !== view}`; hidden panels get no children
+  (AC6, AC32).
+- Visible panel content: `!hasSelection` -> `EmptyState` (plus `ChartPlaceholder title="3D chart"`
+  on 3D only, A5/Q4). `hasSelection && !ready` -> nothing on Table and 2D (AC23, AC31); 3D still
+  shows its placeholder. `ready` -> Table: `CompareTable`; 2D: `ChartPlaceholder` "Bars chart" or
+  "Radar chart" by `chart2`; 3D: "3D chart" placeholder.
 
-No DataProvider, domain type or mock-data change. No new state fields; one new action. Display order
-comes from the loaded defs; the reducer's canonical order still comes from the defs passed to
-`AppStateProvider` in `App.tsx` (same data, assumption 1).
+Table semantics approach (AC19, AC21):
 
-### Dependencies
+- Markup: `<table aria-label="Selected {kind} compared by stat">` > `<thead>` > `<tr>` with
+  `<th scope="col">Stat</th>` + one `<th scope="col">` per column (dot `<span aria-hidden="true">`
+  with `background: seriesColor(colorIndex)`, title line, sub line); `<tbody>` > one `<tr>` per row:
+  `<th scope="row">` label + optional `<span>lower is better</span>`, then one `<td>` per column.
+- Layout: `table`, `thead`, `tbody` are `display: block`; each `tr` is `display: grid` with inline
+  `style={{ gridTemplateColumns: gridColumns(n) }}`; the `<table>` gets inline
+  `style={{ minWidth: tableMinWidth(n) }}`. Inline styles (not CSS vars) so jsdom tests can assert
+  them with `toHaveStyle`.
+- Because changing `display` on table elements strips native table semantics in some engines
+  (notably WebKit, historically Chromium), every element also carries its explicit role:
+  `table` role="table", `thead`/`tbody` role="rowgroup", `tr` role="row", header `th`
+  role="columnheader", row `th` role="rowheader", `td` role="cell". If oxlint reports
+  `jsx-a11y/no-redundant-roles`, add one file-level
+  `/* oxlint-disable jsx-a11y/no-redundant-roles -- display:grid/block strips native table roles in some browsers */`
+  at the top of `CompareTable.tsx` only. Do not edit `.oxlintrc.json`.
+- Value cell: `<td>` right-aligned (`justify-content: flex-end`) with a `.value` span (Geist Mono
+  17px/500, `white-space: nowrap`). Best: `<Pill>{text}</Pill><span className={srOnly}> (best)</span>`
+  so the cell's accessible name is e.g. "4,000 (best)". Plain: `<span className={plain}>` (padding
+  `3px 9px`, `#111`). N/A (`value == null`, including missing key): `<span aria-hidden="true"
+  className={na}>—</span><span className={srOnly}>not applicable</span>`; accessible name "not
+  applicable" (AC14). Use `NULL_PLACEHOLDER` for the glyph, `formatStat` for values (AC13), and
+  `bestIndex(values, def)` per row (AC15).
+- Scroll region: `<div role="region" aria-label="Comparison table" tabIndex={0}
+  className={scroll}>` wrapping the table (border `1px var(--color-border-alt)`, radius 12,
+  `overflow-x: auto`). Arrow-key scrolling is native browser behaviour for a focused scroller; no JS
+  handler. Focus ring: global `:focus-visible` (2px `--color-focus`, offset 2px); do not set
+  `overflow` on any ancestor so the outline is not clipped. If oxlint reports
+  `jsx-a11y/no-noninteractive-tabindex`, add a single-line disable with the reason "WCAG 2.1.1:
+  scrollable region must be keyboard focusable".
+- Caption: `<p className={caption}>Black = best among selected · — = not applicable to position</p>`
+  after the scroll region inside a flex column with gap 10 (AC18, A11). The table's accessible name
+  comes from `aria-label` (A7).
+- A `.srOnly` class local to `CompareTable.module.css` (same rules as `App.module.css`).
 
-None added.
+Data and API changes: none to domain, provider, data or reducer. Only the additive ui props above.
+Dependencies: none new.
 
 ## 4. Design
 
-### DOM and accessibility contract (tests are written against this)
+User flow: app opens on 3D (placeholder). User picks "Table" (click or arrow keys) to see the table;
+adds/removes entities in the picker and stats in the sidebar and the table follows; switches
+Players/Teams or season and the table updates in place; on "2D chart" chooses Bars or Radar and sees
+the matching placeholder.
 
-- Sidebar: `<aside aria-label="Stats">` (role `complementary`, name "Stats").
-- Group: `<div role="group" aria-labelledby={headingId}>` containing `<h2 id={headingId}>` with the
-  group name, then a `<ul>` of `<li>` rows (omitted when the group has no selected rows), then the
-  Add button, then the menu when open. DOM order = visual order = tab order.
-- Row: `Checkbox` with `label = StatDef.label`, `checked`, `className` = row style, `locked` when the
-  kind has exactly one selected stat. Role `checkbox`, name = label.
-- Add button: `<button type="button" aria-expanded={open} aria-controls={open ? menuId : undefined}
-  aria-label={`Add stat to ${group.name}`}>` with an `<span aria-hidden="true">+</span>` icon and
-  visible text "Add stat" (label-in-name satisfied). Rendered only if `unselected.length > 0`.
-- Menu: `<div id={menuId} role="group" aria-label={`Stats to add to ${group.name}`}>` with one
-  `<button type="button">` per unselected def, text = label, definition order.
-- IDs come from `useId()` plus the group index, never from group names (they may contain spaces).
-- Main area: `<section aria-label="Stat views">` (role `region`), empty.
+States:
 
-### User flow
+| State | Table tab | 2D tab | 3D tab |
+|---|---|---|---|
+| Loading (selection non-empty, data pending) | nothing below tab row | Bars/Radar control, nothing below | 3D placeholder |
+| Empty (`sel[kind]` empty) | EmptyState only | control + EmptyState | EmptyState + 3D placeholder |
+| Error (provider rejects) | hooks yield `[]`; behaves as Loading (no crash, no empty message if selection exists) | same | same |
+| Success | table + caption | control + Bars/Radar placeholder | 3D placeholder |
 
-1. Page loads: groups appear once defs resolve (no spinner; empty sidebar while loading).
-2. Click/Space on a checked row: stat removed, focus per AC27. If one stat is left, it is dimmed and
-   inert.
-3. Click/Enter/Space on "+ Add stat": menu opens below it (pushes content down), focus to the first
-   item. Opening another group's menu closes the first (reducer already does this).
-4. Pick an item: stat added at its canonical position, menu closes, focus to the new checkbox. If
-   that was the group's last unselected stat, the Add button disappears.
-5. Escape (focus in the menu or on its Add button): close, focus back to the Add button; the keydown
-   is stopped from propagating (assumption 8).
-6. Pointer press outside the menu and its Add button: close, no focus move, no `preventDefault`, so
-   the pressed control acts normally. Press on menu padding: stays open. Tab out of the menu: stays
-   open (assumption 10).
-7. Players/Teams switch: menu closes, the other kind's groups and selection show.
+Styling values: exactly as listed in requirements "Design values to match" (tokens:
+`--color-border-soft` tab row border, `--color-border-alt` table border and header bottom,
+`--color-surface-subtle` header bg, `--color-divider` row border, `--color-text-muted`,
+`--color-text-faint` note, `--color-text-na` dash, `#DADAD6` dashed empty border as a literal colour
+since no token exists). Tab row: `display:flex; align-items:flex-end; justify-content:space-between;
+flex-wrap:wrap; gap:16px; border-bottom:1px solid var(--color-border-soft)`. Pass
+`className={styles.tabs}` to `Tabs` with `.tabs { border-bottom: 0 } .tabs button { padding: 0 0
+10px }` so the design padding applies while the primitive keeps the colours and 2px underline.
+Chart type wrapper: `margin-bottom: 8px`.
 
-### Focus management
+Widths: 1280px: body row fits, panel right of the 232px sidebar, 3-column table (580px min) fits
+without scrollbar. 375px: panel wraps below the sidebar (existing `flex: 1 1 560px; min-width: 0`),
+tab row wraps so the Bars | Radar control drops below the tabs, table scrolls inside its bordered
+container; the page never scrolls horizontally because every ancestor has `min-width: 0`.
 
-- Open: `AddStatMenu` mount effect focuses its first button (switching groups remounts it).
-- Escape: `onClose('escape')` dispatches `closeAddStatMenu`, then focuses the group's Add button via
-  the ref map (the button stays mounted because the group still has unselected stats).
-- Pick: set `pendingFocus = { to: 'stat', key }`, dispatch `addStat`; a `useEffect` keyed on
-  `state.stats[kind]` and the grouped model consumes it and focuses `checkboxRefs.get(key)`.
-- Deselect: when not `locked`, set `pendingFocus = { to: 'afterRemove', groupIndex, rowIndex }` and
-  dispatch `toggleStat`; the same effect focuses row `rowIndex`, else `rowIndex - 1`, else the
-  group's Add button. When `locked`, nothing is dispatched and no pending focus is set.
-- Outside press: `onClose('outside')` dispatches only; no focus call.
-- Outside-press listener: registered in `StatGroup` only while `open`, on `document`,
-  `'pointerdown'`, capture phase; ignores events whose target is inside the wrapper `<div>` holding
-  the Add button and the menu (`wrapper.contains(event.target as Node)`); removed on close/unmount.
-- Escape handler: React `onKeyDown` on the same wrapper; acts only when `open` and
-  `event.key === 'Escape'`; calls `stopPropagation()` and `preventDefault()`.
-
-### States
-
-- Loading: sidebar region renders with no groups. Main area unchanged.
-- Empty (provider returns `[]`): same as loading; no crash.
-- Error (`getStatDefs` rejects): same as empty; nothing thrown.
-- Success: groups as above. A group with no selected rows: heading + Add button only (AC4). A group
-  with everything selected: rows, no Add button (AC10).
-- Stale: an older league/kind response is ignored (AC6).
-
-### Visual values (CSS modules, tokens from `web/src/styles/tokens.css`)
-
-- `App.module.css .body`: `display:flex; flex-wrap:wrap; gap:var(--space-32);
-  align-items:flex-start`. `.panel`: `flex:1 1 560px; min-width:0`.
-- `StatSidebar.module.css .root`: `flex:0 0 232px; display:flex; flex-direction:column;
-  gap:var(--space-16); min-width:0`.
-- `StatGroup.module.css`: `.group` flex column gap 1px; `.heading` margin 0, `var(--text-11)`/600,
-  uppercase, `letter-spacing:.08em`, `var(--color-text-label)`, padding `0 8px 6px`; `.list` reset
-  list styles, flex column gap 1px; `.row` (passed to Checkbox) padding `7px 8px`, radius
-  `var(--radius-7)`, `var(--text-14)`, `var(--color-ink)`, hover bg `var(--color-hover)`; `.add`
-  full-width button, reset border/background, flex, gap 10px, padding `7px 8px`, radius 7px,
-  `var(--text-13)`/600, `var(--color-text-muted)`, text-align left, hover bg `var(--color-hover)`
-  and color `var(--color-ink)`; `.addIcon` 16px box, radius 4px, `1.5px dashed #BDBDB8`, "+" 12px,
-  centred.
-- `AddStatMenu.module.css .menu`: margin `2px 0 4px 26px`, bg white, border
-  `1px solid var(--color-border)`, radius 8px, padding 4px, `box-shadow: var(--shadow-menu)`, flex
-  column. `.item`: padding `7px 8px`, radius 6px, `var(--text-13)`, ink, text-align left, full
-  width, reset border/background, `overflow-wrap:anywhere`, hover bg `var(--color-hover)`.
-- No `overflow:hidden` on sidebar, group or menu (keeps the global `:focus-visible` outline visible).
-- Focus: rely on the global `:focus-visible` rule in `web/src/styles/global.css` (2px
-  `--color-focus` outline); verify it shows on the 16px checkbox, Add button and menu items.
-
-### Widths
-
-- 1280px: sidebar 232px left, main area right, top aligned, 32px gap (AC23).
-- 375px: content box is 375 - 2 x 28 = 319px; the row wraps, sidebar stays 232px left aligned above
-  the main area; the menu is at most 232 - 26 = 206px wide; no horizontal scroll (AC24).
+Accessibility: tab pattern from the primitive (roving tabindex, arrows, Home/End); hidden panels via
+`hidden`; named group "Chart type" with `aria-pressed`; table with explicit roles and accessible
+name; "best" and "not applicable" as visually hidden text; decorative dots `aria-hidden`; focusable
+named scroll region with visible focus; placeholders are plain text (no live regions, no controls).
+Colour contrast of `#9A9A95`/`#B5B5B0` is accepted as given (T18).
 
 ## 5. Risk and security
 
-- Input validation: no free-text input. Stat keys from menu clicks come from loaded defs; the
-  reducer already ignores unknown or already-selected keys (`insertStat`). Group names are used only
-  as text and `addStatOpen` values, never as DOM ids or selectors.
-- Data exposure / injection: labels and group names render as React text (escaped); no
-  `dangerouslySetInnerHTML`. No network beyond the existing provider; no auth surface.
-- Failure modes and safeguards (as tasks):
-  - Provider rejects or never resolves: hook returns `[]` (T4).
-  - Stale response after kind/league switch: tagged-result check (T4, T6).
-  - Defs and reducer canonical order disagree: display order comes from defs, so rows always stay
-    grouped; the reducer ignores keys it does not know (existing tests).
-  - Selected key with no def: not rendered (T3, T6).
-  - Ordering between an outside `pointerdown` and the following `click` on another Add button: close
-    is idempotent and the click then opens the other menu (T7).
-  - Listener leaks: outside-press listener removed on close and unmount (T7).
-  - Escape bubbling into other UI: `stopPropagation` (T7).
-  - League literals creeping in: literal scan including labels (T9).
-- Known limitation for a later ticket: if the sidebar is ever unmounted (Team breakdown mode), the
-  kind-change effect cannot run; that ticket should dispatch `closeAddStatMenu` when hiding it.
+- Input validation: the only inputs are tab and button clicks dispatching typed actions; the reducer
+  already ignores unchanged values. Entity names and meta are rendered as React text (escaped).
+  Unknown entity ids and stat keys without defs are skipped (task T2).
+- Auth / data exposure: none; mock data only, no network, no env vars.
+- Failure modes and safeguards (concrete tasks):
+  - Provider rejection: hooks already return `[]`; panel shows the loading state and does not crash
+    (test in T6).
+  - Duplicate App-level text matches if hidden panels rendered content: enforced by AC32 (test in T6
+    and T8).
+  - Native table roles stripped by grid CSS: explicit roles (T4) plus browser accessibility tree
+    check (QA list, item 3).
+  - Page-level horizontal scroll at 375px: `min-width: 0` on panel root and table wrapper column;
+    QA items 5 and 6.
+  - Lint warnings from redundant roles / tabindex: scoped disable comments with reasons (T4), never
+    config changes.
+  - Regressions in existing tests: only the AC3 assertion changes (T7); all others must pass
+    untouched.
 
 ## 6. Gaps check
 
-- Auth: none in this app; nothing added.
-- Validation: reducer guards plus def-derived keys (section 5).
-- Error handling: loading / empty / rejected / stale all render no groups without crashing.
-- Mobile: 375px wrap, fixed 232px, no horizontal scroll, menu within the sidebar (AC24, QA list).
-- Accessibility: labelled regions, group headings, label-in-name Add buttons with
-  `aria-expanded`/`aria-controls`, `aria-disabled` lock that stays focusable, focus moves for
-  AC17-AC19 and AC27, visible focus, keyboard-only flow (AC21).
-- Config and env vars: none needed; no `.env` change.
-- Tests: reducer, Checkbox, pure helper, hook, component, App integration, literal scan (section 7).
-  Oxlint-clean tests: no `expect` message argument, no `expect` inside `if`/ternaries/conditional
-  branches, every test body contains at least one visible `expect` (helpers may throw but are never
-  the only assertion), no `.skip`/`.only`.
+- Auth: not applicable (no accounts). Validation: covered above. Error handling: provider failures
+  degrade to loading state (AC31). Mobile: 375px wrap and in-container scroll (AC2, AC7, AC25, AC26).
+  Accessibility: section 4 (AC5 to AC7, AC14, AC15, AC19, AC20, AC27). Config and env vars: none
+  added; `.env` untouched. Tests: section 7 and AC29. League neutrality: AC28 guard test.
 
-## 7. Tasks
+## 7. Ordered tasks
 
-Order: T1-T5 are independent; T6 needs T2-T5; T7 needs T1 + T6; T8 needs T6; T9 any time after the
-files exist; T10 last.
+Each task is one commit; run `npm run lint`, `npm run typecheck`, `npm test` before each.
 
-- **T1. Reducer `closeAddStatMenu`.** `appState.ts` change as specified; extend `appState.test.ts`
-  (new describe, AC32 row, AC26 purity entry). No existing test edited. AC14, AC15, AC16, AC25.
-- **T2. Checkbox additive props.** `className`, `inputRef`, `locked` in `Checkbox.tsx`; CSS rule in
-  `Checkbox.module.css`. Extend the `ui.test.tsx` Checkbox describe: `locked` gives
-  `aria-disabled="true"`, stays checked after click and after Space, `onChange` not called, still
-  reachable by Tab; `inputRef` receives the input element; `className` lands on the label. Existing
-  Checkbox tests unchanged. AC9, AC19, AC21.
-- **T3. `groupStats` + `groupStats.test.ts`.** Cases: first-appearance group order with interleaved
-  extras; `selected` in definition order regardless of `selectedKeys` order; `unselected` includes
-  extras in definition order; unknown selected key ignored; group with nothing selected present with
-  empty `selected`; fully selected group has empty `unselected`; empty defs give `[]`.
-  AC2, AC3, AC4, AC7, AC10, AC11, AC13.
-- **T4. `useStatDefs` + `useStatDefs.test.tsx`** (renderHook with a `DataSource` wrapper, fixture
-  provider, `deferred`). Cases: resolves defs for the active league and kind; calls
-  `getStatDefs(leagueId, kind)`; pending gives `[]`; rejection gives `[]`; after a kind switch, the
-  old request resolving last never shows the old defs. AC1, AC6.
-- **T5. Sidebar test fixture** in `web/src/test/fixtureProvider.ts` (additive exports, invented
-  names only):
-  - `fixtureSidebarStatDefs()` players, in this order (key/label/group): `zscore/Zscore/zalpha`,
-    `zblip/Zblip/zalpha`, `zgrit/Zgrit/zbeta`, `zhum/Zhum/zbeta`, `zkilt/Zkilt/zgamma`,
-    `zlorn/Zlorn/zdelta`, `zdrift/Zdrift/zalpha (extra)`, `zjolt/Zjolt/zbeta (extra)`. Teams:
-    `ztpts/Ztpts/ztoff`, `ztwin/Ztwin/ztoff`, `ztblk/Ztblk/ztdef (extra)`.
-  - `fixtureSidebarUiDefaults()`: `fixtureUiDefaults()` with
-    `players.stats = ['zscore', 'zgrit', 'zkilt']`, `teams.stats = ['ztpts']`.
-  - Resulting view: zalpha (row Zscore; menu Zblip, Zdrift), zbeta (row Zgrit; menu Zhum, Zjolt),
-    zgamma (row Zkilt; no Add), zdelta (no rows; menu Zlorn); teams has one stat, so it is locked.
-  - The same defs go to both `AppStateProvider statDefs` and
-    `getStatDefs: vi.fn((_leagueId, kind) => Promise.resolve(defs[kind]))`.
-- **T6. Sidebar rendering, deselect, add.** `StatSidebar`, `StatGroup`, `AddStatMenu`, `index.ts`
-  and their CSS modules; deselect and pick dispatches; focus for pick (AC19) and deselect (AC27).
-  `web/src/components/sidebar/StatSidebar.test.tsx` part 1. Render `DataSource` +
-  `AppStateProvider` + `StatSidebar` + a state probe that prints `{ kind, stats, addStatOpen }` as
-  JSON, has setKind buttons and a click counter button; use `findBy*` for the first render. Cases:
-  - AC2/AC5: headings zalpha, zbeta, zgamma, zdelta in order; after setKind teams: ztoff, ztdef;
-    back to players shows the earlier selection.
-  - AC3: zalpha lists only Zscore, checked; no Zblip/Zdrift checkboxes.
-  - AC4: zdelta shows its heading and "Add stat to zdelta", no checkbox.
-  - AC7: defaults with an extra key that has no def: not rendered, other rows fine.
-  - AC8: click on the label, click on the box, and Space on the focused checkbox each remove the row
-    and the key from `stats.players`.
-  - AC9: on teams (one stat) the checkbox has `aria-disabled="true"`, stays checked after click and
-    Space, `stats.teams` unchanged; after adding Ztblk, Ztpts no longer has `aria-disabled`.
-  - AC10: zgamma has no Add button; zalpha's Add button disappears after adding Zblip and Zdrift.
-  - AC11: zalpha menu buttons are exactly [Zblip, Zdrift]; a second activation closes it; opening
-    zbeta closes zalpha (exactly one group named /^Stats to add to/); Enter and Space both open.
-  - AC12: `aria-expanded` "false" then "true"; while open `aria-controls` equals the menu's `id`;
-    names "Add stat to zalpha", "Add stat to zbeta", "Add stat to zdelta".
-  - AC13: add Zdrift, then Zblip: zalpha rows read Zscore, Zblip, Zdrift and `stats.players` equals
-    `['zscore', 'zblip', 'zdrift', 'zgrit', 'zkilt']` (groups by first appearance, then definition
-    order, extras included); the menu is closed after each pick.
-  - AC17: after opening, the first menu item has focus. AC19: after a pick, the new checkbox has
-    focus. AC27: deselecting a middle row focuses the next row; the last row focuses the previous
-    row; the only row in a group focuses that group's Add button.
-  - AC6: per-kind deferreds; switch to teams, resolve teams, then resolve players: only ztoff/ztdef
-    headings; rejection: no headings, complementary "Stats" still present.
-  AC1-AC13, AC17, AC19, AC27.
-- **T7. Closing behaviour.** Escape handler, outside-press listener, kind-change layout effect.
-  `StatSidebar.test.tsx` part 2:
-  - AC14/AC18: Escape on a menu item closes and focuses "Add stat to zalpha"; Escape on the open Add
-    button closes; a `document` keydown listener added by the test is not called for that Escape.
-  - AC15/AC20: `user.click` on the probe counter button closes the menu, the counter still
-    increments, and focus is on the counter button (not the Add button); a `user.pointer` press on
-    the menu container (not an item) keeps it open; clicking zbeta's Add button while zalpha is open
-    closes zalpha and opens zbeta.
-  - AC16: open a menu, switch kind with `fireEvent.click` on the probe setKind button (no
-    pointerdown, so only the kind effect can close it), switch back: no menu open, `addStatOpen`
-    null.
-  - Listener cleanup: after an Escape close, a later outside press leaves the probe state unchanged.
-  AC14-AC16, AC18, AC20.
-- **T8. App layout.** `App.tsx` + `App.module.css`. New `web/src/App.sidebar.test.tsx` (real App,
-  mock data): complementary "Stats" and region "Stat views" exist and the sidebar follows the picker
-  in DOM order; Players headings Passing, Rushing, Receiving, Totals; clicking Teams in the nav shows
-  Offense, Defense, Overall; adding Passer Rating then Interceptions gives Passing rows Pass Yds,
-  Pass TD, Interceptions, Passer Rating. `App.test.tsx`, `App.nav.test.tsx`, `App.picker.test.tsx`
-  stay green unedited. AC2, AC5, AC13, AC22, AC25.
-- **T9. `web/src/components/sidebar/noLeagueLiterals.test.ts`.** Same shape as the picker scan, over
-  `StatSidebar.tsx`, `StatGroup.tsx`, `AddStatMenu.tsx`, `useStatDefs.ts`, `groupStats.ts`,
-  `index.ts`, with the value list extended by every player and team `label`; includes the "files
-  loaded" check, a planted-literal check, the "no `/data/` or MockProvider import" check, and
-  "`useStatDefs` contains `useDataProvider`". AC1.
-- **T10. Gate and browser check.** `npm test`, `npm run lint`, `npm run typecheck`,
-  `npm run format`; then the QA list below. AC21, AC23, AC24, AC26.
+- T1 (AC7, AC6, A10, A12): ui primitives, additive. `SegmentedControl` `size?: 'md' | 'sm'`;
+  `Tabs` `className?`; `TabPanel` `hidden?`. Add new tests in a new file
+  `web/src/components/ui/ui.size.test.tsx` (small variant class applied, `hidden` attribute set,
+  className merged). `ui.test.tsx` unchanged.
+- T2 (AC9, AC10, AC17, AC21): `compareTable.ts` helpers + `compareTable.test.ts` (sel order,
+  skipped ids keep other colour indices, canonical row order with unsorted input, keys without def
+  dropped, `tableMinWidth(3) === 580`, `tableMinWidth(8) === 1230`, `gridColumns(3)` exact string,
+  `headerLines` both modes).
+- T3 (AC8, AC22, AC28): `ChartPlaceholder`, `EmptyState` + CSS modules, `index.ts`, and
+  `noLeagueLiterals.test.ts` for the compare folder (copy the sidebar test structure: `?raw`
+  imports of every compare source file incl. `compareTable.ts` and `index.ts`, same literal list,
+  "planted literal" check, no `/data/` import, no `MockProvider`; assert `ComparePanel.tsx` contains
+  `useEntities` and `useStatDefs`).
+- T4 (AC13 to AC21): `CompareTable` + CSS module per section 3 (explicit roles, inline grid /
+  min-width, pills, N/A, note, compact headers, scroll region, caption).
+- T5 (AC4 to AC8, AC22, AC23, AC31, AC32): `ComparePanel` + CSS module (tab row, control, panels,
+  state switching).
+- T6 (AC29, AC31, AC32): component tests `CompareTable.test.tsx` and `ComparePanel.test.tsx` with
+  fixtures (see test notes below).
+- T7 (AC1, AC3): mount in `App.tsx`; the one deliberate edit in `web/src/App.sidebar.test.tsx`:
+  - Title: `'AC22: the Stats sidebar and the empty Stat views region are inside main'` becomes
+    `'AC22: the Stats sidebar and the Stat views region are inside main'`.
+  - Line 31 old: `expect(panel).toBeEmptyDOMElement()`
+  - New: `expect(within(panel).getByRole('tablist', { name: 'View' })).toBeInTheDocument()`
+  - Justification: T10 deliberately fills the region (the ticket's purpose); the old assertion
+    encoded the T09 placeholder state. The new assertion still checks the region exists inside
+    main and now checks it hosts the panel. No other line in this or any other existing test
+    changes.
+- T8 (AC1, AC11, AC12, AC16, AC17): `web/src/App.compare.test.tsx` integration with the real
+  MockProvider (test files may use league names): region contains tablist as first descendant
+  with role tab list (`panel.querySelector('[role]')` has role `tablist`); select Table; 3 column
+  headers + "Stat" and 6 row headers for Players and for Teams; Teams default shows "lower is
+  better"; season change changes at least one cell; adding a player via picker to 5 switches headers
+  to short names.
+- T9 (AC24 to AC27, AC30): `npm run build`, browser QA (list below), fix-ups only.
 
-Parallel work: the test-writer can write the T1-T4 tests, the T5 fixture, both parts of
-`StatSidebar.test.tsx`, `App.sidebar.test.tsx` and T9 from the contracts in sections 3-4 while the
-coder implements T1-T4, then T6-T8. The coder must not rename exports, roles or accessible names
-without updating this plan.
+Parallel work: once section 3 signatures are fixed, the test-writer can write T2's
+`compareTable.test.ts`, T3's `noLeagueLiterals.test.ts`, T6 and T8 tests and the fixture file in
+parallel with the coder doing T1, T4, T5. Only T7 needs both sides (it touches App.tsx and the
+existing test together).
 
-### QA browser check (qa-tester, `npm run dev`)
+Test notes for the test-writer:
 
-At 1280px:
-1. Sidebar 232px wide, left of the empty main area, top aligned, 32px gap; Players groups Passing,
-   Rushing, Receiving, Totals with only the default stats as checked rows.
-2. Headings 11px uppercase grey; rows 14px with hover background; Add rows 13px grey with a dashed
-   16px "+" box.
-3. Open Rushing's menu: inline below its Add row (Receiving moves down), lists Yds / Carry, Carries,
-   Rush Yds / G; pick Carries: it appears after Rush Yds, the menu closes.
-4. Open a menu, click empty page area: closes. Click another group's Add: the first closes, the
-   second opens. Click inside menu padding: stays open.
-5. Deselect stats until one remains: it is dimmed and clicking it does nothing.
-6. Switch to Teams: Offense, Defense, Overall. Open a menu, then switch kind: closed. Switch back:
-   Players selection intact.
+- New fixture file `web/src/test/compareFixtures.ts` (do not modify `fixtureProvider.ts` exports;
+  importing from it is fine). Invented keys only, e.g. defs for players: `zhigh` (higher better,
+  `decimals: 0`), `zlow` (`lowerIsBetter`, `decimals: 2`), `zsign` (`signed`, `decimals: 1`),
+  `zsolo` (only one entity has a value), `zbig` (values >= 1000 for thousands separators); groups
+  ordered so canonical order differs from the `stats` array order. Eight or more players with
+  values giving: a tie on `zhigh`, a null on `zhigh` that must not be pilled, smallest value pilled
+  on `zlow`. Teams with a `lowerIsBetter` stat.
+- Render pattern as in `StatSidebar.test.tsx`: `DataSource` + `AppStateProvider` with fixture
+  defaults/defs; start on Table by clicking the "Table" tab (default view is `3d`).
+- Queries: `getByRole('table', { name: 'Selected players compared by stat' })`,
+  `getAllByRole('columnheader')`, `getAllByRole('rowheader')`, `getByRole('cell', { name: '4,000
+  (best)' })`, `getAllByRole('cell', { name: 'not applicable' })`, `getByRole('region', { name:
+  'Comparison table' })` with `toHaveAttribute('tabindex', '0')` and `.focus()` then `toHaveFocus()`.
+  For header text use `within(header).getByText(...)` (jsdom concatenates title and sub without a
+  space). Count pills with `within(row).queryAllByText(/\(best\)/)` and `toHaveLength(n)`.
+- Min-width: `expect(screen.getByRole('table')).toHaveStyle({ minWidth: '1230px' })`; grid:
+  `toHaveStyle({ gridTemplateColumns: gridColumns(8) })` on a row.
+- Hidden panels: `getAllByRole('tabpanel', { hidden: true })` has length 3; each tab's
+  `aria-controls` equals one of their ids; non-selected have the `hidden` attribute and are empty.
+- oxlint: no message argument to `expect`, no `expect` inside `if`/ternaries/loops with conditions
+  (use `it.each` or arrays compared with `toEqual`), every test has at least one visible `expect`
+  (an `await findBy...` alone is not enough; wrap it in `expect(...).toBeInTheDocument()`).
 
-Keyboard only (no mouse), at 1280px:
-7. Tab from the top: nav, picker, then every stat checkbox and Add button in visual order, each with
-   a visible focus ring.
-8. Space on a checkbox deselects; focus lands on the next row (or previous row, or the Add button).
-9. Enter on Add: menu opens, focus on the first item; Tab reaches every item; Enter picks and focus
-   moves to the new checkbox. Space on Add also opens.
-10. Open a menu, press Escape: it closes and focus is back on its Add button. Tab out of an open
-    menu: it stays open. The last remaining stat is still reachable by Tab and announced as
-    unavailable/dimmed.
-11. Use the nav Players/Teams control by keyboard while a menu is open: the menu closes.
+QA browser-check list (`npm run dev`, Chrome and, if available, Firefox; DevTools device toolbar):
 
-At 375px (device toolbar):
-12. Sidebar stacks above the main area, 232px wide, left aligned; no horizontal scrollbar
-    (`document.documentElement.scrollWidth <= 375` in the console).
-13. Open the Passing menu (longest labels, e.g. Pass Yds / G, TD : INT): stays inside the sidebar,
-    nothing overflows the viewport; repeat steps 8-10 by keyboard.
-14. No console errors or React warnings throughout.
+1. 1280px, default 3 players, Table tab: panel right of sidebar; table has no horizontal scrollbar;
+   columns not squashed; best pills and "—" render; caption below table (AC2, AC24, AC18).
+2. 1280px, Teams: 3 team columns with division/record meta; "lower is better" note on that row;
+   same structure and caption (AC12, AC16).
+3. Accessibility tree (Chrome DevTools Accessibility pane, Firefox Accessibility inspector): table
+   named "Selected players compared by stat"; rows, column headers, row headers and cells keep their
+   roles; region "Comparison table" focusable; tabs/tabpanels linked (AC19, AC20, AC6).
+4. Add players to 8 (picker) at 1280px: headers switch to short name + badge at the 5th; table
+   min-width 1230px (inspect computed style); scrolls inside its bordered box; last column reachable
+   by mouse wheel/drag and by focusing the region and pressing ArrowRight; page has no horizontal
+   scrollbar (`document.documentElement.scrollWidth === clientWidth` in console). Remove back to 4:
+   headers revert (AC17, AC21, AC25).
+5. 375px, default 3: panel wraps below the sidebar at full content width; table scrolls in its box;
+   values and pills stay on one line; no page horizontal scroll (AC2, AC26).
+6. 375px, 8 entities: same as item 4 with touch-emulated swipe inside the table; page does not
+   scroll sideways (AC25).
+7. 375px, 2D tab: Bars | Radar control wraps under the tabs, does not overflow; toggling switches
+   placeholder text (AC7, AC8).
+8. Keyboard only from page load (no mouse): Tab through nav, picker and sidebar to the tab list
+   (focus lands on the selected "3D chart" tab); ArrowLeft/Right/Home/End switch views; on 2D, Tab
+   reaches "Bars" then "Radar", Enter/Space toggles; on Table, Tab from the tab list reaches the
+   scroll region and arrows scroll it; Shift+Tab goes back; focus ring always visible and not
+   clipped; no trap (AC5, AC7, AC20, AC27).
+9. Remove all players: empty-state box "Add a player to start comparing." under the tab row on all
+   three tabs (3D placeholder below it on 3D); no table or caption; Teams shows "Add a team ..."
+   (AC22).
+10. Change season with the table visible: values update without reload (AC11).
 
-## 8. Open questions for the human
+## 8. Open questions (none block; defaults apply)
 
-None blocking; work proceeds on the defaults. To confirm later:
-
-1. Added AC27 (focus after deselect goes to the next row, else previous row, else the Add button):
-   acceptable?
-2. The last remaining stat uses `aria-disabled` (dimmed, still focusable) instead of native
-   `disabled`, so keyboard users can reach it (AC21): acceptable, or should it look identical to
-   other rows as in the design?
-3. At 375px should the sidebar stretch to full width when stacked (assumed: stays 232px)?
-4. Should arrow-key navigation inside the add-stat menu come in a later accessibility pass?
+1. Q1 (AC17): show jersey number in compact headers? Needs a new optional domain field. Default:
+   `badge`.
+2. Q2: open on Table instead of 3D while 3D is a placeholder? Default: keep `3d`.
+3. Q3: kind-neutral caption for Teams ("not applicable" without "to position")? Default: design text.
+4. Q4: hide the 3D placeholder in the empty state? Default: show it (design).
+5. Q5 (new): if oxlint flags the explicit table roles or the scroll region `tabIndex`, is a scoped
+   disable comment acceptable long-term, or should `.oxlintrc.json` gain a rule option? Default:
+   scoped file/line disable with reason; no config change.

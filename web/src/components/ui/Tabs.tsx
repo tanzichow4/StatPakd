@@ -16,9 +16,17 @@ interface TabsProps<T extends string> {
   value: T
   onChange: (value: T) => void
   label: string
+  className?: string
 }
 
-export function Tabs<T extends string>({ id, options, value, onChange, label }: TabsProps<T>) {
+export function Tabs<T extends string>({
+  id,
+  options,
+  value,
+  onChange,
+  label,
+  className,
+}: TabsProps<T>) {
   const onKeyDown = (e: KeyboardEvent<HTMLButtonElement>, index: number) => {
     let next = index
     if (e.key === 'ArrowRight') next = (index + 1) % options.length
@@ -32,7 +40,7 @@ export function Tabs<T extends string>({ id, options, value, onChange, label }: 
   }
 
   return (
-    <div role="tablist" aria-label={label} className={styles.list}>
+    <div role="tablist" aria-label={label} className={cx(styles.list, className)}>
       {options.map((o, i) => {
         const selected = o.value === value
         return (
@@ -59,12 +67,13 @@ export function Tabs<T extends string>({ id, options, value, onChange, label }: 
 interface TabPanelProps {
   id: string
   value: string
-  children: ReactNode
+  children?: ReactNode
+  hidden?: boolean
 }
 
-export function TabPanel({ id, value, children }: TabPanelProps) {
+export function TabPanel({ id, value, children, hidden }: TabPanelProps) {
   return (
-    <div role="tabpanel" id={panelId(id, value)} aria-labelledby={tabId(id, value)}>
+    <div role="tabpanel" id={panelId(id, value)} aria-labelledby={tabId(id, value)} hidden={hidden}>
       {children}
     </div>
   )

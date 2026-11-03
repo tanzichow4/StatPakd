@@ -1,4 +1,5 @@
 import styles from './App.module.css'
+import { ComparePanel } from './components/compare'
 import { GlobalNav } from './components/nav'
 import { EntityPicker } from './components/picker'
 import { StatSidebar } from './components/sidebar'
@@ -21,7 +22,9 @@ export default function App() {
           <EntityPicker />
           <div className={styles.body}>
             <StatSidebar />
-            <section className={styles.panel} aria-label="Stat views" />
+            <section className={styles.panel} aria-label="Stat views">
+              <ComparePanel />
+            </section>
           </div>
         </main>
       </AppStateProvider>
