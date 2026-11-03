@@ -9,8 +9,8 @@ Range T01-T20. Integration branch: `autobuild`. Baseline before run: web lint/ty
 | T03 | done | ticket/T03-domain-types-and-provider-interface | Merged 1db07af. Browser QA skipped (no UI). Assumptions in docs/plans/00-requirements.md (string IDs, opaque roster unit, League {id,name,enabled}). |
 | T04 | done | ticket/T04-mock-nfl-data | Merged 938e51c. Browser QA skipped (no UI). 186 web tests pass. |
 | T05 | done | ticket/T05-stat-utilities | Merged 009881c. No UI, browser QA skipped. 100% branch coverage on stats.ts. |
-| T06 | in-progress | ticket/T06-app-state | |
-| T07 | todo | ticket/T07-global-nav | |
+| T06 | done | ticket/T06-app-state | Merged 003931f. No UI, browser QA skipped. 1 fix round (lint warnings in tests). 675 web tests pass. |
+| T07 | in-progress | ticket/T07-global-nav | |
 | T08 | todo | ticket/T08-entity-picker | |
 | T09 | todo | ticket/T09-stat-sidebar | |
 | T10 | todo | ticket/T10-compare-panel-and-table | |
@@ -32,6 +32,8 @@ Range T01-T20. Integration branch: `autobuild`. Baseline before run: web lint/ty
 - T04: faithful port of the design script; unknown league/season/team/unit ids reject, disabled leagues return empty arrays; roster row ids are <team>-<unit>-<index>; players on CIN/WAS/ATL/DAL/LV have a teamId with no team entity; sample label is the design footer text.
 
 - T05: design script wins over the ticket: no thousands separators when decimals is set, decimals 0 behaves like unset; bestIndex returns all tied indices ([] if <2 non-null); leagueRange returns null for no data; normalize does not clamp; bars never inverted, radar inverts via options.invertLowerIsBetter; barWidth(null)=0.
+
+- T06: reducer is a factory createAppReducer(config) so it holds no league data; NFL defaults live in web/src/data/nfl/uiDefaults.ts; KindDefaults/LeagueUiDefaults added to domain types; pitch clamped in the reducer; switching kind does not close the add-stat menu; added ACs 30-32 (invalid axis/camera inputs are no-ops, no-op actions return the same state object); selections are not pruned on season change.
 
 ## Out-of-scope ideas
 
