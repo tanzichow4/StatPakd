@@ -10,8 +10,8 @@ Range T01-T20. Integration branch: `autobuild`. Baseline before run: web lint/ty
 | T04 | done | ticket/T04-mock-nfl-data | Merged 938e51c. Browser QA skipped (no UI). 186 web tests pass. |
 | T05 | done | ticket/T05-stat-utilities | Merged 009881c. No UI, browser QA skipped. 100% branch coverage on stats.ts. |
 | T06 | done | ticket/T06-app-state | Merged 003931f. No UI, browser QA skipped. 1 fix round (lint warnings in tests). 675 web tests pass. |
-| T07 | in-progress | ticket/T07-global-nav | |
-| T08 | todo | ticket/T08-entity-picker | |
+| T07 | done | ticket/T07-global-nav | Merged 67693eb. Browser QA PASS at 1280/375 (docs/qa/report.md; qa-tester used playwright-core scripts because the Playwright MCP tools were unavailable to the subagent). 722 web tests pass. |
+| T08 | in-progress | ticket/T08-entity-picker | |
 | T09 | todo | ticket/T09-stat-sidebar | |
 | T10 | todo | ticket/T10-compare-panel-and-table | |
 | T11 | todo | ticket/T11-bars-chart | |
@@ -35,5 +35,9 @@ Range T01-T20. Integration branch: `autobuild`. Baseline before run: web lint/ty
 
 - T06: reducer is a factory createAppReducer(config) so it holds no league data; NFL defaults live in web/src/data/nfl/uiDefaults.ts; KindDefaults/LeagueUiDefaults added to domain types; pitch clamped in the reducer; switching kind does not close the add-stat menu; added ACs 30-32 (invalid axis/camera inputs are no-ops, no-op actions return the same state object); selections are not pruned on season change.
 
+- T07: active league = first enabled league (no league field in app state; league switching is out of scope); DataProvider supplied via a DataSource context in web/src/dataSource/; App.tsx is the only file naming MockProvider; logo is plain text, placeholder h1 stays; at 375px the right-hand group wraps (deliberate deviation from the design); dark Select padding changed to 6px 10px; 'Regular Season' suffix is fixed text; added AC21/AC22.
+
 ## Out-of-scope ideas
+
+- T07: placeholder h1 sits flush at x=0 (fine until T08+ replaces the placeholder). Playwright MCP tools not reachable from subagents: qa-tester falls back to playwright-core scripts.
 
