@@ -26,3 +26,7 @@ A way to view and analyze sports statistics. Python 3.10+, src layout, package `
 - Add or update tests with every behaviour change.
 - Frontend: no league-specific names in components; data comes through the DataProvider interface.
 - Never delete or weaken a test to make it pass.
+- Never run destructive git commands or commit secrets.
+
+## Workflow
+Features run through `/feature <description>`, where the human approves the plan before any code is written. `/autobuild` runs tickets unattended, one branch per ticket, merged into `autobuild`.
