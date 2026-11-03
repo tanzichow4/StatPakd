@@ -6,7 +6,7 @@ Range T01-T20. Integration branch: `autobuild`. Baseline before run: web lint/ty
 |---|---|---|---|
 | T01 | done | (pre-existing on main) | Already implemented before the run; baseline checks green. |
 | T02 | done | (pre-existing on main) | Already implemented before the run; baseline checks green. |
-| T03 | in-progress | ticket/T03-domain-types-and-provider-interface | |
+| T03 | done | ticket/T03-domain-types-and-provider-interface | Merged 1db07af. Browser QA skipped (no UI). Assumptions in docs/plans/00-requirements.md (string IDs, opaque roster unit, League {id,name,enabled}). |
 | T04 | todo | ticket/T04-mock-nfl-data | |
 | T05 | todo | ticket/T05-stat-utilities | |
 | T06 | todo | ticket/T06-app-state | |
@@ -26,6 +26,8 @@ Range T01-T20. Integration branch: `autobuild`. Baseline before run: web lint/ty
 | T20 | todo | ticket/T20-visual-fidelity-pass | |
 
 ## Assumptions
+
+- T03: roster `unit` is an opaque string; column/share defs not in DataProvider yet (revisit in T15-T17). RosterEntry = {id,name,position,number?,stats}.
 
 ## Out-of-scope ideas
 
