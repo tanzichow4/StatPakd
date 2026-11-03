@@ -12,6 +12,7 @@
 }
 
 .dark {
+  padding: 6px 10px;
   background: var(--color-nav-surface);
   border: 1px solid var(--color-nav-border);
   color: var(--color-white);
