@@ -1,208 +1,304 @@
-# Plan: T05 Stat utilities (format, best, normalize)
+# Plan: T06 App state reducer and context
 
-Sources: `docs/tickets/T05-stat-utilities.md`, `docs/plans/00-requirements.md` (the contract,
-assumptions A1 to A8), T03 types in `web/src/domain/types.ts`, T04 stat defs in
-`web/src/data/nfl/statDefs.ts`, and the design script
-`design_handoff_statpakd/design/StatPakd App.dc.html` lines 363-391 (`range`, `fmt`, `n01`, best-of,
-bars `p`, radar `t`). I re-read lines 363-381 and they match the requirements' description.
-
-Run mode: non-interactive. Recorded assumptions A1 to A8 count as decisions. The open questions in
-section 8 do not block anything.
+Source: `docs/tickets/T06-app-state.md`, requirements `docs/plans/00-requirements.md` (contract).
+This run is non-interactive, so assumptions A1-A9 from the requirements are adopted as decisions.
 
 ## 1. Goal and out of scope
 
-**Goal.** Add pure, league-agnostic functions to `web/src/lib/stats.ts`: `formatStat`, `bestIndex`,
-`leagueRange`, `normalize` and `barWidth`. For design-reachable inputs they must return exactly what
-the design script returns. Table-driven tests in `web/src/lib/stats.test.ts` pin every behaviour and
-give 100% branch, statement, function and line coverage on `stats.ts`.
+Goal: provide one league-agnostic source of UI state for the web app: a pure reducer that enforces
+every selection, stat, kind, season, view, camera and team-breakdown rule from the handoff, plus a
+React context provider and `useAppState()` hook. NFL-specific defaults (ids, stat keys, axes, team,
+unit, sort key, season) come from the data layer and are not written into the state module.
 
-**Out of scope** (from requirements):
-- Using the functions in any component (table, bars, radar, 3D). Later tickets do that.
-- Radar geometry (`0.08 + 0.92 * t`), 3D mapping (`2 * n01 - 1`), projection math.
-- Team breakdown roster formatting and its best rule (`String(v)`, `'%'` suffix, `v > 0 && v === max`).
-- Share bar percentages and leader text.
-- Locale switching. Output is always `en-US`.
-- A permanent coverage config or npm script (optional under A7; this plan does not add one, see T6).
-- Any Python changes.
+Out of scope (from requirements): any rendering or UI wiring (App.tsx is not touched); loading
+defaults async from `DataProvider`/API; checking ids/teams/seasons against data or pruning
+selections on season change; the design's `shown` field and league selection; drag math beyond the
+pitch clamp (T13/T14); persistence, undo, recomputation on season change; search/position filter
+logic (T08).
 
 ## 2. Acceptance criteria
 
-Same numbers as `00-requirements.md`, short form. Reference values and wording are in that file. No ACs
-added.
+Copied from `docs/plans/00-requirements.md`, same numbers.
 
-Formatting, `formatStat(value, def)`
-- **AC1** `null` and `undefined` give `'—'` (U+2014) for any def.
-- **AC2** Positive `decimals`: output equals `value.toFixed(decimals)` (`64.25`/1 gives `'64.3'`, `7`/1
-  gives `'7.0'`, `1234.5`/1 gives `'1234.5'`, with no separator).
-- **AC3** `decimals` absent or `0`: output equals `value.toLocaleString('en-US')` (`4806` gives
-  `'4,806'`, `-1200` gives `'-1,200'`, `12.3456` gives `'12.346'`).
-- **AC4** `signed`: positive values get a `'+'` prefix (`'+3'`, `'+2.5'` with decimals 1), negatives keep
-  `'-'` (`'-1'`), and `0` gives `'0'`.
-- **AC5** Not signed: no `'+'`.
+Initial state and defaults
+- AC1: The initial state is built from injected defaults. With the mock NFL defaults it equals the
+  design: `kind 'players'`, `season '2024'`, `sel.players ['allen','barkley','chase']`,
+  `sel.teams ['kc','det','bal']`,
+  `stats.players ['passYds','passTd','rushYds','recYds','scrim','totTd']`,
+  `stats.teams ['ppg','ypg','third','papg','to','win']`, `ax.players ['rushYds','recYds','totTd']`,
+  `ax.teams ['ppg','papg','to']`, `view '3d'`, `chart2 'bars'`, `q ''`, `pos 'All'`,
+  `addOpen false`, `addStatOpen null`, `teamMode 'compare'`, `teamId 'phi'`, `unit 'off'`,
+  `tSort {k:'snap', d:-1}`, `yaw -0.65`, `pitch 0.38`.
+- AC2: The reducer/state source files contain no NFL entity ids, team ids, stat keys, roster unit keys,
+  position codes other than the generic "All" sentinel, or season literals. A test builds an initial
+  state from a non-NFL fixture (made-up ids/keys/groups) and every rule below works with it.
+- AC3: Generic UI defaults that are not league data (`view '3d'`, `chart2 'bars'`, `yaw -0.65`,
+  `pitch 0.38`, `q ''`, `pos 'All'`, `addOpen false`, `addStatOpen null`, `teamMode 'compare'`,
+  `kind 'players'`, `tSort.d -1`, max selection 8) may live in the state module.
 
-Best-of, `bestIndex(values, def)`
-- **AC6** Returns all best indices in ascending order, or an empty array when none is best.
-- **AC7** Higher is better by default. With `lowerIsBetter`, the smallest value is best.
-- **AC8** `null` and `undefined` are never best and are left out when choosing the best value.
-- **AC9** Every index that is `===` the best value is returned (ties).
-- **AC10** Fewer than 2 non-null values (including empty or all-null input) returns `[]`.
+Entity selection (acts on the current `kind` only)
+- AC4: Toggling an id not in `sel[kind]` appends it to the end (order preserved = colour index);
+  toggling an id already present removes it and keeps the order of the rest.
+- AC5: When `sel[kind]` already has 8 ids, toggling a new id leaves the selection unchanged.
+- AC6: After any toggle, if `sel[kind]` has 8 ids, `addOpen` becomes false; adding the 8th id closes
+  an open popover. Otherwise `addOpen` is unchanged.
+- AC7: Selection changes for one kind never change the other kind's selection (players and teams keep
+  separate lists; switching kind and back shows the earlier list unchanged).
 
-Range, `leagueRange(entities, key)`
-- **AC11** Returns min and max of `stats[key]` over all entities, ignoring null and missing keys.
-- **AC12** No non-null values, or an empty list: returns the defined "no range" result (`null`, see
-  section 3) and never throws.
+Stats (acts on the current `kind` only)
+- AC8: Toggling a selected stat removes it, unless it is the only selected stat, in which case
+  `stats[kind]` is unchanged (minimum 1).
+- AC9: Adding a stat (via toggle of an unselected key, or the "add stat from menu" action) results in
+  `stats[kind]` sorted in canonical order regardless of the order of additions; e.g. adding `int` to
+  `['passYds','rushYds']` gives `['passYds','int','rushYds']`, and adding an extra (`passYpg`) places
+  it inside its group.
+- AC10: The "add stat from menu" action also sets `addStatOpen` to null.
+- AC11: A stat key not in the kind's canonical order is ignored (state unchanged), and duplicates are
+  never produced.
+- AC12: Opening the add-stat menu for group G sets `addStatOpen` to G; dispatching it again for G
+  sets it to null; dispatching it for another group H switches to H.
+- AC13: Stats for one kind never change the other kind's stats.
 
-Normalize and bar width
-- **AC13** `(value - min) / (max - min)`: min gives 0, max gives 1, midpoint gives 0.5.
-- **AC14** `min === max` gives `0.5`, never `NaN` or `Infinity`.
-- **AC15** A null or missing value gives `0`.
-- **AC16** Opt-in inversion: when it is requested, `def.lowerIsBetter` is true and the value is non-null,
-  the result is `1 - n` (min gives 1, max gives 0, `min === max` gives 0.5). Null still gives 0. No
-  inversion when it is not requested or when `lowerIsBetter` is false.
-- **AC17** `barWidth` is `Math.round((0.05 + 0.95 * n) * 100)`, using the non-inverted `n`: min gives
-  5, max gives 100, `min === max` gives 53, null gives 0.
-- **AC18** With "no range", normalize gives 0.5 for a non-null value and 0 for null. Bar width follows
-  from that. No `NaN` or `Infinity`.
+Kind and season
+- AC14: Switching kind sets `kind` and resets `q` to '', `pos` to 'All' and `addOpen` to false (also
+  when switching to the kind already active). `sel`, `stats`, `ax`, `season`, `view` are unchanged.
+- AC15: Changing season sets `season` and leaves `sel` (both kinds), `stats`, `ax`, `kind`, `view`
+  and all other fields unchanged.
 
-Cross-cutting
-- **AC19** Outputs equal the design-script expressions for the same inputs. Tests include cases that use
-  T04 stat defs (`int` and `papg` lower-is-better, `to` signed, `pdiff` signed with decimals 1).
-- **AC20** Pure: no input mutation, no React, no league-specific keys in `stats.ts`. All functions are
-  exported from `web/src/lib/stats.ts`.
-- **AC21** Tests are table-driven. They cover nulls, ties, signed, lower-is-better, fewer than 2
-  non-null values, and `min === max`. `stats.ts` has 100% coverage under (run from `web/`):
-  `npx vitest run src/lib/stats.test.ts --coverage --coverage.include=src/lib/stats.ts --coverage.thresholds.100`
-- **AC22** `npm test`, `npm run lint`, `npm run typecheck` and `npm run format:check` pass in `web/`.
+Search, filter, popover
+- AC16: Setting the search text sets `q`; setting the position filter sets `pos`.
+- AC17: Toggling the add popover flips `addOpen` and resets `q` to '' (design `toggleAdd`). A
+  separate close action ("Done") sets `addOpen` false.
+
+Views and axes
+- AC18: Setting `view` to 'num' | '2d' | '3d' and `chart2` to 'bars' | 'radar' stores the value and
+  changes nothing else.
+- AC19: Setting axis i (0 = X, 1 = Y, 2 = Z) of the current kind to a stat key replaces only that
+  slot of `ax[kind]`; the other slots and the other kind's axes are unchanged. Any stat key of the
+  kind is accepted, selected or not.
+
+3D camera
+- AC20: Setting the camera stores `yaw` as given and `pitch` clamped to [-0.2, 1.3] (e.g. 2 -> 1.3,
+  -1 -> -0.2, 0.5 -> 0.5).
+- AC21: Reset view sets `yaw` and `pitch` back to -0.65 and 0.38.
+
+Team breakdown
+- AC22: Switching `teamMode` sets it and sets `addOpen` to false.
+- AC23: Selecting a team sets `teamId` and changes nothing else.
+- AC24: Switching `unit` sets it and resets `tSort` to `{k: <injected default sort key>, d: -1}`.
+- AC25: Sorting by key K: if `tSort.k === K` the direction flips (-1 <-> 1); otherwise `tSort`
+  becomes `{k: K, d: -1}` (descending first).
+
+Purity and context
+- AC26: The reducer is pure: given deep-frozen input state and action it never throws because of
+  mutation, returns a new object when something changed, and the same inputs always give equal
+  output. Tests cover every rule above (ticket AC "fully unit tested").
+- AC27: A test renders a consumer component inside the provider; it shows a value from initial state,
+  dispatches an action through `useAppState()`, and the rendered output updates.
+- AC28: Using `useAppState()` outside the provider throws a clear error (tested).
+- AC29: `npm test`, `npm run lint`, `npm run typecheck` and `npm run format` pass.
+
+Added (gaps found while planning)
+- AC30 (added): `setAxis` with a key not in the current kind's canonical order, or an index other
+  than 0/1/2, leaves state unchanged. This is the AC11 rule applied to axes; "any stat key of the
+  kind" in AC19 means keys in that kind's order.
+- AC31 (added): `setCamera` with a non-finite `yaw` or `pitch` (NaN, Infinity) leaves state
+  unchanged, so a bad drag delta cannot corrupt the camera.
+- AC32 (added): an action that changes nothing (AC5, AC8 at the minimum, AC11, AC30, AC31, unknown
+  action type) returns the same state reference, so React can skip the re-render. Actions that always
+  reset fields (AC14, AC17) may return a new object.
 
 ## 3. Architecture
 
-**Approach.** One new module, `web/src/lib/stats.ts`, next to the existing `cx.ts`. It has no runtime
-imports, only `import type` from `../domain/types`. Each function is a small direct port of the
-design expression, with explicit `== null` checks (A3: `undefined` is treated like `null`). There is no
-shared state and no caching. `normalize` takes a precomputed range so callers compute `leagueRange`
-once per stat.
+Approach: plain `useReducer` behind one React context (A9). The reducer needs league data (the
+canonical stat order per kind and the default sort key) but must not contain it, so a factory builds
+it from injected config: `createAppReducer(config)` returns a pure `(state, action) => AppState`.
+No new dependencies.
 
-**Public API** (names fixed by the ticket; parameter types are narrowed with `Pick` so callers can
-pass any object that has the needed fields):
+### Files and exports
 
-```ts
-export type StatRange = { readonly min: number; readonly max: number } | null   // null = "no range" (A4)
-export const NULL_PLACEHOLDER = '—'                                            // U+2014 (A8)
+`web/src/domain/types.ts` (add, types only). The defaults object is a data-layer contract that a
+later provider/API may serve, so its type lives in `domain/` and not in `state/`. That also avoids a
+data -> state import.
+- `interface KindDefaults { sel: EntityId[]; stats: string[]; ax: [string, string, string] }`
+- `interface LeagueUiDefaults { season: Season; teamId: TeamId; unit: RosterUnit; sortKey: string;
+  players: KindDefaults; teams: KindDefaults }`
 
-formatStat(value: StatValue | undefined, def: Pick<StatDef, 'decimals' | 'signed'>): string
-bestIndex(values: ReadonlyArray<StatValue | undefined>, def: Pick<StatDef, 'lowerIsBetter'>): number[]
-leagueRange(entities: ReadonlyArray<Pick<Entity, 'stats'>>, key: string): StatRange
-normalize(value: StatValue | undefined, range: StatRange, def: Pick<StatDef, 'lowerIsBetter'>,
-          options?: { invertLowerIsBetter?: boolean }): number
-barWidth(value: StatValue | undefined, range: StatRange): number
-```
+`web/src/state/appState.ts` (pure TS, no React, no league literals):
+- Types: `ViewMode = 'num' | '2d' | '3d'`, `Chart2Mode = 'bars' | 'radar'`,
+  `TeamMode = 'compare' | 'inside'`, `AxisIndex = 0 | 1 | 2`, `Axes = [string, string, string]`,
+  `PerKind<T> = Record<EntityKind, T>`, `SortDir = -1 | 1`, `RosterSort = { k: string; d: SortDir }`.
+- `interface AppState` with exactly the fields in the requirements: `kind, season, sel, stats, ax,
+  view, chart2, q, pos, addOpen, addStatOpen (string | null), teamMode, teamId, unit, tSort, yaw,
+  pitch`.
+- Constants (AC3): `MAX_SELECTED = 8`, `DEFAULT_YAW = -0.65`, `DEFAULT_PITCH = 0.38`,
+  `PITCH_MIN = -0.2`, `PITCH_MAX = 1.3`, `ALL_POSITIONS = 'All'`.
+- `canonicalStatOrder(defs: readonly StatDef[]): string[]` (design `ORDER`: groups in order of first
+  appearance, then list order within each group; extras included).
+- `interface ReducerConfig { statOrder: PerKind<readonly string[]>; defaultSortKey: string }`
+- `createReducerConfig(defaults: LeagueUiDefaults, statDefs: PerKind<readonly StatDef[]>): ReducerConfig`
+- `createInitialState(defaults: LeagueUiDefaults): AppState` (copies arrays so defaults objects are
+  never shared or mutated; uses the generic constants for non-league fields).
+- `createAppReducer(config: ReducerConfig): (state: AppState, action: AppAction) => AppState`
+- `type AppAction`: a discriminated union with a string `type`. No enums, because
+  `erasableSyntaxOnly` is on.
 
-Implementation notes for the builder:
-- `formatStat`: test `def.decimals` for truthiness, not `!== undefined`, so that `decimals: 0` uses
-  the `toLocaleString` path (A1). Add `'+'` only when `def.signed && value > 0`.
-- `bestIndex`: one pass collects the non-null values. Return `[]` if fewer than 2. Compute the best
-  with a loop or `Math.min/max` (the array is the selected entities, so it is small). A second pass
-  collects indices where `v != null && v === best`. Do not sort or mutate the input.
-- `leagueRange`: a loop tracks min and max and returns `null` when nothing was seen. Use a loop rather
-  than spreading into `Math.min/max`, so large pools cannot overflow the argument limit.
-- `normalize`: if the value is null, return 0. If the range is null, return 0.5 (AC18). If
-  `max === min`, use 0.5; otherwise use `(v - min) / (max - min)`. If inversion is requested and
-  `def.lowerIsBetter` is true, return `1 - n`. No clamping (A5).
-- `barWidth`: return 0 for null; otherwise `Math.round((0.05 + 0.95 * normalize(value, range, {}))
-  * 100)`. It takes no `def` because bars never invert. Pass an empty def object rather than adding an
-  unreachable branch.
-- Coverage pitfall: every `?.`, `??` and default parameter counts as a branch under v8. Keep these to a
-  minimum and make sure tests reach both sides (for example `options` omitted, `{}`, and
-  `{ invertLowerIsBetter: false }`).
+| `type` | payload | ACs |
+|---|---|---|
+| `toggleEntity` | `id: EntityId` | 4, 5, 6, 7 |
+| `toggleStat` | `key: string` | 8, 9, 11, 13 |
+| `addStat` | `key: string` (from menu; also sets `addStatOpen` null) | 9, 10, 11 |
+| `toggleAddStatMenu` | `group: string` | 12 |
+| `setKind` | `kind: EntityKind` | 14 |
+| `setSeason` | `season: Season` | 15 |
+| `setQuery` | `q: string` | 16 |
+| `setPos` | `pos: string` | 16 |
+| `toggleAdd` | none (flips `addOpen`, clears `q`) | 17 |
+| `closeAdd` | none ("Done") | 17 |
+| `setView` | `view: ViewMode` | 18 |
+| `setChart2` | `chart2: Chart2Mode` | 18 |
+| `setAxis` | `index: AxisIndex; key: string` | 19, 30 |
+| `setCamera` | `yaw: number; pitch: number` | 20, 31 |
+| `resetView` | none | 21 |
+| `setTeamMode` | `mode: TeamMode` | 22 |
+| `setTeam` | `teamId: TeamId` | 23 |
+| `setUnit` | `unit: RosterUnit` | 24 |
+| `sortRoster` | `key: string` | 25 |
 
-**Data and API changes.** None. No changes to `domain/`, providers, `package.json`, `vite.config.ts`
-or tsconfig.
+Rules the coder must follow:
+- `addStat` with an already-selected valid key still clears `addStatOpen` and leaves stats unchanged.
+- `setKind` does not reset `addStatOpen` (A7).
+- `toggleAdd` is allowed when 8 are selected (A6).
+- The switch has an exhaustive `never` check, and its `default` branch returns `state` for unknown
+  runtime actions (AC32).
 
-**Dependencies.** None new. `@vitest/coverage-v8` is already installed.
+`web/src/state/appStateContext.ts`: `AppStateContext = createContext<AppStateContextValue | null>(null)`
+and `interface AppStateContextValue { state: AppState; dispatch: Dispatch<AppAction> }`. This lives in
+its own file so component files export only components (react-refresh friendly).
+
+`web/src/state/AppStateProvider.tsx`: `AppStateProvider({ defaults, statDefs, children })`. It builds
+the config and reducer once (`useState` initializer) and calls
+`useReducer(reducer, defaults, createInitialState)`. The context value is memoized on `state`. Props
+that change after mount are ignored (stated in JSDoc); remount with a `key` to reset.
+
+`web/src/state/useAppState.ts`: `useAppState(): AppStateContextValue`. Throws
+`Error('useAppState must be used inside <AppStateProvider>')` when the context is null (AC28).
+
+`web/src/state/index.ts`: barrel that re-exports the public API above.
+
+`web/src/data/nfl/uiDefaults.ts` (the single place to change NFL defaults, A1/A2):
+- `nflUiDefaults(): LeagueUiDefaults` returns a fresh copy on each call (same pattern as
+  `playerStatDefs()`): season '2024', teamId 'phi', unit 'off', sortKey 'snap',
+  players {sel ['allen','barkley','chase'], stats ['passYds','passTd','rushYds','recYds','scrim','totTd'],
+  ax ['rushYds','recYds','totTd']}, teams {sel ['kc','det','bal'],
+  stats ['ppg','ypg','third','papg','to','win'], ax ['ppg','papg','to']}.
+- `nflStatDefsByKind(): Record<EntityKind, StatDef[]>` wraps `playerStatDefs`/`teamStatDefs`.
+- Both are re-exported from `web/src/data/nfl/index.ts`.
+
+No data/API/schema changes, no env vars, no Python changes.
+
+### Test files
+- `web/src/state/appState.test.ts`: every rule in AC4-AC25 and AC30-AC32, run against the NFL
+  defaults, with deep-frozen state (local `deepFreeze` helper) for AC26.
+- `web/src/state/appState.fixture.test.ts`: a non-NFL fixture (for example groups `Alpha`/`Beta`,
+  keys `a1,a2,b1,b2,ax1` where `ax1` is an `Alpha` extra listed last, ids `e1..e9`, season `S9`,
+  team `t1`, unit `u1`, sortKey `k1`). Runs the core case of every rule group (AC2), including the
+  canonical order placing `ax1` inside `Alpha`.
+- `web/src/state/noLeagueLiterals.test.ts`: imports the state source files with Vite `?raw` and
+  asserts none of them contains a quoted literal (`'x'`, `"x"` or backtick-quoted) for any value
+  from `nflUiDefaults()`, any NFL stat key, `NFL_SEASONS` or `ROSTER_UNITS` (AC2). Matching only
+  quoted literals avoids false hits on short keys like `to` and `int`.
+- `web/src/state/AppStateProvider.test.tsx`: a consumer shows `state.view` and the selection count,
+  a button click dispatches, and the test asserts the output updates (AC27). Rendering the hook
+  outside the provider throws (AC28; silence `console.error` in that test).
+- `web/src/data/nfl/uiDefaults.test.ts`: `createInitialState(nflUiDefaults())` equals the AC1 object
+  exactly; `nflUiDefaults()` returns fresh copies; default stat and axis keys exist in the NFL defs;
+  default stats are already in canonical order.
 
 ## 4. Design
 
-These are pure functions with no UI, so loading, empty, error and success states, responsive layout and
-accessibility do not apply directly. What does carry over to later UI tickets:
-- "Empty" and "error" data are values, not exceptions. A null or missing stat renders `'—'`. "No range"
-  gives a neutral 0.5 position and no `NaN` widths. No function throws for any typed input.
-- Accessibility: later components should give the em dash an accessible label such as "not
-  applicable". This ticket only fixes the glyph (A8). Best-of returns indices, so components can show
-  "best" with more than colour alone (the design uses black or bold).
-- Mobile and desktop: the output does not depend on width.
+This ticket renders no UI, so there are no loading/empty/error/success screens, no breakpoints and
+no visual accessibility work. States at the logic level:
+- Initial: built synchronously from the defaults. There is no loading state because defaults and
+  stat defs are synchronous (async defaults are out of scope).
+- Error: using the hook outside the provider throws a clear message (AC28). Invalid actions are
+  no-ops (AC11, AC30-AC32).
+- Mobile/desktop: state does not depend on width; later tickets read the same state at every width.
+- Accessibility: `addOpen` and `addStatOpen` stay the single sources for the popover and menu, so
+  later components can drive `aria-expanded` from them. Nothing else is needed now.
 
 ## 5. Risk and security
 
-- **Input validation.** The inputs are typed and internal (provider data). `NaN` and `-0` are not
-  handled specially (A6). There is no user input, auth or network access, and nothing to expose.
-- **Failure mode: floating point at `min === max` bar width.** `0.05 + 0.95 * 0.5` might land on
-  0.52499... and round to 52. Safeguard (T4): the test asserts the literal `53` from AC17 and also
-  checks equality with the inline design expression. If the literal fails, the builder must not change
-  the formula. Report it as a requirements conflict, because the design expression wins (AC19).
-- **Failure mode: `toFixed` and `toLocaleString` rounding quirks** (for example `1.005.toFixed(2)`).
-  Safeguard: tests compare against `value.toFixed(d)` and `value.toLocaleString('en-US')` computed in
-  the test, plus the literal examples from AC2 and AC3. No custom rounding.
-- **Failure mode: ICU or locale differences** in Node for `toLocaleString('en-US')`. Node ships full
-  ICU, so this is low risk. The literal cases `'4,806'` and `'-1,200'` would catch a regression.
-- **Purity regression.** Safeguard (T5): tests pass frozen inputs (`Object.freeze` on arrays, entity
-  objects and stats maps) and assert deep equality with a copy afterwards. A grep-style test or review
-  step confirms `stats.ts` has no league keys and no React import.
-- **Coverage gate false pass.** Safeguard (T6): run the exact AC21 command. Confirm it exits non-zero
-  when a branch is uncovered by temporarily skipping one case locally (do not commit that change).
+- Input validation: stat keys are checked against the injected canonical order (AC11, AC30); the
+  axis index is checked at runtime (AC30); camera values must be finite and pitch is clamped (AC20,
+  AC31). Entity ids, seasons, teams and units are stored without data checks by design (out of
+  scope, A8).
+- Auth and data exposure: none. State is client-only, with no network, secrets or env vars.
+- Failure modes and safeguards (each tied to a task):
+  - Frozen or shared state gets mutated: deep-freeze tests (T6) and copied defaults in
+    `createInitialState` (T1).
+  - NFL literals leak into the state module: literal-scan test (T6).
+  - An unknown runtime action crashes the app: the default branch returns state (T3).
+  - Provider instances share one defaults object: `nflUiDefaults()` returns fresh copies (T2).
+  - Default stats are not in canonical order and never get re-sorted: `uiDefaults.test.ts` asserts
+    they are already canonical (T2).
 
 ## 6. Gaps check
 
-- Auth: not applicable (pure client functions, no data access).
-- Validation: typed inputs. Null and undefined are handled everywhere (A3). Empty arrays are handled
-  (AC10, AC12).
-- Error handling: nothing throws. Degenerate cases return defined values (AC14, AC18).
-- Mobile: not applicable. Accessibility: notes passed to later tickets (section 4).
-- Config and env vars: none. Locale is hard-coded to `en-US`.
-- Tests: table-driven `it.each` per function, a design-parity block (AC19) and a purity block (AC20),
-  with the coverage gate as the final check.
+- Auth: not applicable (no backend, no user data).
+- Validation: covered in section 5; AC30 and AC31 added.
+- Error handling: hook misuse error (AC28); invalid actions are no-ops (AC32).
+- Mobile: not applicable (no rendering).
+- Accessibility: not applicable yet; the state shape supports `aria-expanded` later.
+- Config and env vars: none added. League defaults are config in `web/src/data/nfl/uiDefaults.ts`.
+- Tests: Vitest and Testing Library are already set up (`web/src/test/setup.ts`); test files are
+  listed above and per task.
 
 ## 7. Tasks
 
-Each task is one commit. Tests and implementation go together, test first. Write and run the stated
-tests, then implement until green. Run `npm run lint`, `npm run typecheck` and `npm run format` in
-`web/` before every commit.
+Each task is one commit and includes its tests (CLAUDE.md: tests with every behaviour change). Run
+`npm run format`, `npm run lint`, `npm run typecheck` and `npm test` before each commit.
 
-- **T1 Skeleton and types.** Create `web/src/lib/stats.ts` with `StatRange`, `NULL_PLACEHOLDER` and
-  typed exported signatures (stub bodies may throw `'not implemented'`). Create `stats.test.ts` with
-  shared fixtures: a small `defs` helper and T04 defs from `teamStatDefs()` and `playerStatDefs()`
-  looked up by key in the test file only. (AC20)
-- **T2 `formatStat`.** Table cases: null and undefined for several defs. Decimals 1 (`64.25`, `7`,
-  `1234.5`). No decimals (`4806`, `-1200`, `12.3456`). `decimals: 0` (`12.3456` gives `'12.346'`, A1).
-  Signed (`3`, `-1`, `0`, and `2.5` with decimals 1). Unsigned positive. T04 `to` and `pdiff`. (AC1 to
-  AC5, AC19)
-- **T3 `bestIndex`.** Table cases: higher-best, lower-best (T04 `int` and `papg`), ties (all returned,
-  ascending), nulls and undefined mixed in, null at the best position, empty, all-null, a single
-  non-null value among nulls, exactly 2 equal values (both best), negative values. (AC6 to AC10, AC19)
-- **T4 `leagueRange`, `normalize` and `barWidth`.** Range: mixed nulls and missing keys, a single
-  value (`min === max`), empty list, and all-null list (both give `null`). Normalize: min, max and
-  midpoint; `min === max`; null; "no range"; inversion requested with lowerIsBetter true and false;
-  inversion not requested; `options` omitted versus `{}`. Bar width: 5, 100, 53, 0 for null, "no range"
-  gives 53, and a lowerIsBetter def does not invert bars. (AC11 to AC18)
-- **T5 Design parity and purity.** Add a block that reimplements the design expressions inline in the
-  test (`fmt`, best condition, `range`, `n01`, bar `p`, radar `t`) and checks them against the library
-  over a small mock pool built from T04 entities via `MockProvider` or the builders, for every T04 stat
-  key. Add frozen-input tests that show no mutation. (AC19, AC20)
-- **T6 Coverage gate.** Run the AC21 command and fill any gaps with table cases, never with ignore
-  comments. Confirm it fails below 100% (local check only). Then run the full AC22 suite. Do not add a
-  script or config (keeps the change to two files; A7 makes it optional). (AC21, AC22)
+- T1 Types, constants, order and initial state. Add `KindDefaults`/`LeagueUiDefaults` to
+  `domain/types.ts`. Create `state/appState.ts` with all types, constants, the full `AppAction`
+  union, `canonicalStatOrder`, `createReducerConfig`, `createInitialState`, and a stub
+  `createAppReducer` that returns `state` for every action (it compiles and the switch is
+  exhaustive). Tests: `canonicalStatOrder` on the NFL player defs (`passYds, passTd, int, cmp, rate,
+  passYpg, tdInt, rushYds, ...`) and on the fixture; generic fields from `createInitialState`.
+  (AC1, AC3, order basis for AC9)
+- T2 NFL defaults in the data layer: `data/nfl/uiDefaults.ts`, the re-export in
+  `data/nfl/index.ts`, and `uiDefaults.test.ts`. (AC1, AC2)
+- T3 Selection, kind, season, search, popover: `toggleEntity`, `setKind`, `setSeason`, `setQuery`,
+  `setPos`, `toggleAdd`, `closeAdd`, and the unknown-action default. (AC4-AC7, AC14-AC17, AC32)
+- T4 Stats: `toggleStat`, `addStat`, `toggleAddStatMenu`. (AC8-AC13, AC32)
+- T5 Views, axes, camera, team breakdown: `setView`, `setChart2`, `setAxis`, `setCamera`,
+  `resetView`, `setTeamMode`, `setTeam`, `setUnit`, `sortRoster`. (AC18-AC25, AC30, AC31)
+- T6 Purity, fixture and literal guard: `deepFreeze` coverage across all actions,
+  `appState.fixture.test.ts`, `noLeagueLiterals.test.ts`. (AC2, AC26)
+- T7 Context and hook: `appStateContext.ts`, `AppStateProvider.tsx`, `useAppState.ts`,
+  `state/index.ts`, `AppStateProvider.test.tsx`. (AC27, AC28)
+- T8 Final verification: full `npm test`, `npm run lint`, `npm run typecheck`, `npm run format`, and
+  a clean `npm run format:check`. Fix style issues only. (AC29)
 
-**Parallelism.** After T1 lands, the test-writer can write the T2, T3 and T4 tables in parallel with
-the implementation. The examples in section 2 and the API in section 3 are a complete spec. The T5
-parity block depends only on the design script and the T1 signatures, so it can also be written early.
-Only T6 must come last.
+### Parallel work (test-writer and coder)
 
-## 8. Open questions
+Once T1 lands (types, action union and signatures fixed), the test-writer can work from the ACs
+alone, without waiting for the coder:
+- the rule tests for T3, T4 and T5 in `appState.test.ts`. They fail against the stub until the coder
+  fills in each branch, which is the intended red/green signal;
+- all of `appState.fixture.test.ts` and `noLeagueLiterals.test.ts` (T6);
+- `AppStateProvider.test.tsx` (T7), written against the `AppStateProvider`/`useAppState` API above.
 
-None block this ticket. Non-blocking, carried from the requirements:
-1. Should decimal-formatted values get thousands separators (`'1,234.5'`)? The design says no, and it is
-   not visible with today's data.
-2. Should `decimals: 0` round to an integer instead of following the design's truthiness check? No
-   current def uses it.
-3. Should `normalize` clamp to [0, 1] once real API data arrives (values outside the pool)?
-4. (New) If the `min === max` bar width computes to 52 in floating point rather than 53, which wins: the
-   AC17 literal or the design expression? This plan says the design expression wins (AC19).
+T2 (data defaults) does not depend on T3-T5, so either side can do it alongside them. The coder owns
+T1, the reducer branches in T3-T5 and the T7 implementation. Tests must not be deleted or weakened
+to make them pass (CLAUDE.md).
+
+## 8. Open questions (none blocking; assumptions applied)
+
+1. Should switching kind also close the add-stat menu (`addStatOpen = null`)? Assumed no (A7).
+2. Is the added AC32 (same reference on a no-op) acceptable, or should every action return a new
+   object? Assumed same reference; it only affects re-render behaviour.
+3. When a season change leaves a selected id missing from that season's data, should it be pruned?
+   Assumed no.
+4. Should defaults later come per league from the provider/API instead of the static
+   `data/nfl/uiDefaults.ts`? The `LeagueUiDefaults` type lives in `domain/` to allow this.
