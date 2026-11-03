@@ -1,157 +1,165 @@
-# T06 requirements: App state reducer and context
+# T07 requirements: Global nav
 
-Source ticket: `docs/tickets/T06-app-state.md` (its acceptance criteria are the contract).
-References: design README `design_handoff_statpakd/README.md` ("State Management", "Interactions &
-Behavior", 3D chart, Team breakdown), design script
-`design_handoff_statpakd/design/StatPakd App.dc.html` (initial `state` ~line 329-334, `toggle` ~335,
-`toggleStat` ~342, `ORDER` ~271, `MAX` ~197, add-stat ~414, `openAdd` ~417, roster sort ~439,
-`teamModeTabs` ~448, `unitTabs` ~451, `kindTabs` ~454, `onSeason` ~455, `toggleAdd` ~458, `posChips`
-~460, `chart2Tabs` ~464, `axSel` ~472, `resetView` ~474, drag ~476). Domain types in
-`web/src/domain/types.ts` (`EntityKind`, `EntityId`, `Season`, `TeamId`, `RosterUnit`, `StatDef`).
-Mock data in `web/src/data/` (NFL stat defs in `nfl/statDefs.ts`, seasons/units in `nfl/builders.ts`).
+Source ticket: `docs/tickets/T07-global-nav.md` (its acceptance criteria are the contract).
+References: handoff `design_handoff_statpakd/README.md` section 1 "Global nav", "Interactions &
+Behavior" and "Design Tokens"; design markup `design_handoff_statpakd/design/StatPakd App.dc.html`
+lines 16-29 (header markup) and script lines 214-215 (`SEASONS`, `LEAGUES`) and 452-455 (`leagues`,
+`kindTabs`, `onSeason`). Merged building blocks: `web/src/components/ui/` (`SegmentedControl` with
+`variant="dark"`, `Select` with `variant="dark"`), `web/src/styles/tokens.css` (`--color-nav-*`
+tokens), `web/src/domain/provider.ts` (`DataProvider.getLeagues`, `getSeasons`),
+`web/src/data/mockProvider.ts` (`MockProvider`), `web/src/state/` (`AppStateProvider`,
+`useAppState`, actions `setKind` and `setSeason`).
 
 ## Goal
 
-Provide one league-agnostic source of UI state for the web app: a pure reducer that enforces every
-selection, stat, kind, season, view, camera and team-breakdown rule from the handoff, plus a React
-context provider and `useAppState()` hook to read state and dispatch actions. The NFL-specific
-defaults from the design (selected ids, stat keys, axes, team, roster unit, sort key, season) must be
-supplied from the data/config layer, not written into the reducer.
+Show a black top bar on the app's main page with the StatPakd logo, the league tabs from the data
+provider (enabled leagues active, others disabled with a "SOON" tag), a Players/Teams segmented
+control and a Season select filled from `getSeasons`. Changing kind or season dispatches the T06
+`setKind` / `setSeason` actions, and the nav matches the handoff at desktop and narrow widths.
 
-## State fields (from the handoff, ticket scope list)
+## Design values to match (from handoff section 1 and the design markup)
 
-`kind` ('players' | 'teams'), `season`, `sel {players, teams}` (entity id arrays, order = series
-colour index), `stats {players, teams}` (selected stat keys in canonical order), `ax {players, teams}`
-(3-tuple of stat keys: x, y, z), `view` ('num' | '2d' | '3d'), `chart2` ('bars' | 'radar'), `q`
-(search text), `pos` (position filter), `addOpen` (boolean), `addStatOpen` (group name | null),
-`teamMode` ('compare' | 'inside'), `teamId`, `unit` (opaque roster unit), `tSort {k, d}` (sort key,
-direction -1 = desc / 1 = asc), `yaw`, `pitch`.
-
-Canonical stat order for a kind (design `ORDER`): groups in order of first appearance in that kind's
-`StatDef[]` list, and within a group the `StatDef` list order, extras included. Example with the mock
-player defs: `passYds, passTd, int, cmp, rate, passYpg, tdInt, rushYds, ...` (extras such as `passYpg`
-sit inside their group, not at the end).
+- Bar: `<header>`, background `#111`, padding `12px 28px`, flex row, `align-items: center`, gap 24px,
+  `flex-wrap: wrap`.
+- Logo: "Stat" in white + "Pakd" in a pill (bg `#fff`, text `#111`, radius 5px, padding `0 6px 2px`),
+  2px gap between the two parts; Geist 700, 20px, letter-spacing -0.03em.
+- League list: gap 18px between items; each item 13px / 600; enabled item text `#fff`; disabled item
+  text `#6A6A66` followed (5px gap) by a "SOON" tag in Geist Mono 10px, colour `#6A6A66`.
+- Right group: pushed to the right edge (`margin-left: auto`), gap 12px between its children.
+- Kind control: track `#2A2A28`, radius 8px, padding 3px; items 13px / 600, padding `6px 14px`,
+  radius 6px; active item bg `#fff`, text `#111`; inactive item transparent, text `#A5A5A0`.
+- Season: visible label text "Season" (12px, `#A5A5A0`, 8px gap to the select); select bg `#2A2A28`,
+  border `1px solid #3A3A37`, radius 7px, padding `6px 10px`, white 13px / 600 text. Option text is
+  `"<season> Regular Season"`, in the order returned by `getSeasons` (newest first).
 
 ## Acceptance criteria
 
-Initial state and defaults
-- AC1: The initial state is built from injected defaults. With the mock NFL defaults it equals the
-  design: `kind 'players'`, `season '2024'`, `sel.players ['allen','barkley','chase']`,
-  `sel.teams ['kc','det','bal']`,
-  `stats.players ['passYds','passTd','rushYds','recYds','scrim','totTd']`,
-  `stats.teams ['ppg','ypg','third','papg','to','win']`, `ax.players ['rushYds','recYds','totTd']`,
-  `ax.teams ['ppg','papg','to']`, `view '3d'`, `chart2 'bars'`, `q ''`, `pos 'All'`,
-  `addOpen false`, `addStatOpen null`, `teamMode 'compare'`, `teamId 'phi'`, `unit 'off'`,
-  `tSort {k:'snap', d:-1}`, `yaw -0.65`, `pitch 0.38`.
-- AC2: The reducer/state source files contain no NFL entity ids, team ids, stat keys, roster unit keys,
-  position codes other than the generic "All" sentinel, or season literals. A test builds an initial
-  state from a non-NFL fixture (made-up ids/keys/groups) and every rule below works with it.
-- AC3: Generic UI defaults that are not league data (`view '3d'`, `chart2 'bars'`, `yaw -0.65`,
-  `pitch 0.38`, `q ''`, `pos 'All'`, `addOpen false`, `addStatOpen null`, `teamMode 'compare'`,
-  `kind 'players'`, `tSort.d -1`, max selection 8) may live in the state module.
+Mounting and data
+- AC1: Visiting `/` renders the nav as the first element of the page, above any other content.
+  Visiting `/dev` still renders the existing DevPage (nav not required there).
+- AC2: The nav reads leagues and seasons only through the `DataProvider` interface obtained from a
+  React context (not by importing `MockProvider` or any `data/` module). The app root supplies a
+  `MockProvider` instance through that context and wraps the page in `AppStateProvider` with the
+  league's UI defaults and stat defs.
+- AC3: Using the provider-context hook outside its provider throws a clear error (tested).
+- AC4: The nav component source contains no league-specific literals (league ids or names such as
+  "nfl"/"NFL"/"NBA", season literals such as "2024", or other NFL data values). A test enforces this
+  in the same style as `web/src/state/noLeagueLiterals.test.ts`, and the component tests use a
+  made-up fixture provider (invented league ids/names/seasons) to show it is league agnostic.
 
-Entity selection (acts on the current `kind` only)
-- AC4: Toggling an id not in `sel[kind]` appends it to the end (order preserved = colour index);
-  toggling an id already present removes it and keeps the order of the rest.
-- AC5: When `sel[kind]` already has 8 ids, toggling a new id leaves the selection unchanged.
-- AC6: After any toggle, if `sel[kind]` has 8 ids, `addOpen` becomes false; adding the 8th id closes
-  an open popover. Otherwise `addOpen` is unchanged.
-- AC7: Selection changes for one kind never change the other kind's selection (players and teams keep
-  separate lists; switching kind and back shows the earlier list unchanged).
+Logo and league tabs
+- AC5: The logo shows "Stat" and "Pakd" with the styles listed above; its accessible text is
+  "StatPakd".
+- AC6: One item is rendered per league returned by `getLeagues`, in that order, labelled with the
+  league `name`. League items sit inside a `<nav>` landmark with an accessible name (for example
+  "Leagues").
+- AC7: An enabled league renders white, has no "SOON" tag, and is marked as the current/active league
+  (`aria-current="page"` or equivalent). The active league is the first enabled league.
+- AC8: A disabled league renders in `#6A6A66` with a visible "SOON" tag, is announced as disabled to
+  assistive tech (native `disabled` or `aria-disabled="true"`), cannot be reached as an active item:
+  Tab never lands on it as the active league, clicking or pressing Enter/Space on it changes nothing,
+  and it never gets `aria-current`.
+- AC9: While `getLeagues` is pending, the bar still renders (logo and kind control visible) and the
+  page does not crash; if it rejects, the league list is empty and the rest of the nav still works.
 
-Stats (acts on the current `kind` only)
-- AC8: Toggling a selected stat removes it, unless it is the only selected stat, in which case
-  `stats[kind]` is unchanged (minimum 1).
-- AC9: Adding a stat (via toggle of an unselected key, or the "add stat from menu" action) results in
-  `stats[kind]` sorted in canonical order regardless of the order of additions; e.g. adding `int` to
-  `['passYds','rushYds']` gives `['passYds','int','rushYds']`, and adding an extra (`passYpg`) places
-  it inside its group.
-- AC10: The "add stat from menu" action also sets `addStatOpen` to null.
-- AC11: A stat key not in the kind's canonical order is ignored (state unchanged), and duplicates are
-  never produced.
-- AC12: Opening the add-stat menu for group G sets `addStatOpen` to G; dispatching it again for G
-  sets it to null; dispatching it for another group H switches to H.
-- AC13: Stats for one kind never change the other kind's stats.
+Players/Teams control
+- AC10: The kind control shows "Players" and "Teams"; the one matching `state.kind` is visually active
+  and exposed as pressed/selected (`aria-pressed="true"` from the existing primitive); the group has
+  an accessible label.
+- AC11: Clicking "Teams" dispatches `setKind('teams')`, so `state.kind` becomes `'teams'` and `q`
+  becomes `''`, `pos` becomes `'All'`, `addOpen` becomes `false`; clicking "Players" does the reverse.
+  A component test seeds non-default `q`, `pos` and `addOpen` and asserts they reset (ticket AC).
 
-Kind and season
-- AC14: Switching kind sets `kind` and resets `q` to '', `pos` to 'All' and `addOpen` to false (also
-  when switching to the kind already active). `sel`, `stats`, `ax`, `season`, `view` are unchanged.
-- AC15: Changing season sets `season` and leaves `sel` (both kinds), `stats`, `ax`, `kind`, `view`
-  and all other fields unchanged.
+Season select
+- AC12: Seasons come from `getSeasons(<active league id>)`; the test asserts the call uses the active
+  league id from the fixture. Options appear in the returned order with text
+  `"<season> Regular Season"` and value `<season>`.
+- AC13: The select's value reflects `state.season`. Choosing another option dispatches
+  `setSeason(<value>)` and `state.season` updates; `kind`, `sel`, `stats` stay unchanged (tested).
+- AC14: The select has an accessible name "Season" (visible label associated with it, or
+  `aria-label`), and while seasons are loading or if `getSeasons` rejects, the nav does not crash.
 
-Search, filter, popover
-- AC16: Setting the search text sets `q`; setting the position filter sets `pos`.
-- AC17: Toggling the add popover flips `addOpen` and resets `q` to '' (design `toggleAdd`). A
-  separate close action ("Done") sets `addOpen` false.
+Layout in the browser
+- AC15 (1280px viewport): the whole nav is one row: logo at the left, league items 24px to its right,
+  kind control and Season select flush right with 28px right padding; all colours, font sizes,
+  weights, radii and paddings match the "Design values" list when inspected in DevTools (computed
+  styles). Fonts render as Geist / Geist Mono.
+- AC16 (375px viewport): the nav wraps onto multiple rows instead of overflowing: no horizontal page
+  scroll (`document.documentElement.scrollWidth <= 375`), every element (logo, all four league
+  items with SOON tags, both kind buttons, Season label and select) is fully visible and not clipped,
+  and items keep the 28px side padding. The right group may wrap internally (for example the Season
+  label/select dropping below the kind control).
+- AC17: Every interactive nav control (enabled league item if it is a control, kind buttons, season
+  select) shows a visible focus indicator on the black background when reached by keyboard, and
+  Tab order is logo-side to right: league items, kind buttons, season select.
 
-Views and axes
-- AC18: Setting `view` to 'num' | '2d' | '3d' and `chart2` to 'bars' | 'radar' stores the value and
-  changes nothing else.
-- AC19: Setting axis i (0 = X, 1 = Y, 2 = Z) of the current kind to a stat key replaces only that
-  slot of `ax[kind]`; the other slots and the other kind's axes are unchanged. Any stat key of the
-  kind is accepted, selected or not.
-
-3D camera
-- AC20: Setting the camera stores `yaw` as given and `pitch` clamped to [-0.2, 1.3] (e.g. 2 -> 1.3,
-  -1 -> -0.2, 0.5 -> 0.5).
-- AC21: Reset view sets `yaw` and `pitch` back to -0.65 and 0.38.
-
-Team breakdown
-- AC22: Switching `teamMode` sets it and sets `addOpen` to false.
-- AC23: Selecting a team sets `teamId` and changes nothing else.
-- AC24: Switching `unit` sets it and resets `tSort` to `{k: <injected default sort key>, d: -1}`.
-- AC25: Sorting by key K: if `tSort.k === K` the direction flips (-1 <-> 1); otherwise `tSort`
-  becomes `{k: K, d: -1}` (descending first).
-
-Purity and context
-- AC26: The reducer is pure: given deep-frozen input state and action it never throws because of
-  mutation, returns a new object when something changed, and the same inputs always give equal
-  output. Tests cover every rule above (ticket AC "fully unit tested").
-- AC27: A test renders a consumer component inside the provider; it shows a value from initial state,
-  dispatches an action through `useAppState()`, and the rendered output updates.
-- AC28: Using `useAppState()` outside the provider throws a clear error (tested).
-- AC29: `npm test`, `npm run lint`, `npm run typecheck` and `npm run format` pass.
+Quality gates
+- AC18: Component tests cover kind changes, season changes, disabled league behaviour and loading
+  from a fixture provider (ticket AC "Component test for kind and season changes").
+- AC19: The existing `web/src/App.test.tsx` passes unchanged (it expects a heading named
+  "StatPakd"), as do all other existing tests.
+- AC20: `npm test`, `npm run lint`, `npm run typecheck`, `npm run format` and `npm run build` pass.
 
 ## Out of scope
 
-- Any rendering or UI wiring (nav, picker, sidebar, charts, team breakdown are later tickets).
-- Loading defaults asynchronously from `DataProvider` or an API; fetching entities/stat defs.
-- Validating that ids/keys/seasons/teams exist in the data (e.g. rejecting unknown entity ids,
-  pruning selections that do not exist in a newly chosen season).
-- The design's `shown` field (written but never read in the design) and the `league` selection.
-- Drag gesture math (dx/dy to yaw/pitch deltas) beyond the clamp; that belongs to T13/T14.
-- Persistence (URL, localStorage), undo, and recomputation of data on season change.
-- Search/position filtering logic itself (T08); `pos` is just stored.
+- League switching: there is no league field or action in app state; clicking the enabled league
+  does nothing beyond being the current one. Supporting several enabled leagues is a later change.
+- Teams mode switch, picker cards, sidebar, compare panel, team breakdown, or any content below the
+  nav (T08-T17). The content container from handoff section 2 is not required beyond what is needed
+  to keep the existing placeholder heading.
+- Loading `LeagueUiDefaults` or stat defs asynchronously from the provider; the app root may pass the
+  mock defaults synchronously as T06 does.
+- Recomputing data on season change (later tickets consume `state.season`).
+- Validating that `state.season` is in the returned season list, or pruning selections.
+- Routing beyond the existing `/` and `/dev` branch; persistence of kind/season (URL, storage).
+- The full responsive/a11y audit at 768px, touch-target sizing and contrast fixes (T18), and the
+  pixel-diff visual pass (T20).
+- Loading spinners, skeletons or error banners for the nav.
 
 ## Assumptions
 
-- A1: Defaults come from an injected defaults object (per kind: selected ids, selected stat keys,
-  axes; plus season, teamId, unit, default sort key) and canonical stat order is derived from the
-  kind's `StatDef[]` using the design `ORDER` rule. The NFL defaults object lives in the data layer
-  (`web/src/data/...`) next to the mock data, not in the state module. Where the initial state cannot
-  yet come from the provider, this config is the single place to change it.
-- A2: Default season for the mock is '2024' (newest, matching `getSeasons` newest-first); `teamId
-  'phi'`, `unit 'off'`, sort key `'snap'` are NFL data values and are part of the injected defaults.
-- A3: `pos` uses the literal 'All' as the generic "no filter" sentinel, as in the design; it is not a
-  league position code.
-- A4: The max of 8 selected entities is a product rule, not league data, and is a constant in the
-  state module.
-- A5: Pitch clamping happens in the reducer so the rule is enforced in one place (the design clamps in
-  the drag handler). Yaw is not clamped or wrapped.
-- A6: Toggling the add popover is allowed even when 8 are selected (the design hides the add card in
-  that case; the reducer does not block it). It always clears `q`.
-- A7: Switching kind does not reset `addStatOpen` (ticket and design only reset `q`, `pos`,
-  `addOpen`). A stale group name simply matches no group in the other kind.
-- A8: Season, team, axis, view and stat values are typed as the domain types / design unions; the
-  reducer does not check them against data.
-- A9: State lives in `useReducer` behind one React context; tests use Vitest + Testing Library already
-  set up in `web/`.
+- A1: Provider supply: a new React context for the `DataProvider` (context + `useDataProvider()`-style
+  hook) lives outside `components/` (for example `web/src/data/` or a provider module next to the
+  domain types). The composition root (`App.tsx`) is the only place that names `MockProvider` and the
+  NFL defaults; components never do. This mirrors the T06 decision that defaults are injected.
+- A2: Mounting: `App.tsx` keeps the `/dev` branch; for every other path it renders the provider
+  context, `AppStateProvider`, then the nav followed by the existing placeholder content. Later
+  tickets replace the placeholder, not the nav.
+- A3: The existing `App.test.tsx` heading check must keep passing without edits (project rule: never
+  weaken a test). Either the placeholder `<h1>StatPakd</h1>` stays below the nav, or the logo is
+  marked up as the `h1` with accessible name "StatPakd"; either satisfies AC19. Default: keep the
+  placeholder heading and make the logo non-heading text, to avoid two headings named the same,
+  the planner may choose the logo-as-h1 option instead and remove the placeholder.
+- A4: Because the app state has no league field, the active league is the first league with
+  `enabled: true` from `getLeagues`, and seasons are fetched for that league. If no league is enabled,
+  no league is active and the season select shows no options.
+- A5: Disabled league items are rendered as native `<button disabled>` (or equivalent with
+  `aria-disabled`) so they are skipped by Tab and announced as disabled; the enabled league item is
+  marked `aria-current`. A single enabled league needs no roving-tabindex tablist; the existing
+  `Tabs` primitive (which links to tab panels) is not used for leagues.
+- A6: The "SOON" tag text is a generic UI string, not league data. "Players", "Teams", "Season" and
+  the "Regular Season" suffix are generic UI strings from the design and may appear in the component.
+- A7: The existing dark `SegmentedControl` (2px gap between items) and dark `Select` primitives are
+  reused. The design select padding is `6px 10px` while the primitive uses `7px 10px`; the nav must
+  show `6px 10px` (by adjusting the dark variant or a nav override, planner's choice). The 2px item
+  gap in the segmented control is accepted as within tolerance.
+- A8: At 375px the design's markup would overflow (its right group does not wrap); allowing the
+  right group to wrap is a sanctioned deviation to meet the handoff "wraps" note and AC16.
+- A9: The design does not specify a focus style; use the existing `--color-focus` token or a white
+  outline, whichever is visible on `#111`. Final contrast decisions stay with T18.
+- A10: Async results are fetched once on mount (seasons again only if the active league changed);
+  in-flight results after unmount are ignored without React warnings.
+- A11: Clicking the already active kind still dispatches `setKind` (the reducer resets `q`, `pos`,
+  `addOpen` even then, per T06 AC14); no special-casing in the nav.
 
 ## Open questions
 
 No blocking questions. Non-blocking, for the human later:
-1. Should switching kind also close the add-stat menu (`addStatOpen = null`)? Assumed no (A7).
-2. When a season change makes a selected id missing from that season's data, should it be pruned?
-   Assumed no (out of scope; the handoff says season change keeps selections).
-3. Should defaults eventually come from the provider/API per league (e.g. a "featured" list) instead
-   of a static config in the data layer?
+1. Should the logo be the page `h1` (replacing the placeholder heading), or plain text? Assumed
+   plain text with the placeholder heading kept (A3).
+2. When more than one league is enabled, should league selection live in app state (new action) and
+   reset selections/defaults per league? Assumed out of scope (A4).
+3. Is the "Regular Season" suffix right for every league, or should the season label come from the
+   provider (for example a display label per season)? Assumed a fixed UI suffix (A6).
+4. At 375px, is the wrapped layout (Season select on its own row) acceptable to design, or should the
+   "Season" text label be hidden on narrow screens to save space? Assumed wrap, label kept (A8).
