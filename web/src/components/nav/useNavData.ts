@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useDataProvider } from '../../dataSource'
+import { firstEnabledLeagueId, useDataProvider } from '../../dataSource'
 import type { League, LeagueId, Season } from '../../domain/types'
 
 export interface NavData {
@@ -29,7 +29,7 @@ export function useNavData(): NavData {
     }
   }, [provider])
 
-  const activeLeagueId = leagues.find((l) => l.enabled)?.id ?? null
+  const activeLeagueId = firstEnabledLeagueId(leagues)
 
   useEffect(() => {
     let cancelled = false
