@@ -1,143 +1,135 @@
-# T04 requirements: Mock NFL data and provider
+# T05 requirements: Stat utilities (format, best, normalize)
 
-Source ticket: `docs/tickets/T04-mock-nfl-data.md` (its acceptance criteria are the contract).
-Related: `docs/plan.md` (mock data is deterministic fake data for 2023/2022 and must be labelled as sample
-data), T03 types in `web/src/domain/types.ts` and `web/src/domain/provider.ts`, design script in
-`design_handoff_statpakd/design/StatPakd App.dc.html` (lines ~196-326: `ROSTERS`, `OFF_T`, `DEF_T`,
-`SEASONS`, `LEAGUES`, `RAW_P`, `RAW_T`, `STATS`, `RATE`, `rnd`, `vary`, `buildPlayers`, `buildTeams`,
-`buildRoster`).
+Source ticket: `docs/tickets/T05-stat-utilities.md` (its acceptance criteria are the contract).
+Related: `docs/plan.md` (pure logic lives outside components and is unit tested first), T03 types in
+`web/src/domain/types.ts` (`StatDef`, `StatValue`, `StatMap`, `Entity`), design script in
+`design_handoff_statpakd/design/StatPakd App.dc.html` `renderVals()` (~lines 358-382, 391):
+`range`, `fmt`, `n01`, `rows` (best-of), `bars` (bar width), `radar.polys` (lower-is-better inversion).
+Design README line 56: normalization uses the full league pool range for the current season, ignoring
+nulls.
 
 ## Goal
-Port the design's sample NFL data and its builder logic (including the deterministic hash-based variation
-for 2023 and 2022) into `web/src/data/nfl/`, producing the T03 `Entity`, `RosterEntry`, `StatDef` and
-`League` shapes. Expose it through a `MockProvider` in `web/src/data/mockProvider.ts` that implements the
-T03 `DataProvider` contract, so later UI tickets can run entirely on sample data.
+
+Provide pure, league-agnostic functions in `web/src/lib/stats.ts` that format stat values, pick the
+best value(s) among selected entities, compute a pool's min/max range, and normalize values (plus the
+bar-width helper) exactly as the design script does. Every chart and table ticket will consume these,
+so their behaviour must be fully pinned by table-driven tests with 100% branch coverage.
+
+## Design-script semantics (confirmed by reading the script)
+
+Mapping: design `dec` = `StatDef.decimals`, `sign` = `signed`, `low` = `lowerIsBetter`, `e.s` = `stats`.
+
+- `fmt(k, v)`: `v == null` gives `'—'` (U+2014). If `dec` is truthy, text is `v.toFixed(dec)` (no
+  thousands separators). Otherwise text is `v.toLocaleString('en-US')` (thousands separators; default
+  `Intl` rounding to at most 3 fraction digits). If `sign` and `v > 0`, prefix `'+'`. Negative values
+  keep their native `-` (hyphen-minus); zero gets no sign.
+- Best-of (table rows): `vals` = selected values with `null`/missing removed. `best` = `min(vals)` if
+  `low` else `max(vals)`. A cell is best iff `vals.length > 1 && v != null && v === best`. So: nulls
+  ignored; exact ties are all best; fewer than 2 non-null values means nobody is best.
+- `range(k)`: `[min, max]` over the whole pool (not just selected), `null`/missing filtered out.
+- `n01(k, v)`: `v == null` gives `0`; `max === min` gives `0.5`; else `(v - min) / (max - min)`. No
+  clamping, no inversion.
+- Bar width: `v == null` gives `0%` (not 5%); else `Math.round((0.05 + 0.95 * n01) * 100)` percent.
+  Bars are NOT inverted for lower-is-better.
+- Radar: `t = n01`; if `low && v != null`, `t = 1 - t` (null stays 0, not inverted to 1). The radar
+  then applies its own `0.08 + 0.92 * t` geometry, which is not part of this ticket.
 
 ## Acceptance criteria
 
-Ticket criteria (made testable):
+Formatting (`formatStat(value, def)`)
+- AC1: `null` (and `undefined`, i.e. a missing stat key) returns `'—'` for any def.
+- AC2: When `def.decimals` is a positive number, output is the same string as
+  `value.toFixed(decimals)`, e.g. `64.25` with decimals 1 gives `'64.3'`, `7` with decimals 1 gives
+  `'7.0'`, and `1234.5` with decimals 1 gives `'1234.5'` (no thousands separator, matching the design).
+- AC3: When `def.decimals` is absent or `0`, output equals `value.toLocaleString('en-US')`, e.g.
+  `4806` gives `'4,806'`, `-1200` gives `'-1,200'`, `12.3456` gives `'12.346'`.
+- AC4: When `def.signed` is true, positive values get a leading `'+'` (`3` gives `'+3'`, `2.5` with
+  decimals 1 gives `'+2.5'`), negative values show `'-'` (`-1` gives `'-1'`), and `0` gives `'0'`.
+- AC5: When `def.signed` is false/absent, positive values have no `'+'`.
 
-- **AC1 2024 values match the design.** For season `'2024'`, a test asserts the provider/builder output for
-  at least 5 players and at least 3 teams equals the values the design script produces, including derived
-  stats. The sample must include at least one player from each position QB, RB, WR, TE. Reference values
-  (computed from the design script):
-  - Saquon Barkley (`barkley`): rushYds 2005, rushTd 13, ypc 5.8, rec 33, recYds 278, recTd 2, ypr 8.4,
-    scrim 2283, totTd 15, passYds `null`.
-  - Josh Allen (`allen`): passYds 3731, passTd 28, int 6, cmp 63.6, rate 101.4, rushYds 531, ypc 5.2,
-    rec `null`, recYds `null`, recTd `null`, ypr `null`, scrim 531, totTd 12.
-  - Kansas City Chiefs (`kc`): ppg 22.6, ypg 335.6, pass 225.0, rush 110.6, papg 19.2, to -1, third 47.4,
-    win 88.2, wins 15, meta `AFC West · 15–2` (middle dot U+00B7, en dash U+2013, as in the design).
-- **AC2 Deterministic.** Calling each builder (players, teams, roster) twice with the same arguments yields
-  deeply equal output, for every season in `['2024', '2023', '2022']`, and for every team and both roster
-  units. Calling the provider methods twice likewise resolves to deeply equal results. No use of
-  `Math.random`, `Date` or other non-deterministic input.
-- **AC3 Nulls.** For every season:
-  - every QB has `rec`, `recYds`, `recTd`, `ypr`, `tgt` and `recYpg` equal to `null`;
-  - every player with fewer than 30 carries has `ypc === null`, and every player with 30 or more has a
-    number;
-  - every player with fewer than 10 receptions (or `null` receptions) has `ypr === null`, and every player
-    with 10 or more has a number;
-  - every non-QB has `passYds`, `passTd`, `int`, `cmp`, `rate`, `passYpg`, `tdInt` equal to `null`.
-  A `null` stat is never replaced by `0`.
-- **AC4 Sample-data label.** Exactly one exported string constant (outside `web/src/domain/`) holds the
-  sample-data label the UI can show; its value is non-empty and says the data is sample data (default text
-  per A9). A test imports and asserts it.
+Best-of (`bestIndex(values, def)`)
+- AC6: Given an array of values for the selected entities, it identifies every index whose value is
+  best; the result is an ordered collection of indices (ascending), empty when none is best.
+- AC7: Higher is best by default; with `lowerIsBetter` the smallest value is best.
+- AC8: `null`/`undefined` entries are never best and are excluded when choosing the best value.
+- AC9: All indices that exactly equal (`===`) the best value are returned (ties all best).
+- AC10: If fewer than 2 non-null values exist (including empty input and all-null input), no index is
+  returned.
 
-Scope details from the ticket, made testable:
+Range (`leagueRange(entities, key)`)
+- AC11: Returns the min and max of `entity.stats[key]` across all given entities, ignoring `null` and
+  missing keys.
+- AC12: When no entity has a non-null value for `key` (or the list is empty), it returns a defined
+  "no range" result (see Assumption A4) and never throws.
 
-- **AC5 Data ported.** `RAW_P` (17 players), `RAW_T` (8 teams), `ROSTERS` (8 teams, `off` with 7 entries and
-  `def` with 5 entries each), `OFF_T`, `DEF_T` and `STATS` (22 player stat defs, 13 team stat defs) are
-  ported with the same values as the design, in files under `web/src/data/nfl/`.
-- **AC6 2023 and 2022 match the design's variation.** For seasons `'2023'` and `'2022'`, a test asserts a
-  sample of at least 3 player stats, 3 team stats (including `to` and `win`) and 2 roster stats equal the
-  values the design script's `rnd`/`vary`/`J` logic produces for the same inputs, and that at least one of
-  these differs from its 2024 value. Team `win` never exceeds 100 and roster `snap` never exceeds 100.
-- **AC7 Output shapes.** Builder and provider output type-checks as T03 types without casts to `any` or
-  `unknown`:
-  - Players map to `Entity` with `id`, `name`, `shortName` (design `short`), `badge` (position),
-    `position`, `teamId` (A3), `meta` (`TEAM · POS · #N`, e.g. `BUF · QB · #17`) and `stats` containing all
-    22 player stat keys from `STATS.players`.
-  - Teams map to `Entity` with `id`, `name`, `shortName` and `badge` (abbreviation), `meta`
-    (`<division> · W–L`), no `position`, and `stats` containing all 13 team stat keys.
-  - Roster rows map to `RosterEntry` with `id` (A4), `name`, `position` (role with its digit removed, e.g.
-    `RB1` gives `RB`), `number` (shirt number) and `stats`: offense keys `snap`, `touch`, `tgt`, `scrim`,
-    `td`, `ypt`; defense keys `snap`, `tkl`, `sk`, `int`, `pd`, `ff`, `take`.
-  - Stat defs map to `StatDef` (`k` to `key`, `g` to `group`, `dec` to `decimals`, `low` to
-    `lowerIsBetter`, `sign` to `signed`, `extra` to `extra`), in the design's `STATS` array order.
-- **AC8 League registry.** `getLeagues()` resolves to four leagues in the order NFL, NBA, MLB, NHL; only NFL
-  has `enabled: true`. NBA, MLB, NHL have `enabled: false` (the UI renders these as "Soon").
-- **AC9 Provider.** `MockProvider` in `web/src/data/mockProvider.ts` implements `DataProvider` (checked by
-  the type system, e.g. `const p: DataProvider = new MockProvider()` or equivalent) and:
-  - `getSeasons(nfl)` resolves to `['2024', '2023', '2022']`;
-  - `getStatDefs(nfl, 'players' | 'teams')` resolves to the 22 / 13 defs from AC7;
-  - `getEntities(nfl, kind, season)` resolves to the 17 players / 8 teams for that season;
-  - `getRoster(nfl, teamId, unit, season)` resolves to the roster rows for that team and unit (`'off'`,
-    `'def'`);
-  - behaviour for disabled leagues and unknown ids follows A6.
-- **AC10 Fresh data per call.** Mutating an object returned by the provider or a builder does not change the
-  result of a later call.
-- **AC11 Tests.** Vitest tests under `web/src/data/` cover AC1 to AC10, including snapshot tests of a few
-  entities (at least one player, one team and one roster row) with the snapshot files committed.
-- **AC12 Quality gates and boundaries.** `npm test`, `npm run lint`, `npm run typecheck` and
-  `npm run format:check` pass. `web/src/domain/` is unchanged (no league-specific names added there). No
-  existing test is removed or weakened. Files changed are limited to `web/src/data/**` and optionally
-  `docs/progress.md`.
+Normalize (`normalize(value, range, def, ...)`) and bar width
+- AC13: For a value inside the range, returns `(value - min) / (max - min)`: min gives `0`, max gives
+  `1`, midpoint gives `0.5`.
+- AC14: When `min === max` (division by zero), returns `0.5` and never `NaN`/`Infinity`.
+- AC15: `null`/missing value returns `0`.
+- AC16: Callers can request lower-is-better inversion (radar use): when requested and
+  `def.lowerIsBetter` is true and value is non-null, the result is `1 - n` (min gives `1`, max gives
+  `0`, `min === max` gives `0.5`); null still returns `0`. When not requested (bar use), or when
+  `lowerIsBetter` is false, no inversion happens.
+- AC17: Bar-width helper returns an integer percentage `Math.round((0.05 + 0.95 * n) * 100)` from the
+  non-inverted normalized value: pool min gives `5`, pool max gives `100`, `min === max` gives `53`.
+  A `null`/missing value gives `0`.
+- AC18: With a "no range" result (AC12), normalize returns `0.5` for a non-null value and `0` for null;
+  bar width follows from that. No `NaN`/`Infinity` is ever returned.
+
+Cross-cutting
+- AC19: For the same inputs, every function produces the same output as the corresponding design-script
+  expression (`fmt`, best-of condition, `range`, `n01`, bar `p`, radar `t`). Tests include table cases
+  using the T04 stat defs (e.g. `int` and `papg` lower-is-better, `to` signed, `pdiff` signed with
+  decimals 1).
+- AC20: The functions are pure (no mutation of inputs, no React, no league-specific keys inside
+  `stats.ts`) and are exported from `web/src/lib/stats.ts`.
+- AC21: Unit tests are table-driven and cover nulls, ties, signed, lower-is-better, `<2` non-null, and
+  `min === max`; `web/src/lib/stats.ts` reaches 100% branch (and statement/function/line) coverage.
+  Coverage command, run from `web/`:
+  `npx vitest run src/lib/stats.test.ts --coverage --coverage.include=src/lib/stats.ts --coverage.thresholds.100`
+  (`@vitest/coverage-v8` is already in devDependencies and installed; `vite.config.ts` has no
+  coverage config today. The command must exit non-zero below 100%.)
+- AC22: `npm test`, `npm run lint`, `npm run typecheck`, and `npm run format:check` pass in `web/`.
 
 ## Out of scope
-- Formatting, best-of, range and normalization utilities (T05); app state, reducer, context or a hook that
-  supplies the provider to components (T06).
-- Any UI, including rendering the sample-data label, the league "Soon" tags, or wiring `MockProvider` into
-  `App`.
-- Roster column and share-of-production definitions (design `OFF_COLS`, `DEF_COLS`, `OFF_SHARE`,
-  `DEF_SHARE`), `ORDER` grouping, `POS` filter list, `COLORS`/`MAX` and the design's per-row colour index
-  `i` (later UI tickets).
-- Real data, the Python API, the API provider or runtime validation (T21 to T23).
-- Adding team entities for player teams not in `RAW_T` (CIN, WAS, ATL, DAL, LV), or rosters for them.
-- Changing `web/src/domain/` types, tsconfig, lint config or package dependencies.
-- Simulated network latency or loading states in the mock provider.
+
+- Using the functions in any component (table, bars, radar, 3D): later tickets.
+- Radar geometry (`0.08 + 0.92 * t`, points, rings), 3D mapping (`2 * n01 - 1`), projection math.
+- Team breakdown roster formatting and best rule (`tf` uses `String(v)`, `snap` gets `'%'`, roster best
+  is `v > 0 && v === max` with no `>1` rule): belongs to the team breakdown ticket.
+- Share bar percentages / leader text.
+- Locale switching; output is always `en-US`.
+- A permanent coverage config or npm script is optional, not required (see A7).
+- Any Python changes.
 
 ## Assumptions
-Chosen defaults because the run is non-interactive. Each follows the ticket, the design script, CLAUDE.md
-and `docs/plan.md`.
 
-- **A1 Faithful port.** Numbers, rounding (`Math.round(x * 10) / 10`), thresholds (`>= 30` carries,
-  `>= 10` receptions, `>= 20` touches for `ypt`), `/ 17` per-game divisors, `/ 0.7` target estimate and
-  the FNV-1a `rnd` hash (including its seed strings such as `id + season + key`, `name + season + key`,
-  `id + season + 'ya'`) are copied exactly, so outputs equal the design script's. Where the design's quirks
-  affect output (e.g. QB `tgt` null, `vary` returning the input unchanged for 2024), they are preserved.
-- **A2 Stat keys keep the design names** (`passYds`, `ppg`, `snap`, ...). League-specific names are fine in
-  `web/src/data/` (the "no league names" rule applies to `web/src/domain/` and components).
-- **A3 Player `teamId`** is the lowercased team abbreviation (e.g. `BUF` gives `buf`), which equals the team
-  entity id when the team exists in `RAW_T`. For teams not in `RAW_T` it refers to a team with no entity;
-  consumers must tolerate that.
-- **A4 Roster `id`.** The design has none. Each row gets a deterministic id unique within the whole mock
-  dataset (e.g. derived from team id, unit and row index, or a name slug). The exact format is not part of
-  the contract.
-- **A5 Ids and labels.** League ids are lowercase (`nfl`, `nba`, `mlb`, `nhl`) and league names are the
-  design labels (`NFL`, `NBA`, `MLB`, `NHL`). Player and team ids are the design ids (`allen`, `kc`, ...).
-  Roster units are the design keys `off` and `def`. The design's `big` text (`#17`) is not stored (T03 A6).
-- **A6 Disabled and unknown inputs.** For a known but disabled league, `getSeasons`, `getStatDefs`,
-  `getEntities` and `getRoster` resolve to `[]` (empty result, per the T03 contract). An unknown league id,
-  unknown season, unknown team id or unknown roster unit rejects the promise with an `Error`.
-- **A7 Optional `StatDef` fields** are omitted when the design does not set them (not set to `undefined`
-  or `false`).
-- **A8 Entity order** follows the design arrays (`RAW_P`, `RAW_T`, `ROSTERS[team][unit]`); no sorting.
-- **A9 Sample-data label text** is the design's footer text: `Sample data for design purposes.` One exported
-  constant (for example `SAMPLE_DATA_LABEL`) in `web/src/data/`; the UI ticket that shows it decides where.
-- **A10 "Builders"** means exported, synchronous, pure functions in `web/src/data/nfl/` equivalent to
-  `buildPlayers(season)`, `buildTeams(season)` and `buildRoster(teamId, unit, season)`, so tests can call
-  them directly; `MockProvider` wraps them in promises.
-- **A11 Reference values.** Expected 2023/2022 values in tests are derived by running the design's
-  algorithm (e.g. computed once from the design script and pasted in as literals, or captured via snapshot
-  after a manual check), not by calling the code under test.
+- A1: The design script wins where the ticket wording is looser. In particular, thousands separators
+  only appear when `decimals` is absent/0 (design uses `toFixed` otherwise), and `decimals: 0` behaves
+  like "no decimals" (`toLocaleString`, up to 3 fraction digits), because the design tests `d.dec`
+  for truthiness.
+- A2: `bestIndex` returns all best indices (ties), not a single index, despite the singular name; the
+  name stays as in the ticket. Equality is exact `===` (no epsilon), as in the design.
+- A3: A missing key (`undefined`) is treated the same as `null` everywhere, matching the design's
+  `!= null` checks.
+- A4: `leagueRange` with no non-null values returns a "no range" result (e.g. `null`) rather than the
+  design's `[Infinity, -Infinity]`; the design never feeds a non-null value into that case, so outputs
+  for design-reachable inputs are unchanged. Exact shape is the planner's choice.
+- A5: `normalize` does not clamp, matching the design; values come from the same pool the range is
+  computed over, so results are within [0, 1]. Tests only assert in-range behaviour plus the
+  degenerate cases.
+- A6: Inversion for lower-is-better is opt-in at the call site (radar) and off by default (bars), since
+  the design inverts only the radar. Negative zero and `NaN` inputs are not handled specially.
+- A7: Running coverage via CLI flags is sufficient for the AC; the planner may additionally add a
+  `test:coverage` script or a `coverage` block in `vite.config.ts` (does not change behaviour).
+- A8: The em dash `'—'` (U+2014) is the null placeholder, as in the design.
 
 ## Open questions
-Ordered by how much they block. All have defaults recorded above, so none block this ticket.
 
-1. Should unknown ids/seasons reject or resolve empty (A6)? Affects error handling in T06/T23.
-2. Should the sample-data label say more than the design footer, e.g. that 2023 and 2022 are generated
-   (A9, `docs/plan.md` says "do not present it as real")?
-3. Should player `teamId` point only at existing team entities (A3), and should teams such as CIN, WAS,
-   ATL, DAL, LV get team entities?
-4. Should roster column/share definitions be served through `DataProvider` (carried over from T03; matters
-   for T16/T17 and T22)?
+None blocking; defaults chosen above. Non-blocking, for the human later:
+1. Should decimal-formatted values also get thousands separators (e.g. `'1,234.5'`)? Design says no;
+   current per-game stats never reach 1,000, so it is invisible today.
+2. Should `decimals: 0` round to an integer (`'1,235'`) rather than follow the design's truthiness
+   check? No current stat def uses `decimals: 0`.
+3. Should `normalize` clamp out-of-pool values to [0, 1] defensively once real API data arrives?
