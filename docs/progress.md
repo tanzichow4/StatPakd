@@ -12,7 +12,7 @@ Range T01-T20. Integration branch: `autobuild`. Baseline before run: web lint/ty
 | T06 | done | ticket/T06-app-state | Merged 003931f. No UI, browser QA skipped. 1 fix round (lint warnings in tests). 675 web tests pass. |
 | T07 | done | ticket/T07-global-nav | Merged 67693eb. Browser QA PASS at 1280/375 (docs/qa/report.md; qa-tester used playwright-core scripts because the Playwright MCP tools were unavailable to the subagent). 722 web tests pass. |
 | T08 | in-progress | ticket/T08-entity-picker | |
-| T09 | todo | ticket/T09-stat-sidebar | |
+| T09 | in-progress | ticket/T09-stat-sidebar | |
 | T10 | todo | ticket/T10-compare-panel-and-table | |
 | T11 | todo | ticket/T11-bars-chart | |
 | T12 | todo | ticket/T12-radar-chart | |
