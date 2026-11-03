@@ -1,6 +1,6 @@
 import { vi } from 'vitest'
 import type { DataProvider } from '../domain/provider'
-import type { League, LeagueUiDefaults, Season, StatDef } from '../domain/types'
+import type { Entity, EntityKind, League, LeagueUiDefaults, Season, StatDef } from '../domain/types'
 
 /** Invented leagues: nothing here matches a real league or the mock data. */
 export const fixtureLeagues: League[] = [
@@ -63,4 +63,59 @@ export function deferred<T>(): Deferred<T> {
     reject = rej
   })
   return { promise, resolve, reject }
+}
+
+const playerRows: [string, string, string | undefined, string][] = [
+  ['zp1', 'Ola Quenby', 'ZA', 'zt1'],
+  ['zp2', 'Pim Rastow', 'ZB', 'zt1'],
+  ['zp3', 'Quill Dorvane', 'ZC', 'zt2'],
+  ['zp4', 'Rex Tolliver', 'ZA', 'zt2'],
+  ['zp5', 'Sana Whitlock', 'ZB', 'zt1'],
+  ['zp6', 'Tobi Yarrow', 'ZC', 'zt2'],
+  ['zp7', 'Ulla Vexley', 'ZA', 'zt1'],
+  ['zp8', 'Vik Zandor', 'ZB', 'zt2'],
+  ['zp9', 'Wren Ostby', 'ZC', 'zt1'],
+  ['zp10', 'Xan Pellum', undefined, 'zt2'],
+]
+
+/** Ten invented players with invented positions; the last has no position. */
+export function fixturePlayers(): Entity[] {
+  return playerRows.map(([id, name, position, teamId]) => ({
+    id,
+    name,
+    shortName: name.split(' ')[1],
+    meta: `${teamId} meta ${id}`,
+    badge: position ?? 'ZN',
+    ...(position ? { position } : {}),
+    teamId,
+    stats: { zscore: 1, zblip: 2 },
+  }))
+}
+
+/** Four invented teams; teams carry no teamId. */
+export function fixtureTeams(): Entity[] {
+  const rows: [string, string, string][] = [
+    ['zt1', 'Zephyr Flarns', 'ZQA'],
+    ['zt2', 'Quark Boulders', 'ZQB'],
+    ['zt3', 'Mirth Hawks', 'ZQC'],
+    ['zt4', 'Nimbus Owls', 'ZQD'],
+  ]
+  return rows.map(([id, name, shortName]) => ({
+    id,
+    name,
+    shortName,
+    meta: `meta ${id}`,
+    badge: shortName,
+    stats: { ztpts: 1, ztwin: 2 },
+  }))
+}
+
+/** A fixture provider whose getEntities resolves the fixture players or teams by kind. */
+export function entitiesProvider(overrides: Partial<DataProvider> = {}): DataProvider {
+  return createFixtureProvider({
+    getEntities: vi.fn((_leagueId: string, kind: EntityKind) =>
+      Promise.resolve(kind === 'players' ? fixturePlayers() : fixtureTeams()),
+    ),
+    ...overrides,
+  })
 }

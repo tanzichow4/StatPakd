@@ -1,4 +1,6 @@
+import styles from './App.module.css'
 import { GlobalNav } from './components/nav'
+import { EntityPicker } from './components/picker'
 import { MockProvider } from './data/mockProvider'
 import { nflStatDefsByKind, nflUiDefaults } from './data/nfl'
 import { DataSource } from './dataSource'
@@ -13,8 +15,9 @@ export default function App() {
     <DataSource provider={provider}>
       <AppStateProvider defaults={nflUiDefaults()} statDefs={nflStatDefsByKind()}>
         <GlobalNav />
-        <main>
-          <h1>StatPakd</h1>
+        <main className={styles.content}>
+          <h1 className={styles.srOnly}>StatPakd</h1>
+          <EntityPicker />
         </main>
       </AppStateProvider>
     </DataSource>
