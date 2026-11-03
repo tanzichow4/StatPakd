@@ -1,0 +1,97 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`AC11: snapshots > defense roster row snapshot (Nick Bolton, kc 2024) 1`] = `
+{
+  "id": "kc-def-2",
+  "name": "Nick Bolton",
+  "number": 32,
+  "position": "LB",
+  "stats": {
+    "ff": 1,
+    "int": 1,
+    "pd": 7,
+    "sk": 2,
+    "snap": 92,
+    "take": 2,
+    "tkl": 161,
+  },
+}
+`;
+
+exports[`AC11: snapshots > offense roster row snapshot (Josh Allen, buf 2023) 1`] = `
+{
+  "id": "buf-off-0",
+  "name": "Josh Allen",
+  "number": 17,
+  "position": "QB",
+  "stats": {
+    "scrim": 546,
+    "snap": 94,
+    "td": 13,
+    "tgt": 0,
+    "touch": 99,
+    "ypt": 5.5,
+  },
+}
+`;
+
+exports[`AC11: snapshots > player snapshot (Saquon Barkley 2024) 1`] = `
+{
+  "badge": "RB",
+  "id": "barkley",
+  "meta": "PHI · RB · #26",
+  "name": "Saquon Barkley",
+  "position": "RB",
+  "shortName": "S. Barkley",
+  "stats": {
+    "carries": 345,
+    "cmp": null,
+    "int": null,
+    "passTd": null,
+    "passYds": null,
+    "passYpg": null,
+    "rate": null,
+    "rec": 33,
+    "recTd": 2,
+    "recYds": 278,
+    "recYpg": 16.4,
+    "rushTd": 13,
+    "rushYds": 2005,
+    "rushYpg": 117.9,
+    "scrim": 2283,
+    "tdInt": null,
+    "tgt": 47,
+    "totTd": 15,
+    "touches": 378,
+    "ypc": 5.8,
+    "ypr": 8.4,
+    "ypt": 6,
+  },
+  "teamId": "phi",
+}
+`;
+
+exports[`AC11: snapshots > team snapshot (Kansas City Chiefs 2024) 1`] = `
+{
+  "badge": "KC",
+  "id": "kc",
+  "meta": "AFC West · 15–2",
+  "name": "Kansas City Chiefs",
+  "shortName": "KC",
+  "stats": {
+    "papg": 19.2,
+    "pass": 225,
+    "passPct": 67,
+    "pdiff": 3.4,
+    "ppg": 22.6,
+    "rush": 110.6,
+    "third": 47.4,
+    "to": -1,
+    "totPts": 384,
+    "win": 88.2,
+    "wins": 15,
+    "yapg": 288.2,
+    "ypg": 335.6,
+  },
+}
+`;
