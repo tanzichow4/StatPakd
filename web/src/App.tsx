@@ -1,6 +1,7 @@
 import styles from './App.module.css'
 import { GlobalNav } from './components/nav'
 import { EntityPicker } from './components/picker'
+import { StatSidebar } from './components/sidebar'
 import { MockProvider } from './data/mockProvider'
 import { nflStatDefsByKind, nflUiDefaults } from './data/nfl'
 import { DataSource } from './dataSource'
@@ -18,6 +19,10 @@ export default function App() {
         <main className={styles.content}>
           <h1 className={styles.srOnly}>StatPakd</h1>
           <EntityPicker />
+          <div className={styles.body}>
+            <StatSidebar />
+            <section className={styles.panel} aria-label="Stat views" />
+          </div>
         </main>
       </AppStateProvider>
     </DataSource>

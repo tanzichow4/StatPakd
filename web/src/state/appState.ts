@@ -52,6 +52,7 @@ export type AppAction =
   | { type: 'toggleStat'; key: string }
   | { type: 'addStat'; key: string }
   | { type: 'toggleAddStatMenu'; group: string }
+  | { type: 'closeAddStatMenu' }
   | { type: 'setKind'; kind: EntityKind }
   | { type: 'setSeason'; season: Season }
   | { type: 'setQuery'; q: string }
@@ -179,6 +180,8 @@ export function createAppReducer(
       }
       case 'toggleAddStatMenu':
         return { ...state, addStatOpen: state.addStatOpen === action.group ? null : action.group }
+      case 'closeAddStatMenu':
+        return state.addStatOpen === null ? state : { ...state, addStatOpen: null }
       case 'setKind':
         return { ...state, kind: action.kind, q: '', pos: ALL_POSITIONS, addOpen: false }
       case 'setSeason':

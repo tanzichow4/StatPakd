@@ -48,6 +48,35 @@ export function fixtureStatDefs(): { players: StatDef[]; teams: StatDef[] } {
   }
 }
 
+/** Invented stat definitions for the sidebar tests: interleaved extras and an unselected group. */
+export function fixtureSidebarStatDefs(): { players: StatDef[]; teams: StatDef[] } {
+  return {
+    players: [
+      { key: 'zscore', label: 'Zscore', group: 'zalpha' },
+      { key: 'zblip', label: 'Zblip', group: 'zalpha' },
+      { key: 'zgrit', label: 'Zgrit', group: 'zbeta' },
+      { key: 'zhum', label: 'Zhum', group: 'zbeta' },
+      { key: 'zkilt', label: 'Zkilt', group: 'zgamma' },
+      { key: 'zlorn', label: 'Zlorn', group: 'zdelta' },
+      { key: 'zdrift', label: 'Zdrift', group: 'zalpha', extra: true },
+      { key: 'zjolt', label: 'Zjolt', group: 'zbeta', extra: true },
+    ],
+    teams: [
+      { key: 'ztpts', label: 'Ztpts', group: 'ztoff' },
+      { key: 'ztwin', label: 'Ztwin', group: 'ztoff' },
+      { key: 'ztblk', label: 'Ztblk', group: 'ztdef', extra: true },
+    ],
+  }
+}
+
+/** Defaults matching fixtureSidebarStatDefs: three player stats, one (locked) team stat. */
+export function fixtureSidebarUiDefaults(): LeagueUiDefaults {
+  const d = fixtureUiDefaults()
+  d.players.stats = ['zscore', 'zgrit', 'zkilt']
+  d.teams.stats = ['ztpts']
+  return d
+}
+
 export interface Deferred<T> {
   promise: Promise<T>
   resolve: (value: T) => void

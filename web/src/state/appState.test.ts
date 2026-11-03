@@ -237,6 +237,32 @@ describe('AC12: add-stat menu group', () => {
   })
 })
 
+describe('T09: closeAddStatMenu', () => {
+  it('AC14: closes an open menu (Escape / outside press / kind switch share this action)', () => {
+    const s = reducer(make({ addStatOpen: 'Passing' }), { type: 'closeAddStatMenu' })
+    expect(s.addStatOpen).toBeNull()
+  })
+  it('AC15: is idempotent, closing twice stays closed', () => {
+    const once = reducer(make({ addStatOpen: 'Passing' }), { type: 'closeAddStatMenu' })
+    const twice = reducer(once, { type: 'closeAddStatMenu' })
+    expect(twice.addStatOpen).toBeNull()
+  })
+  it('AC15: returns the same reference when the menu is already closed', () => {
+    const before = initial()
+    expect(reducer(before, { type: 'closeAddStatMenu' })).toBe(before)
+  })
+  it('AC16: changes nothing except addStatOpen', () => {
+    const before = make({ addStatOpen: 'Passing', addOpen: true, q: 'x', kind: 'teams' })
+    const s = reducer(before, { type: 'closeAddStatMenu' })
+    expect(changedOutside(before, s, ['addStatOpen'])).toEqual([])
+  })
+  it('AC25: toggleAddStatMenu still opens after a close', () => {
+    const closed = reducer(make({ addStatOpen: 'Passing' }), { type: 'closeAddStatMenu' })
+    const s = reducer(closed, { type: 'toggleAddStatMenu', group: 'Passing' })
+    expect(s.addStatOpen).toBe('Passing')
+  })
+})
+
 describe('AC13: stats are separate per kind', () => {
   it('AC13: player stat changes leave team stats alone', () => {
     const s = reducer(initial(), { type: 'toggleStat', key: 'int' })
@@ -494,6 +520,7 @@ describe('AC32: no-op actions return the same reference', () => {
     ['AC30 setAxis bad index', initial, { type: 'setAxis', index: 5 as 0, key: 'int' }],
     ['AC31 setCamera NaN', initial, { type: 'setCamera', yaw: NaN, pitch: 0 }],
     ['unknown action type', initial, { type: 'bogus' } as unknown as AppAction],
+    ['T09 closeAddStatMenu when already closed', initial, { type: 'closeAddStatMenu' }],
   ]
   it.each(cases)('AC32: %s', (_name, build, action) => {
     const before = build()
@@ -525,6 +552,7 @@ describe('AC26: purity', () => {
     { type: 'setUnit', unit: 'def' },
     { type: 'sortRoster', key: 'snap' },
     { type: 'sortRoster', key: 'age' },
+    { type: 'closeAddStatMenu' },
   ]
   const states: [string, () => AppState][] = [
     ['players', initial],
