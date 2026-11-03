@@ -6,7 +6,7 @@ Range T01-T20. Integration branch: `autobuild`. Baseline before run: web lint/ty
 |---|---|---|---|
 | T01 | done | (pre-existing on main) | Already implemented before the run; baseline checks green. |
 | T02 | done | (pre-existing on main) | Already implemented before the run; baseline checks green. |
-| T03 | todo | ticket/T03-domain-types-and-provider-interface | |
+| T03 | in-progress | ticket/T03-domain-types-and-provider-interface | |
 | T04 | todo | ticket/T04-mock-nfl-data | |
 | T05 | todo | ticket/T05-stat-utilities | |
 | T06 | todo | ticket/T06-app-state | |
