@@ -11,7 +11,7 @@ Range T01-T20. Integration branch: `autobuild`. Baseline before run: web lint/ty
 | T05 | done | ticket/T05-stat-utilities | Merged 009881c. No UI, browser QA skipped. 100% branch coverage on stats.ts. |
 | T06 | done | ticket/T06-app-state | Merged 003931f. No UI, browser QA skipped. 1 fix round (lint warnings in tests). 675 web tests pass. |
 | T07 | done | ticket/T07-global-nav | Merged 67693eb. Browser QA PASS at 1280/375 (docs/qa/report.md; qa-tester used playwright-core scripts because the Playwright MCP tools were unavailable to the subagent). 722 web tests pass. |
-| T08 | in-progress | ticket/T08-entity-picker | |
+| T08 | done | ticket/T08-entity-picker | Merged f485888. Browser QA PASS at 1280/375 (summary in docs/qa/T08-summary.md; the agent's own report file was not saved). 903 web tests pass. |
 | T09 | in-progress | ticket/T09-stat-sidebar | |
 | T10 | todo | ticket/T10-compare-panel-and-table | |
 | T11 | todo | ticket/T11-bars-chart | |
@@ -37,7 +37,11 @@ Range T01-T20. Integration branch: `autobuild`. Baseline before run: web lint/ty
 
 - T07: active league = first enabled league (no league field in app state; league switching is out of scope); DataProvider supplied via a DataSource context in web/src/dataSource/; App.tsx is the only file naming MockProvider; logo is plain text, placeholder h1 stays; at 375px the right-hand group wraps (deliberate deviation from the design); dark Select padding changed to 6px 10px; 'Regular Season' suffix is fixed text; added AC21/AC22.
 
+- T08: player cards show entity.badge (position), not jersey number, because Entity has no number field; search matches name OR teamId (players) / shortName (teams); position chips derived from loaded data; popover is non-modal, outside click does not close it; popover shifts left to stay inside the viewport (AC35); popover root is a <dialog open> and chip group a <fieldset> to satisfy lint; useActiveLeagueId added to dataSource (nav and picker each call getLeagues once); picker shown for Players, and for Teams only in compare mode.
+
 ## Out-of-scope ideas
+
+- T08: at 375px the open popover is ~450px tall and extends past the viewport bottom, making the page scroll; revisit in T18 (responsive). Many-chip wrapping not stressed with mock data.
 
 - T07: placeholder h1 sits flush at x=0 (fine until T08+ replaces the placeholder). Playwright MCP tools not reachable from subagents: qa-tester falls back to playwright-core scripts.
 
