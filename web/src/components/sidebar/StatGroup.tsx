@@ -40,7 +40,11 @@ export function StatGroup({
   useEffect(() => {
     if (!open) return
     const onPointerDown = (event: PointerEvent) => {
-      if (wrapperRef.current?.contains(event.target as Node)) return
+      const target = event.target as Element | null
+      if (wrapperRef.current?.contains(target as Node)) return
+      // Another group's Add button: leave the menu open so the layout does not shift
+      // before mouseup; that button's own click switches the open menu.
+      if (target?.closest?.('[data-add-stat-button]')) return
       onCloseRef.current('outside')
     }
     const onKeyDown = (event: KeyboardEvent) => {
@@ -84,6 +88,7 @@ export function StatGroup({
           <button
             ref={addButtonRef}
             type="button"
+            data-add-stat-button=""
             className={styles.add}
             aria-expanded={open}
             aria-controls={open ? menuId : undefined}
