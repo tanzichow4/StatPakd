@@ -50,6 +50,27 @@ export interface StatDef {
   extra?: boolean
 }
 
+/** Default selections for one entity kind. */
+export interface KindDefaults {
+  /** Initially selected entity ids, in colour order. */
+  sel: EntityId[]
+  /** Initially shown stat keys. */
+  stats: string[]
+  /** Initial stat keys for the X, Y and Z axes. */
+  ax: [string, string, string]
+}
+
+/** Initial UI choices for a league, supplied by the data layer. */
+export interface LeagueUiDefaults {
+  season: Season
+  teamId: TeamId
+  unit: RosterUnit
+  /** Initial roster sort key. */
+  sortKey: string
+  players: KindDefaults
+  teams: KindDefaults
+}
+
 /** A player or team with its stats for one season. */
 export interface Entity {
   id: EntityId
