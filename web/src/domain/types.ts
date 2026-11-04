@@ -58,6 +58,10 @@ export interface StatDef {
    * Share stats show in definition order.
    */
   shareLabel?: string
+  /**
+   * True when the value is a 0-100 percentage: the roster table appends `%` and shows a mini bar.
+   */
+  percent?: boolean
 }
 
 /**

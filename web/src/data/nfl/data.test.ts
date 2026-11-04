@@ -345,6 +345,31 @@ describe('roster unit definitions (AC6, AC7)', () => {
     expect(byKey('off').stats.find((s) => s.key === 'ypt')?.decimals).toBe(1)
   })
 
+  it('AC6: the only percent stat is snap, in both units', () => {
+    for (const key of ['off', 'def']) {
+      const percent = byKey(key)
+        .stats.filter((s) => s.percent === true)
+        .map((s) => s.key)
+      expect(percent).toEqual(['snap'])
+    }
+  })
+
+  it('AC10: the non-extra labels per unit are the table columns', () => {
+    const labels = (key: string) =>
+      byKey(key)
+        .stats.filter((s) => !s.extra)
+        .map((s) => s.label)
+    expect(labels('off')).toEqual([
+      'Snap %',
+      'Touches',
+      'Targets',
+      'Scrim Yds',
+      'TD',
+      'Yds / Touch',
+    ])
+    expect(labels('def')).toEqual(['Snap %', 'Tackles', 'Sacks', 'INT', 'Pass Def', 'Forced Fum'])
+  })
+
   it('AC6: every stat def has a key, label and group matching its unit', () => {
     for (const unit of rosterUnitDefs()) {
       for (const s of unit.stats) {
