@@ -15,6 +15,8 @@ import compareTable from './CompareTable.tsx?raw'
 import compareTableHelpers from './tableModel.ts?raw'
 import emptyState from './EmptyState.tsx?raw'
 import index from './index.ts?raw'
+import radarChart from './RadarChart.tsx?raw'
+import radarModel from './radarModel.ts?raw'
 
 const sources: Record<string, string> = {
   'ComparePanel.tsx': comparePanel,
@@ -22,6 +24,8 @@ const sources: Record<string, string> = {
   'BarsChart.tsx': barsChart,
   'barsModel.ts': barsModel,
   'ChartPlaceholder.tsx': chartPlaceholder,
+  'RadarChart.tsx': radarChart,
+  'radarModel.ts': radarModel,
   'EmptyState.tsx': emptyState,
   'tableModel.ts': compareTableHelpers,
   'index.ts': index,
@@ -78,6 +82,12 @@ describe('AC28: compare source files hold no league literals', () => {
     expect(findHits(`${compareTableHelpers}\nconst z = "Pass Yds"`)).toContain('Pass Yds')
     expect(findHits(`${barsChart}\nconst w = 'passYds'`)).toContain('passYds')
     expect(findHits(`${barsModel}\nconst v = "Passing"`)).toContain('Passing')
+  })
+  it('AC21: the scan would catch a planted literal in the radar files', () => {
+    expect(findHits(`${radarChart}\nconst a = 'passYds'`)).toContain('passYds')
+    expect(findHits(`${radarChart}\nconst b = "Pass Yds"`)).toContain('Pass Yds')
+    expect(findHits(`${radarModel}\nconst c = "Passing"`)).toContain('Passing')
+    expect(findHits(`${radarModel}\nconst d = \`nfl\``)).toContain('nfl')
   })
 })
 
