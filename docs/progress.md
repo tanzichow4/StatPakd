@@ -14,7 +14,7 @@ Range T01-T20. Integration branch: `autobuild`. Baseline before run: web lint/ty
 | T08 | done | ticket/T08-entity-picker | Merged f485888. Browser QA PASS at 1280/375 (summary in docs/qa/T08-summary.md; the agent's own report file was not saved). 903 web tests pass. |
 | T09 | done | ticket/T09-stat-sidebar | Merged 68a1c34. Browser QA: round 1 FAIL (F1: pressing a lower group's Add stat while a menu was open only closed it), fixed with regression test, round 2 PASS (docs/qa/T09-report.md, T09-report-2.md). 1043 web tests pass. |
 | T10 | done | ticket/T10-compare-panel-and-table | Merged 98524fe. Browser QA round 1 FAIL (F1 page-level horizontal scroll from sr-only spans), fixed; round 2 PASS (docs/qa/T10-report.md, T10-report-2.md). 1209 web tests pass. |
-| T11 | in-progress | ticket/T11-bars-chart | |
+| T11 | done | ticket/T11-bars-chart | Merged c1d3fee. Browser QA PASS first time (docs/qa/T11-report.md). 1257 web tests pass. |
 | T12 | todo | ticket/T12-radar-chart | |
 | T13 | todo | ticket/T13-3d-math | |
 | T14 | todo | ticket/T14-3d-chart | |
@@ -42,6 +42,8 @@ Range T01-T20. Integration branch: `autobuild`. Baseline before run: web lint/ty
 - T09: stat defs load via useStatDefs (stale results ignored); new reducer action closeAddStatMenu (setKind unchanged); sidebar closes the menu on kind change via an effect, so a future ticket that hides the sidebar (Team breakdown mode) must dispatch closeAddStatMenu itself; last selected stat is locked with aria-disabled (dimmed, still focusable) via new Checkbox props locked/inputRef/className; groups/menu are <fieldset> elements; outside pointerdown closes the menu except on another group's Add button; sidebar stays 232px and stacks above the main area at 375px; added AC27 (focus after deselect).
 
 - T10: compare tab default is 3D chart; chart tabs are placeholders until T11-T14; compact header (5+ entities) omits the sub line when badge equals shortName (teams); sr-only spans clipped via position:relative on the scroll container.
+
+- T11: bars not inverted for lower-is-better (design script); N/A shows muted dash with no fill; equal pool range gives ~52% width; narrow screens stack the label above the bars via flex-wrap; chart is non-interactive.
 
 ## Out-of-scope ideas
 
