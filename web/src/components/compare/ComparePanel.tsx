@@ -4,7 +4,7 @@ import { useEntities } from '../picker/useEntities'
 import { useStatDefs } from '../sidebar/useStatDefs'
 import { SegmentedControl, TabPanel, Tabs } from '../ui'
 import { BarsChart } from './BarsChart'
-import { ChartPlaceholder } from './ChartPlaceholder'
+import { Chart3D } from './Chart3D'
 import { RadarChart } from './RadarChart'
 import { resolveColumns, resolveRows } from './tableModel'
 import styles from './ComparePanel.module.css'
@@ -32,27 +32,24 @@ export function ComparePanel() {
   const statKeys = state.stats[kind]
   const columns = useMemo(() => resolveColumns(sel, entities), [sel, entities])
   const rows = useMemo(() => resolveRows(statKeys, defs), [statKeys, defs])
+  const loaded = entities.length > 0 && defs.length > 0
   const hasSelection = sel.length > 0
   const ready = columns.length > 0 && rows.length > 0
 
   const renderPanel = (value: ViewMode) => {
     if (value !== view) return null
-    const placeholder3d = value === '3d' ? <ChartPlaceholder title="3D chart" /> : null
+    if (value === '3d' && loaded) return <Chart3D pool={entities} defs={defs} />
     if (!hasSelection) {
       return (
         <div className={styles.content}>
           <EmptyState kind={kind} />
-          {placeholder3d}
         </div>
       )
     }
-    if (!ready) return placeholder3d
+    if (!ready || value === '3d') return null
     if (value === 'num') return <CompareTable kind={kind} columns={columns} rows={rows} />
-    if (value === '2d') {
-      if (chart2 === 'bars') return <BarsChart columns={columns} rows={rows} pool={entities} />
-      return <RadarChart columns={columns} rows={rows} pool={entities} />
-    }
-    return placeholder3d
+    if (chart2 === 'bars') return <BarsChart columns={columns} rows={rows} pool={entities} />
+    return <RadarChart columns={columns} rows={rows} pool={entities} />
   }
 
   return (
