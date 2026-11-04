@@ -3,22 +3,26 @@ import { ComparePanel } from './components/compare'
 import { GlobalNav } from './components/nav'
 import { EntityPicker } from './components/picker'
 import { StatSidebar } from './components/sidebar'
+import { TeamBreakdown, TeamModeSwitch } from './components/teams'
 import { MockProvider } from './data/mockProvider'
 import { nflStatDefsByKind, nflUiDefaults } from './data/nfl'
 import { DataSource } from './dataSource'
 import DevPage from './pages/DevPage'
-import { AppStateProvider } from './state'
+import { AppStateProvider, useAppState } from './state'
 
 const provider = new MockProvider()
 
-export default function App() {
-  if (window.location.pathname === '/dev') return <DevPage />
+function AppMain() {
+  const { state } = useAppState()
+  const breakdown = state.kind === 'teams' && state.teamMode === 'inside'
   return (
-    <DataSource provider={provider}>
-      <AppStateProvider defaults={nflUiDefaults()} statDefs={nflStatDefsByKind()}>
-        <GlobalNav />
-        <main className={styles.content}>
-          <h1 className={styles.srOnly}>StatPakd</h1>
+    <main className={styles.content}>
+      <h1 className={styles.srOnly}>StatPakd</h1>
+      <TeamModeSwitch />
+      {breakdown ? (
+        <TeamBreakdown />
+      ) : (
+        <>
           <EntityPicker />
           <div className={styles.body}>
             <StatSidebar />
@@ -26,7 +30,19 @@ export default function App() {
               <ComparePanel />
             </section>
           </div>
-        </main>
+        </>
+      )}
+    </main>
+  )
+}
+
+export default function App() {
+  if (window.location.pathname === '/dev') return <DevPage />
+  return (
+    <DataSource provider={provider}>
+      <AppStateProvider defaults={nflUiDefaults()} statDefs={nflStatDefsByKind()}>
+        <GlobalNav />
+        <AppMain />
       </AppStateProvider>
     </DataSource>
   )

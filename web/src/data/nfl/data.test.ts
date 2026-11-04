@@ -240,6 +240,22 @@ describe('stat definitions', () => {
     ).toEqual(['to', 'pdiff'])
   })
 
+  it('AC16: the team defs with a summaryLabel are exactly ppg, ypg, papg, to with the design labels', () => {
+    const summary = teamStatDefs()
+      .filter((d) => d.summaryLabel !== undefined)
+      .map((d) => [d.key, d.summaryLabel])
+    expect(summary).toEqual([
+      ['ppg', 'Pts / G'],
+      ['ypg', 'Yds / G'],
+      ['papg', 'Allowed / G'],
+      ['to', 'TO Diff'],
+    ])
+  })
+
+  it('AC16/AC20: no player def has a summaryLabel', () => {
+    for (const d of playerStatDefs()) expect(d).not.toHaveProperty('summaryLabel')
+  })
+
   it('AC10: mutating a returned def list does not affect the next call', () => {
     const first = playerStatDefs()
     const firstDef = first[0]
