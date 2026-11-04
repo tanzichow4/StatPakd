@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { Entity, EntityKind, StatDef } from '../../domain/types'
 import { compareStatDefs, comparePlayers, compareTeams } from '../../test/compareFixtures'
 import { CompareTable } from './CompareTable'
+import tableCss from './CompareTable.module.css?raw'
 import { gridColumns, type CompareColumn } from './tableModel'
 
 const defs = compareStatDefs()
@@ -301,5 +302,53 @@ describe('AC21: grid template and min-width', () => {
     expect(screen.getByText('Zandor')).toBeInTheDocument()
     expect(screen.getByText('ZB8')).toBeInTheDocument()
     expect(screen.queryByText('Vik Zandor')).not.toBeInTheDocument()
+  })
+})
+
+describe('F2: compact header does not repeat identical text', () => {
+  const dupes = (): Entity[] =>
+    comparePlayers().map((e, i) => ({ ...e, shortName: `ZQ${i}`, badge: `ZQ${i}` }))
+  const ids = ['zp1', 'zp2', 'zp3', 'zp4', 'zp5', 'zp6']
+
+  it('F2: shortName equal to badge shows the text once per column', () => {
+    const entities = dupes()
+    render(<CompareTable kind="players" columns={columnsOf(entities, ids)} rows={[def('zhigh')]} />)
+    const headers = screen.getAllByRole('columnheader').slice(1)
+    expect(headers).toHaveLength(6)
+    expect(headers.map((h) => h.textContent?.trim())).toEqual(ids.map((_, i) => `ZQ${i}`))
+  })
+  it('F2: no header shows the same text twice in a row', () => {
+    render(<CompareTable kind="players" columns={columnsOf(dupes(), ids)} rows={[def('zhigh')]} />)
+    expect(screen.queryByText(/(ZQ\d)\s*[/·]?\s*/)).not.toBeInTheDocument()
+    expect(screen.getAllByText('ZQ0')).toHaveLength(1)
+  })
+  it('F2: different shortName and badge still show both', () => {
+    renderPlayers(['zp1', 'zp2', 'zp3', 'zp4', 'zp5'])
+    expect(screen.getByText('ZB1')).toBeInTheDocument()
+    expect(screen.getByText('ZB5')).toBeInTheDocument()
+  })
+})
+
+describe('F1: stylesheet guards for the horizontal overflow leak', () => {
+  const ruleBody = (name: string): string => {
+    const match = new RegExp(String.raw`(?:^|})\s*\.${name}\s*\{([^}]*)\}`).exec(tableCss)
+    return match ? match[1] : ''
+  }
+  const decl = (body: string, prop: string, value: string) =>
+    new RegExp(String.raw`(?:^|[;\s])${prop}\s*:\s*${value}\s*(?:;|$)`).test(body)
+
+  it('F1: the scroll region is a containing block (position: relative)', () => {
+    expect(decl(ruleBody('scroll'), 'position', 'relative')).toBe(true)
+  })
+  it('F1: the scroll region scrolls horizontally (overflow-x: auto)', () => {
+    expect(decl(ruleBody('scroll'), 'overflow-x', 'auto')).toBe(true)
+  })
+  it('F1: the sr-only rule uses the visually-hidden pattern', () => {
+    const body = ruleBody('srOnly')
+    expect(decl(body, 'position', 'absolute')).toBe(true)
+    expect(decl(body, 'width', '1px')).toBe(true)
+    expect(decl(body, 'height', '1px')).toBe(true)
+    expect(decl(body, 'overflow', 'hidden')).toBe(true)
+    expect(/clip(-path)?\s*:/.test(body)).toBe(true)
   })
 })

@@ -105,3 +105,32 @@ describe('AC17: compact headers', () => {
     expect(headerLines(e, true)).toEqual({ title: 'Short', sub: 'BDG' })
   })
 })
+
+describe('F2: headerLines drops a duplicated second line', () => {
+  const entity = (over: Partial<Entity>): Entity => ({
+    id: 'x',
+    name: 'Full Name',
+    shortName: 'Short',
+    meta: 'the meta line',
+    badge: 'BDG',
+    stats: {},
+    ...over,
+  })
+  it('F2: compact with shortName equal to badge gives one line', () => {
+    const lines = headerLines(entity({ shortName: 'ZQA', badge: 'ZQA' }), true)
+    expect(lines.title).toBe('ZQA')
+    expect(lines.sub ?? '').toBe('')
+  })
+  it('F2: compact with different shortName and badge keeps two lines', () => {
+    expect(headerLines(entity({ shortName: 'ZQA', badge: 'ZQB' }), true)).toEqual({
+      title: 'ZQA',
+      sub: 'ZQB',
+    })
+  })
+  it('F2: non-compact keeps name and meta even when shortName equals badge', () => {
+    expect(headerLines(entity({ shortName: 'ZQA', badge: 'ZQA' }), false)).toEqual({
+      title: 'Full Name',
+      sub: 'the meta line',
+    })
+  })
+})

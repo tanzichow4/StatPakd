@@ -43,8 +43,9 @@ export function gridColumns(n: number): string {
   return `minmax(170px,1.3fr) repeat(${n}, minmax(0,1fr))`
 }
 
-export function headerLines(entity: Entity, compact: boolean): { title: string; sub: string } {
-  return compact
-    ? { title: entity.shortName, sub: entity.badge }
-    : { title: entity.name, sub: entity.meta }
+export function headerLines(entity: Entity, compact: boolean): { title: string; sub?: string } {
+  if (!compact) return { title: entity.name, sub: entity.meta }
+  return entity.badge === entity.shortName
+    ? { title: entity.shortName }
+    : { title: entity.shortName, sub: entity.badge }
 }

@@ -52,7 +52,7 @@ export function CompareTable({ kind, columns, rows }: Props) {
                       />
                       {title}
                     </span>
-                    <span className={styles.sub}>{sub}</span>
+                    {sub !== undefined && <span className={styles.sub}>{sub}</span>}
                   </th>
                 )
               })}
