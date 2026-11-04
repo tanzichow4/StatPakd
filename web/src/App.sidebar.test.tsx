@@ -22,13 +22,13 @@ async function loaded() {
 }
 
 describe('AC22: layout regions', () => {
-  it('AC22: the Stats sidebar and the empty Stat views region are inside main', async () => {
+  it('AC22: the Stats sidebar and the Stat views region are inside main', async () => {
     render(<App />)
     await loaded()
     const main = screen.getByRole('main')
     expect(within(main).getByRole('complementary', { name: 'Stats' })).toBe(sidebar())
     const panel = within(main).getByRole('region', { name: 'Stat views' })
-    expect(panel).toBeEmptyDOMElement()
+    expect(within(panel).getByRole('tablist', { name: 'View' })).toBeInTheDocument()
   })
   it('AC22: the sidebar follows the entity picker in DOM order', async () => {
     render(<App />)

@@ -12,6 +12,7 @@ interface Props<T extends string> {
   onChange: (value: T) => void
   label: string
   variant?: 'light' | 'dark'
+  size?: 'md' | 'sm'
 }
 
 export function SegmentedControl<T extends string>({
@@ -20,9 +21,13 @@ export function SegmentedControl<T extends string>({
   onChange,
   label,
   variant = 'light',
+  size = 'md',
 }: Props<T>) {
   return (
-    <fieldset aria-label={label} className={cx(styles.track, styles[variant])}>
+    <fieldset
+      aria-label={label}
+      className={cx(styles.track, styles[variant], size === 'sm' && styles.sm)}
+    >
       {options.map((o) => (
         <button
           key={o.value}

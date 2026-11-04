@@ -46,3 +46,18 @@
   background: var(--color-white);
   color: var(--color-ink);
 }
+
+.sm {
+  padding: 2px;
+  gap: 0;
+  border-radius: var(--radius-7);
+}
+.sm .item {
+  font-size: var(--text-12);
+  padding: 4px 12px;
+  border-radius: var(--radius-5);
+}
+.sm .item.active {
+  background: var(--color-white);
+  box-shadow: var(--shadow-segmented);
+}
