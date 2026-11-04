@@ -54,6 +54,21 @@
   white-space: nowrap;
 }
 
+.middle {
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+
+.start {
+  transform: translate(0, -50%);
+  text-align: left;
+}
+
+.end {
+  transform: translate(-100%, -50%);
+  text-align: right;
+}
+
 .message {
   flex: 1;
   margin: 0;
@@ -63,12 +78,21 @@
   color: var(--color-text-muted);
 }
 
-.legend {
+.legendCol {
   display: flex;
   flex-direction: column;
   gap: var(--space-14);
   flex: 0 0 200px;
   min-width: 0;
+}
+
+.legend {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-14);
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .entry {
@@ -109,4 +133,13 @@
   clip-path: inset(50%);
   white-space: nowrap;
   list-style: none;
+}
+
+@media (max-width: 480px) {
+  .axisLabel {
+    white-space: normal;
+    max-width: 15vw;
+    overflow-wrap: anywhere;
+    font-size: 11px;
+  }
 }

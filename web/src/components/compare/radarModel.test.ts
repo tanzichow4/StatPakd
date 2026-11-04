@@ -226,9 +226,8 @@ describe('radarModel labels', () => {
         const { x, y, align } = a.label
         expect(dist({ x, y })).toBeGreaterThan(150)
         expect(dist({ x, y })).toBeCloseTo(168, 0)
-        if (Math.abs(x - 260) < 8) expect(align).toBe('middle')
-        else if (x > 260) expect(align).toBe('start')
-        else expect(align).toBe('end')
+        const expected = Math.abs(x - 260) < 8 ? 'middle' : x > 260 ? 'start' : 'end'
+        expect(align).toBe(expected)
       })
     }
   })

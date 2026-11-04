@@ -2,7 +2,7 @@
 import { useMemo, type CSSProperties } from 'react'
 import type { Entity, StatDef } from '../../domain/types'
 import { seriesColor } from '../../styles/series'
-import { RADAR, radarModel, type LabelAlign } from './radarModel'
+import { RADAR, radarModel } from './radarModel'
 import type { CompareColumn } from './tableModel'
 import styles from './RadarChart.module.css'
 
@@ -10,12 +10,6 @@ interface Props {
   columns: CompareColumn[]
   rows: StatDef[]
   pool: readonly Entity[]
-}
-
-const TRANSFORM: Record<LabelAlign, string> = {
-  middle: 'translate(-50%, -50%)',
-  start: 'translate(0, -50%)',
-  end: 'translate(-100%, -50%)',
 }
 
 function seriesStyle(colorIndex: number): CSSProperties {
@@ -26,9 +20,9 @@ export function RadarChart({ columns, rows, pool }: Props) {
   const model = useMemo(() => radarModel(rows, columns, pool), [rows, columns, pool])
 
   return (
-    <div role="group" aria-label="Radar chart" className={styles.root}>
+    <div className={styles.root} data-testid="radar">
       {model.ok ? (
-        <div className={styles.box}>
+        <div role="group" aria-label="Radar chart" className={styles.box}>
           <svg
             viewBox={`0 0 ${RADAR.width} ${RADAR.height}`}
             className={styles.svg}
@@ -36,7 +30,7 @@ export function RadarChart({ columns, rows, pool }: Props) {
             focusable="false"
           >
             {model.rings.map((points, i) => (
-              <polygon key={i} points={points} className={styles.ring} />
+              <polygon key={i} points={points} className={styles.ring} data-testid="radar-ring" />
             ))}
             {model.axes.map(({ def, end }) => (
               <line
@@ -46,6 +40,7 @@ export function RadarChart({ columns, rows, pool }: Props) {
                 x2={end.x}
                 y2={end.y}
                 className={styles.spoke}
+                data-testid="radar-spoke"
               />
             ))}
             {model.series.map((s) => (
@@ -67,52 +62,53 @@ export function RadarChart({ columns, rows, pool }: Props) {
             {model.axes.map(({ def, label }) => (
               <span
                 key={def.key}
-                className={styles.axisLabel}
+                className={`${styles.axisLabel} ${styles[label.align]}`}
+                data-testid="radar-label"
                 style={{
                   left: `${label.left}%`,
                   top: `${label.top}%`,
-                  transform: TRANSFORM[label.align],
                 }}
               >
                 {def.label}
               </span>
             ))}
           </div>
+          <ul role="list" className={styles.srOnly}>
+            {model.series.map((s) => (
+              <li key={s.entity.id}>
+                {s.entity.name}
+                <ul role="list">
+                  {s.values.map((v) => (
+                    <li key={v.def.key}>
+                      {v.def.label}: {v.na ? 'not applicable' : v.text}
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ul>
         </div>
       ) : (
         <p className={styles.message}>Pick at least 3 stats for the radar.</p>
       )}
 
-      <div className={styles.legend}>
-        {model.series.map((s) => (
-          <div key={s.entity.id} className={styles.entry} style={seriesStyle(s.colorIndex)}>
-            <span className={styles.name}>{s.entity.name}</span>
-            <span className={styles.meta}>{s.entity.meta}</span>
-            {s.missing.length > 0 && (
-              <span className={styles.meta}>Not applicable: {s.missing.join(', ')}</span>
-            )}
-          </div>
-        ))}
+      <div className={styles.legendCol}>
+        <ul role="list" aria-label="Legend" className={styles.legend}>
+          {model.series.map((s) => (
+            <li key={s.entity.id} className={styles.entry} style={seriesStyle(s.colorIndex)}>
+              <span className={styles.name}>{s.entity.name}</span>
+              <span className={styles.meta}>{s.entity.meta}</span>
+              {s.missing.length > 0 && (
+                <span className={styles.meta}>Not applicable: {s.missing.join(', ')}</span>
+              )}
+            </li>
+          ))}
+        </ul>
         <p className={styles.caption}>
           Axes scaled to league range; &quot;lower is better&quot; stats are inverted so outward is
           always better.
         </p>
       </div>
-
-      <ul role="list" className={styles.srOnly} aria-label="Radar chart data">
-        {model.series.map((s) => (
-          <li key={s.entity.id}>
-            {s.entity.name}
-            <ul role="list">
-              {s.values.map((v) => (
-                <li key={v.def.key}>
-                  {v.def.label}: {v.na ? 'not applicable' : v.text}
-                </li>
-              ))}
-            </ul>
-          </li>
-        ))}
-      </ul>
     </div>
   )
 }
