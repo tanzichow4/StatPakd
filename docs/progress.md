@@ -15,7 +15,7 @@ Range T01-T20. Integration branch: `autobuild`. Baseline before run: web lint/ty
 | T09 | done | ticket/T09-stat-sidebar | Merged 68a1c34. Browser QA: round 1 FAIL (F1: pressing a lower group's Add stat while a menu was open only closed it), fixed with regression test, round 2 PASS (docs/qa/T09-report.md, T09-report-2.md). 1043 web tests pass. |
 | T10 | done | ticket/T10-compare-panel-and-table | Merged 98524fe. Browser QA round 1 FAIL (F1 page-level horizontal scroll from sr-only spans), fixed; round 2 PASS (docs/qa/T10-report.md, T10-report-2.md). 1209 web tests pass. |
 | T11 | done | ticket/T11-bars-chart | Merged c1d3fee. Browser QA PASS first time (docs/qa/T11-report.md). 1257 web tests pass. |
-| T12 | todo | ticket/T12-radar-chart | |
+| T12 | in-progress | ticket/T12-radar-chart | |
 | T13 | todo | ticket/T13-3d-math | |
 | T14 | todo | ticket/T14-3d-chart | |
 | T15 | todo | ticket/T15-team-breakdown-header | |
