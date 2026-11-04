@@ -15,7 +15,7 @@ Range T01-T20. Integration branch: `autobuild`. Baseline before run: web lint/ty
 | T09 | done | ticket/T09-stat-sidebar | Merged 68a1c34. Browser QA: round 1 FAIL (F1: pressing a lower group's Add stat while a menu was open only closed it), fixed with regression test, round 2 PASS (docs/qa/T09-report.md, T09-report-2.md). 1043 web tests pass. |
 | T10 | done | ticket/T10-compare-panel-and-table | Merged 98524fe. Browser QA round 1 FAIL (F1 page-level horizontal scroll from sr-only spans), fixed; round 2 PASS (docs/qa/T10-report.md, T10-report-2.md). 1209 web tests pass. |
 | T11 | done | ticket/T11-bars-chart | Merged c1d3fee. Browser QA PASS first time (docs/qa/T11-report.md). 1257 web tests pass. |
-| T12 | in-progress | ticket/T12-radar-chart | |
+| T12 | done | ticket/T12-radar-chart | Merged 7cfd737. 1 fix round (RadarChart markup did not match plan; lint warnings). Browser QA PASS (docs/qa/T12-report.md). 1361 web tests pass. |
 | T13 | todo | ticket/T13-3d-math | |
 | T14 | todo | ticket/T14-3d-chart | |
 | T15 | todo | ticket/T15-team-breakdown-header | |
@@ -45,9 +45,12 @@ Range T01-T20. Integration branch: `autobuild`. Baseline before run: web lint/ty
 
 - T11: bars not inverted for lower-is-better (design script); N/A shows muted dash with no fill; equal pool range gives ~52% width; narrow screens stack the label above the bars via flex-wrap; chart is non-interactive.
 
+- T12: null values plot at center (ticket) not at the design's 0.08 floor; axes in canonical stat order not pick order; legend note 'Not applicable: <labels>'; zero selected stats still renders nothing (panel behaviour); legend not hidden from AT..
+
 ## Out-of-scope ideas
 
 - T08: at 375px the open popover is ~450px tall and extends past the viewport bottom, making the page scroll; revisit in T18 (responsive). Many-chip wrapping not stressed with mock data.
 
 - T07: placeholder h1 sits flush at x=0 (fine until T08+ replaces the placeholder). Playwright MCP tools not reachable from subagents: qa-tester falls back to playwright-core scripts.
 
+- T12: at 375px on Teams radar, long axis labels near the box edge wrap to 2-3 lines and 'Pts Allowed / G' can overlap the bottom ring vertex; revisit in T18 (responsive).
