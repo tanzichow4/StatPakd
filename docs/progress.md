@@ -18,7 +18,7 @@ Range T01-T20. Integration branch: `autobuild`. Baseline before run: web lint/ty
 | T12 | done | ticket/T12-radar-chart | Merged 7cfd737. 1 fix round (RadarChart markup did not match plan; lint warnings). Browser QA PASS (docs/qa/T12-report.md). 1361 web tests pass. |
 | T13 | done | ticket/T13-3d-math | Merged ed9c836. No UI, browser QA skipped. Projection coordinates verified against the design formula in node. 1438 web tests pass. |
 | T14 | done | ticket/T14-3d-chart | Merged e3b8502. Browser QA PASS first time (docs/qa/T14-report.md); drag ~180fps on 16-player mock pool in headless dev build. 1717 web tests pass. |
-| T15 | in-progress | ticket/T15-team-breakdown-header | |
+| T15 | done | ticket/T15-team-breakdown-header | Merged 6a47b82. Browser QA PASS first time (docs/qa/T15-report.md). 1826 web tests pass. |
 | T16 | todo | ticket/T16-share-of-production | |
 | T17 | todo | ticket/T17-roster-table | |
 | T18 | todo | ticket/T18-responsive-and-a11y | |
@@ -51,6 +51,8 @@ Range T01-T20. Integration branch: `autobuild`. Baseline before run: web lint/ty
 
 - T14: 3D view always uses the 3 saved axes per kind, independent of sidebar stats (not hidden by the no-stat-rows gate); selected points drawn last (ticket) rather than pure depth sort (design); drag uses pointer capture and ends on release/cancel/lostcapture; arrows rotate 10px-equivalents (Shift x5, Home reset, Ctrl/Alt/Meta ignored); Select gained optional placeholder/className props; container query used for Readout layout; existing 3D-placeholder tests were rewritten for the new behaviour, not deleted.
 
+- T15: summary stats come from optional StatDef.summaryLabel via getStatDefs (no new provider method; T22 inherits this contract); breakdown mode hides picker, sidebar and compare panel, shows only chips then header card (no placeholder for T16/T17); TeamBreakdown dispatches closeAddStatMenu once on mount; unknown teamId shows chips but no card (no auto-select); compare state is preserved across the round trip; shared pill Chip reused as-is, exact team-chip styling deferred to T20; TeamChips uses a fieldset named 'Teams'.
+
 ## Out-of-scope ideas
 
 - T08: at 375px the open popover is ~450px tall and extends past the viewport bottom, making the page scroll; revisit in T18 (responsive). Many-chip wrapping not stressed with mock data.
@@ -60,3 +62,5 @@ Range T01-T20. Integration branch: `autobuild`. Baseline before run: web lint/ty
 - T12: at 375px on Teams radar, long axis labels near the box edge wrap to 2-3 lines and 'Pts Allowed / G' can overlap the bottom ring vertex; revisit in T18 (responsive).
 
 - T14: at 375px axis labels keep 11px and are clipped at card edges; with 8 selected the name tags overlap (no collision avoidance); mock pool is small so AC41 smoothness was not stress-tested on a real device. Revisit in T18/T20.
+
+- T15: chip border is #DEDEDA vs design #DADAD6 and chips are pills (design: radius 8, padding 7px 12px); check in T20.
