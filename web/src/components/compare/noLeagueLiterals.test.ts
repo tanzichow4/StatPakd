@@ -7,6 +7,8 @@ import {
   playerStatDefs,
   teamStatDefs,
 } from '../../data/nfl'
+import barsChart from './BarsChart.tsx?raw'
+import barsModel from './barsModel.ts?raw'
 import chartPlaceholder from './ChartPlaceholder.tsx?raw'
 import comparePanel from './ComparePanel.tsx?raw'
 import compareTable from './CompareTable.tsx?raw'
@@ -17,6 +19,8 @@ import index from './index.ts?raw'
 const sources: Record<string, string> = {
   'ComparePanel.tsx': comparePanel,
   'CompareTable.tsx': compareTable,
+  'BarsChart.tsx': barsChart,
+  'barsModel.ts': barsModel,
   'ChartPlaceholder.tsx': chartPlaceholder,
   'EmptyState.tsx': emptyState,
   'tableModel.ts': compareTableHelpers,
@@ -72,6 +76,8 @@ describe('AC28: compare source files hold no league literals', () => {
     expect(findHits(`${comparePanel}\nconst x = 'passYds'`)).toContain('passYds')
     expect(findHits(`${compareTable}\nconst y = "Passing"`)).toContain('Passing')
     expect(findHits(`${compareTableHelpers}\nconst z = "Pass Yds"`)).toContain('Pass Yds')
+    expect(findHits(`${barsChart}\nconst w = 'passYds'`)).toContain('passYds')
+    expect(findHits(`${barsModel}\nconst v = "Passing"`)).toContain('Passing')
   })
 })
 

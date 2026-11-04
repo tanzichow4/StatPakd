@@ -292,11 +292,18 @@ describe('AC8: placeholders', () => {
   it('AC8: 2D shows Bars chart, then Radar chart after toggling', async () => {
     const { user } = setup()
     await user.click(tab('2D chart'))
-    expect(await screen.findByText('Bars chart — coming soon')).toBeInTheDocument()
+    expect(await screen.findByRole('group', { name: 'Bars chart' })).toBeInTheDocument()
+    expect(screen.getByText('Bar length scaled to league range.')).toBeInTheDocument()
+    expect(screen.queryByText('Bars chart — coming soon')).toBeNull()
     expect(screen.queryByText(/Radar chart/)).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Radar' }))
     expect(screen.getByText('Radar chart — coming soon')).toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Bars chart' })).toBeNull()
+    expect(screen.queryByText('Bar length scaled to league range.')).toBeNull()
     expect(screen.queryByText(/Bars chart/)).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Bars' }))
+    expect(await screen.findByRole('group', { name: 'Bars chart' })).toBeInTheDocument()
+    expect(screen.queryByText(/Radar chart/)).not.toBeInTheDocument()
   })
   it('AC8: the placeholder has no controls of its own', async () => {
     setup()
@@ -562,6 +569,12 @@ describe('AC23/AC31: loading and failure show nothing', () => {
     expect(screen.queryByText(/coming soon/)).not.toBeInTheDocument()
     expect(screen.queryByText(emptyText)).not.toBeInTheDocument()
     expect(screen.getByRole('group', { name: 'Chart type' })).toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Bars chart' })).toBeNull()
+    expect(screen.queryByText('Bar length scaled to league range.')).toBeNull()
+    expect(screen.queryByTestId('bar-fill')).toBeNull()
+    expect(screen.queryAllByRole('listitem')).toHaveLength(0)
+    await act(async () => pending.resolve(comparePlayers()))
+    expect(await screen.findByRole('group', { name: 'Bars chart' })).toBeInTheDocument()
   })
   it('AC31: switching kind drops the old table until the new data arrives', async () => {
     const pending = deferred<Entity[]>()
@@ -575,5 +588,128 @@ describe('AC23/AC31: loading and failure show nothing', () => {
     await flush()
     expect(tableEl()).toBeNull()
     expect(screen.queryByText(emptyText)).not.toBeInTheDocument()
+  })
+})
+
+const barsGroup = () => screen.queryByRole('group', { name: 'Bars chart' })
+const barsCaption = () => screen.queryByText('Bar length scaled to league range.')
+const lineCount = (rowName: string) =>
+  within(screen.getByRole('group', { name: rowName })).getAllByRole('listitem').length
+const fillWidth = (rowName: string, line: string) => {
+  const item = within(screen.getByRole('group', { name: rowName }))
+    .getAllByRole('listitem')
+    .find((li) => li.textContent?.startsWith(line))
+  return item?.querySelector<HTMLElement>('[data-testid="bar-fill"]')?.style.width
+}
+
+async function to2D(ctx: ReturnType<typeof setup>) {
+  await ctx.user.click(tab('2D chart'))
+  expect(await screen.findByRole('group', { name: 'Bars chart' })).toBeInTheDocument()
+}
+
+describe('T11 AC9: widths come from the pool, not the selection', () => {
+  it('AC9: default selection scales to the 8-player pool', async () => {
+    await to2D(setup())
+    expect(fillWidth('Zbig', 'Rastow')).toBe('11%')
+    expect(fillWidth('Zhigh', 'Dorvane')).toBe('47%')
+    expect(fillWidth('Zbig', 'Quenby')).toBe('100%')
+    expect(fillWidth('Zbig', 'Dorvane')).toBe('5%')
+  })
+})
+
+describe('T11 AC12: selection, season and kind changes', () => {
+  it('AC12: toggling a fourth entity leaves the other widths and adds a line', async () => {
+    const ctx = setup()
+    await to2D(ctx)
+    await ctx.user.click(probe('probe toggle zp4'))
+    expect(await screen.findAllByText('Tolliver')).not.toHaveLength(0)
+    expect(lineCount('Zbig')).toBe(4)
+    expect(fillWidth('Zbig', 'Rastow')).toBe('11%')
+    expect(fillWidth('Zhigh', 'Dorvane')).toBe('47%')
+    await ctx.user.click(probe('probe toggle zp4'))
+    expect(lineCount('Zbig')).toBe(3)
+    expect(fillWidth('Zbig', 'Rastow')).toBe('11%')
+  })
+  it('AC12: changing the season recomputes widths and values', async () => {
+    const getEntities = vi.fn((_l: string, kind: EntityKind, season: string) =>
+      Promise.resolve(
+        kind === 'players'
+          ? comparePlayers().map((p) =>
+              p.id === 'zp1' && season === '3030' ? { ...p, stats: { ...p.stats, zbig: 8000 } } : p,
+            )
+          : [],
+      ),
+    )
+    const ctx = setup({ provider: compareProvider({ getEntities }) })
+    await to2D(ctx)
+    expect(fillWidth('Zbig', 'Rastow')).toBe('11%')
+    await ctx.user.click(probe('probe season'))
+    expect(await screen.findByText('8,000')).toBeInTheDocument()
+    expect(fillWidth('Zbig', 'Rastow')).toBe('8%')
+  })
+  it('AC12/AC21: switching to Teams shows team rows and widths, and back restores players', async () => {
+    const ctx = setup()
+    await to2D(ctx)
+    await ctx.user.click(probe('probe to teams'))
+    expect(await screen.findByRole('group', { name: 'Ztpts' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Ztlow lower is better' })).toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Zhigh' })).toBeNull()
+    expect(fillWidth('Ztpts', 'ZQC')).toBe('62%')
+    expect(screen.getAllByText('Bar length scaled to league range.')).toHaveLength(1)
+    await ctx.user.click(probe('probe to players'))
+    expect(await screen.findByRole('group', { name: 'Zhigh' })).toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Ztpts' })).toBeNull()
+    expect(fillWidth('Zbig', 'Rastow')).toBe('11%')
+  })
+})
+
+describe('T11 AC3: empty and failed states on 2D', () => {
+  it('AC3: an empty selection shows the empty state and no chart or caption', async () => {
+    const { user } = setup({ defaults: compareDefaults({ players: [] }) })
+    await user.click(tab('2D chart'))
+    expect(await screen.findByText('Add a player to start comparing.')).toBeInTheDocument()
+    expect(barsGroup()).toBeNull()
+    expect(barsCaption()).toBeNull()
+  })
+  it('AC3: a failed entity load on 2D shows no chart and does not crash', async () => {
+    const { user } = setup({
+      provider: compareProvider({ getEntities: vi.fn(() => Promise.reject(new Error('boom'))) }),
+    })
+    await user.click(tab('2D chart'))
+    await flush()
+    expect(barsGroup()).toBeNull()
+    expect(barsCaption()).toBeNull()
+    expect(screen.queryByText(emptyText)).not.toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Chart type' })).toBeInTheDocument()
+  })
+  it('AC3: with every stat deselected the chart does not render', async () => {
+    const { user } = setup({ defaults: compareDefaults({ playerStats: [] }) })
+    await user.click(tab('2D chart'))
+    await flush()
+    expect(barsGroup()).toBeNull()
+  })
+  it('AC3: the Table and 3D tabs show no Bars chart', async () => {
+    const ctx = setup()
+    await toTable(ctx)
+    expect(barsGroup()).toBeNull()
+    await ctx.user.click(tab('3D chart'))
+    expect(barsGroup()).toBeNull()
+    expect(await screen.findByText('3D chart — coming soon')).toBeInTheDocument()
+  })
+})
+
+describe('T11 AC17: keyboard', () => {
+  it('AC17: Tab goes 2D tab, Bars, Radar and never into the chart', async () => {
+    const ctx = setup()
+    await to2D(ctx)
+    tab('2D chart').focus()
+    await ctx.user.tab()
+    expect(screen.getByRole('button', { name: 'Bars' })).toHaveFocus()
+    await ctx.user.tab()
+    expect(screen.getByRole('button', { name: 'Radar' })).toHaveFocus()
+    const chart = screen.getByRole('group', { name: 'Bars chart' })
+    expect(chart.querySelectorAll('button, a, input, select, textarea, [tabindex]')).toHaveLength(0)
+    await ctx.user.tab()
+    expect(chart.contains(document.activeElement)).toBe(false)
   })
 })

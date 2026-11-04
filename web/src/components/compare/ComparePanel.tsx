@@ -3,6 +3,7 @@ import { useAppState, type Chart2Mode, type ViewMode } from '../../state'
 import { useEntities } from '../picker/useEntities'
 import { useStatDefs } from '../sidebar/useStatDefs'
 import { SegmentedControl, TabPanel, Tabs } from '../ui'
+import { BarsChart } from './BarsChart'
 import { ChartPlaceholder } from './ChartPlaceholder'
 import { resolveColumns, resolveRows } from './tableModel'
 import styles from './ComparePanel.module.css'
@@ -47,7 +48,8 @@ export function ComparePanel() {
     if (!ready) return placeholder3d
     if (value === 'num') return <CompareTable kind={kind} columns={columns} rows={rows} />
     if (value === '2d') {
-      return <ChartPlaceholder title={chart2 === 'bars' ? 'Bars chart' : 'Radar chart'} />
+      if (chart2 === 'bars') return <BarsChart columns={columns} rows={rows} pool={entities} />
+      return <ChartPlaceholder title="Radar chart" />
     }
     return placeholder3d
   }
