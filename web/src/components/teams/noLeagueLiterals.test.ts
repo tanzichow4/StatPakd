@@ -5,15 +5,24 @@ import {
   ROSTER_UNITS,
   nflUiDefaults,
   playerStatDefs,
+  rosterUnitDefs,
   teamStatDefs,
 } from '../../data/nfl'
-import { RAW_T } from '../../data/nfl/raw'
+import { RAW_T, ROSTERS } from '../../data/nfl/raw'
+import shares from '../../lib/shares.ts?raw'
 import index from './index.ts?raw'
+import shareLegend from './ShareLegend.tsx?raw'
+import shareModel from './shareModel.ts?raw'
+import shareOfProduction from './ShareOfProduction.tsx?raw'
+import shareRow from './ShareRow.tsx?raw'
 import teamBreakdown from './TeamBreakdown.tsx?raw'
 import teamChips from './TeamChips.tsx?raw'
 import teamHeader from './TeamHeader.tsx?raw'
 import teamHeaderModel from './teamHeaderModel.ts?raw'
 import teamModeSwitch from './TeamModeSwitch.tsx?raw'
+import unitToggle from './UnitToggle.tsx?raw'
+import useRoster from './useRoster.ts?raw'
+import useRosterUnits from './useRosterUnits.ts?raw'
 
 const sources: Record<string, string> = {
   'TeamBreakdown.tsx': teamBreakdown,
@@ -22,7 +31,20 @@ const sources: Record<string, string> = {
   'teamHeaderModel.ts': teamHeaderModel,
   'TeamModeSwitch.tsx': teamModeSwitch,
   'index.ts': index,
+  'shareModel.ts': shareModel,
+  'useRoster.ts': useRoster,
+  'useRosterUnits.ts': useRosterUnits,
+  'UnitToggle.tsx': unitToggle,
+  'ShareRow.tsx': shareRow,
+  'ShareLegend.tsx': shareLegend,
+  'ShareOfProduction.tsx': shareOfProduction,
+  'lib/shares.ts': shares,
 }
+
+const rosterNames = (): string[] =>
+  Object.values(ROSTERS).flatMap((units) =>
+    [...units.off, ...units.def].map((row) => row[0] as string),
+  )
 
 function leagueValues(): string[] {
   const d = nflUiDefaults()
@@ -40,6 +62,12 @@ function leagueValues(): string[] {
     ...ROSTER_UNITS,
     ...playerStatDefs().flatMap((s) => [s.key, s.group, s.label]),
     ...teamStatDefs().flatMap((s) => [s.key, s.group, s.label, s.summaryLabel ?? '']),
+    ...rosterUnitDefs().flatMap((u) => [
+      u.key,
+      u.label,
+      ...u.stats.flatMap((s) => [s.key, s.label, s.group, s.shareLabel ?? '']),
+    ]),
+    ...rosterNames(),
     ...RAW_T.flatMap((t) => [t[0], t[1], t[2], t[3]]),
     ...leagues.flatMap((l) => [l.id, l.name]),
     'QB',
@@ -75,6 +103,33 @@ describe('AC20: team breakdown source files hold no league literals', () => {
         'KC',
         'AFC West',
         'NFC East',
+      ]),
+    )
+  })
+  it('AC30: the literal list covers roster unit keys, labels, share labels and player names', () => {
+    expect(leagueValues()).toEqual(
+      expect.arrayContaining([
+        'off',
+        'def',
+        'Offense',
+        'Defense',
+        'touch',
+        'tgt',
+        'scrim',
+        'td',
+        'tkl',
+        'sk',
+        'take',
+        'pd',
+        'Touches',
+        'Targets',
+        'Scrimmage Yds',
+        'Touchdowns',
+        'Tackles',
+        'Sacks',
+        'Takeaways',
+        'Passes Defended',
+        'Saquon Barkley',
       ]),
     )
   })
