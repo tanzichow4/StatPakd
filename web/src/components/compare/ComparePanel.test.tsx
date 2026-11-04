@@ -11,6 +11,7 @@ import {
   comparePlayers,
   compareProvider,
   compareStatDefs,
+  compareTeams,
 } from '../../test/compareFixtures'
 import { deferred } from '../../test/fixtureProvider'
 import { ComparePanel } from './ComparePanel'
@@ -195,13 +196,20 @@ describe('AC6: tab panels', () => {
 })
 
 describe('AC32: hidden panels render no content', () => {
-  it('AC32: on the default 3D view no table, entity name or stat label is in the DOM', async () => {
+  it('AC32: on the default 3D view there is no table or caption and names and labels are only inside the 3D panel', async () => {
     setup()
     await flush()
     expect(tableEl()).toBeNull()
-    expect(screen.queryByText('Ola Quenby')).not.toBeInTheDocument()
-    expect(screen.queryByText('Zhigh')).not.toBeInTheDocument()
     expect(caption()).toBeNull()
+    const panel3d = screen.getByRole('tabpanel', { name: '3D chart' })
+    expect(within(panel3d).getAllByText('Ola Quenby')).toHaveLength(1)
+    expect(screen.getAllByText('Ola Quenby')).toHaveLength(1)
+    const labels = screen.getAllByText('Zhigh')
+    expect(labels.length).toBeGreaterThan(0)
+    for (const el of labels) expect(panel3d).toContainElement(el)
+    const others = screen.getAllByRole('tabpanel', { hidden: true }).filter((p) => p !== panel3d)
+    expect(others).toHaveLength(2)
+    expect(others.map((p) => p.childNodes.length)).toEqual([0, 0])
   })
   it('AC32: on the Table view the other two panels are empty', async () => {
     const ctx = setup()
@@ -217,10 +225,19 @@ describe('AC32: hidden panels render no content', () => {
     await ctx.user.click(tab('3D chart'))
     expect(tableEl()).toBeNull()
   })
-  it('AC32: the placeholder text exists only in the selected panel', async () => {
+  it('AC32: the 3D chart exists only in the selected panel', async () => {
     const { user } = setup()
+    await flush()
+    expect(screen.getByRole('group', { name: '3D chart' })).toBeInTheDocument()
     await user.click(tab('2D chart'))
     expect(screen.queryByText(/3D chart — coming soon/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: '3D chart' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Reset view' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: 'X axis' })).not.toBeInTheDocument()
+    const hidden3d = document.getElementById(tab('3D chart').getAttribute('aria-controls') ?? '')
+    expect(hidden3d).not.toBeNull()
+    expect(hidden3d?.hasAttribute('hidden')).toBe(true)
+    expect(hidden3d?.childNodes).toHaveLength(0)
   })
 })
 
@@ -288,9 +305,11 @@ describe('AC7: Bars | Radar control', () => {
 })
 
 describe('AC8: placeholders', () => {
-  it('AC8: 3D shows the 3D chart coming-soon placeholder', async () => {
+  it('AC8: 3D shows the 3D chart and no coming-soon placeholder', async () => {
     setup()
-    expect(await screen.findByText('3D chart — coming soon')).toBeInTheDocument()
+    expect(await screen.findByRole('group', { name: '3D chart' })).toBeInTheDocument()
+    expect(screen.queryByText('3D chart — coming soon')).not.toBeInTheDocument()
+    expect(screen.queryByText(/coming soon/)).not.toBeInTheDocument()
   })
   it('AC8: 2D shows Bars chart, then Radar chart after toggling', async () => {
     const { user } = setup()
@@ -313,11 +332,20 @@ describe('AC8: placeholders', () => {
     expect(screen.queryByText(RADAR_CAPTION)).toBeNull()
     expect(screen.queryByText(/Radar chart/)).not.toBeInTheDocument()
   })
-  it('AC8: the placeholder has no controls of its own', async () => {
+  it('AC8: the 3D panel controls are the three axis selects and Reset view, with no links', async () => {
     setup()
     const panel = screen.getByRole('tabpanel', { name: '3D chart' })
     await flush()
-    expect(within(panel).queryAllByRole('button')).toHaveLength(0)
+    expect(
+      within(panel)
+        .getAllByRole('combobox')
+        .map((c) => c.getAttribute('aria-label')),
+    ).toEqual(['X axis', 'Y axis', 'Z axis'])
+    expect(
+      within(panel)
+        .getAllByRole('button')
+        .map((b) => b.textContent),
+    ).toEqual(['Reset view'])
     expect(within(panel).queryAllByRole('link')).toHaveLength(0)
   })
 })
@@ -715,7 +743,7 @@ describe('T11 AC3: empty and failed states on 2D', () => {
     expect(barsGroup()).toBeNull()
     await ctx.user.click(tab('3D chart'))
     expect(barsGroup()).toBeNull()
-    expect(await screen.findByText('3D chart — coming soon')).toBeInTheDocument()
+    expect(await screen.findByRole('group', { name: '3D chart' })).toBeInTheDocument()
   })
 })
 
@@ -941,7 +969,7 @@ describe('T12 AC3: empty, failed and other tabs', () => {
     expect(screen.queryByTestId('radar')).toBeNull()
     expect(screen.queryByText(RADAR_CAPTION)).toBeNull()
     await ctx.user.click(tab('3D chart'))
-    expect(await screen.findByText('3D chart — coming soon')).toBeInTheDocument()
+    expect(await screen.findByRole('group', { name: '3D chart' })).toBeInTheDocument()
     expect(radarGroup()).toBeNull()
     expect(screen.queryByTestId('radar')).toBeNull()
     expect(legend()).toBeNull()
@@ -963,5 +991,280 @@ describe('T12 AC20: keyboard', () => {
     await ctx.user.tab()
     expect(chart.contains(document.activeElement)).toBe(false)
     expect(root.contains(document.activeElement)).toBe(false)
+  })
+})
+
+const chart3d = () => screen.queryByRole('group', { name: '3D chart' })
+const panel3d = () => screen.getByRole('tabpanel', { name: '3D chart' })
+const axisSelect = (name: string) => screen.getByRole('combobox', { name })
+
+describe('T14 AC1: the 3D panel content', () => {
+  it('AC1: the default view shows the controls, the chart card and the readout in that order', async () => {
+    setup()
+    const x = await screen.findByRole('combobox', { name: 'X axis' })
+    const reset = screen.getByRole('button', { name: 'Reset view' })
+    const chart = screen.getByRole('group', { name: '3D chart' })
+    const readout = screen.getByRole('complementary')
+    const before = (a: Node, b: Node) =>
+      Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
+    expect(before(x, reset)).toBe(true)
+    expect(before(reset, chart)).toBe(true)
+    expect(before(chart, readout)).toBe(true)
+    expect(within(readout).getByRole('heading', { name: 'Readout' })).toBeInTheDocument()
+    for (const el of [x, reset, chart, readout]) expect(panel3d()).toContainElement(el)
+  })
+  it('AC1: the coming-soon text is not rendered anywhere', async () => {
+    setup()
+    await screen.findByRole('group', { name: '3D chart' })
+    expect(screen.queryByText(/coming soon/)).not.toBeInTheDocument()
+  })
+  it('AC1: the readout lists the selected players in selection order', async () => {
+    setup()
+    await screen.findByRole('group', { name: '3D chart' })
+    const items = within(screen.getByRole('complementary')).getAllByRole('listitem')
+    expect(items.map((li) => li.textContent)).toEqual([
+      expect.stringContaining('Ola Quenby'),
+      expect.stringContaining('Pim Rastow'),
+      expect.stringContaining('Quill Dorvane'),
+    ])
+  })
+  it('AC1: switching from Table back to 3D shows the chart again', async () => {
+    const ctx = setup()
+    await toTable(ctx)
+    expect(chart3d()).toBeNull()
+    await ctx.user.click(tab('3D chart'))
+    expect(await screen.findByRole('group', { name: '3D chart' })).toBeInTheDocument()
+  })
+})
+
+describe('T14 AC2: the 3D chart does not depend on the sidebar stats', () => {
+  it('AC2: with no sidebar stats selected the 3D chart still renders', async () => {
+    setup({ defaults: compareDefaults({ playerStats: [] }) })
+    expect(await screen.findByRole('group', { name: '3D chart' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'X axis' })).toHaveDisplayValue('Zhigh')
+    expect(screen.getByRole('button', { name: 'Reset view' })).toBeInTheDocument()
+    expect(screen.getAllByTestId('point').length).toBeGreaterThan(0)
+  })
+  it('AC2: the same defaults give no table rows on the Table view', async () => {
+    const { user } = setup({ defaults: compareDefaults({ playerStats: [] }) })
+    await user.click(tab('Table'))
+    await flush()
+    expect(tableEl()).toBeNull()
+    expect(chart3d()).toBeNull()
+  })
+  it('AC2: the axes come from the axis state, not from the sidebar stats', async () => {
+    setup({ defaults: compareDefaults({ playerStats: ['zsolo'] }) })
+    await screen.findByRole('group', { name: '3D chart' })
+    expect(axisSelect('X axis')).toHaveDisplayValue('Zhigh')
+    expect(axisSelect('Y axis')).toHaveDisplayValue('Zlow')
+    expect(axisSelect('Z axis')).toHaveDisplayValue('Zbig')
+  })
+  it('AC2: teams with no sidebar stats still show the team chart', async () => {
+    const { user } = setup({ defaults: compareDefaults({ teamStats: [] }) })
+    await user.click(probe('probe to teams'))
+    expect(await screen.findByRole('group', { name: '3D chart' })).toBeInTheDocument()
+    expect(axisSelect('X axis')).toHaveDisplayValue('Ztpts')
+  })
+})
+
+describe('T14 AC3: an empty selection', () => {
+  it('AC3: players show the controls, the chart card, the Readout heading and the empty text once', async () => {
+    setup({ defaults: compareDefaults({ players: [] }) })
+    expect(await screen.findByRole('group', { name: '3D chart' })).toBeInTheDocument()
+    expect(screen.getAllByRole('combobox')).toHaveLength(3)
+    expect(screen.getByRole('button', { name: 'Reset view' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Readout' })).toBeInTheDocument()
+    expect(screen.getAllByText('Add a player to start comparing.')).toHaveLength(1)
+    expect(within(screen.getByRole('complementary')).getByText(emptyText)).toBeInTheDocument()
+    expect(screen.queryAllByTestId('name-tag')).toHaveLength(0)
+    expect(screen.queryAllByRole('listitem')).toHaveLength(0)
+  })
+  it('AC3: every eligible league entity is drawn as a grey dot', async () => {
+    setup({ defaults: compareDefaults({ players: [] }) })
+    await screen.findByRole('group', { name: '3D chart' })
+    // Seven of the eight players have all three axis values.
+    expect(screen.getAllByTestId('point')).toHaveLength(7)
+    for (const g of screen.getAllByTestId('point')) {
+      expect(g.querySelector('circle')).toHaveAttribute('r', '4.5')
+    }
+  })
+  it('AC3: teams show the team empty text once', async () => {
+    const { user } = setup({ defaults: compareDefaults({ teams: [] }) })
+    await user.click(probe('probe to teams'))
+    expect(await screen.findAllByText('Add a team to start comparing.')).toHaveLength(1)
+    expect(screen.getByRole('group', { name: '3D chart' })).toBeInTheDocument()
+    expect(screen.getAllByTestId('point')).toHaveLength(3)
+  })
+  it('AC3: selecting an entity from the empty state adds its card and tag', async () => {
+    const { user } = setup({ defaults: compareDefaults({ players: [] }) })
+    await screen.findByRole('group', { name: '3D chart' })
+    await user.click(probe('probe toggle zp4'))
+    expect(screen.queryByText(emptyText)).not.toBeInTheDocument()
+    expect(within(screen.getByRole('complementary')).getAllByRole('listitem')).toHaveLength(1)
+    expect(screen.getByText('Tolliver')).toBeInTheDocument()
+  })
+})
+
+describe('T14 AC4: loading and failure show no 3D controls', () => {
+  const none = () => {
+    expect(chart3d()).toBeNull()
+    expect(screen.queryAllByRole('combobox')).toHaveLength(0)
+    expect(screen.queryByRole('button', { name: 'Reset view' })).toBeNull()
+    expect(panel3d().querySelector('svg')).toBeNull()
+  }
+  it('AC4: while entities are pending an empty selection shows only the empty text', async () => {
+    const pending = deferred<Entity[]>()
+    setup({
+      provider: compareProvider({ getEntities: vi.fn(() => pending.promise) }),
+      defaults: compareDefaults({ players: [] }),
+    })
+    await flush()
+    none()
+    expect(screen.getAllByText('Add a player to start comparing.')).toHaveLength(1)
+    await act(async () => pending.resolve(comparePlayers()))
+    expect(await screen.findByRole('group', { name: '3D chart' })).toBeInTheDocument()
+  })
+  it('AC4: while entities are pending with a selection the panel is empty', async () => {
+    const pending = deferred<Entity[]>()
+    setup({ provider: compareProvider({ getEntities: vi.fn(() => pending.promise) }) })
+    await flush()
+    none()
+    expect(screen.queryByText(emptyText)).not.toBeInTheDocument()
+    expect(panel3d().childNodes).toHaveLength(0)
+    await act(async () => pending.resolve(comparePlayers()))
+    expect(await screen.findByRole('group', { name: '3D chart' })).toBeInTheDocument()
+  })
+  it('AC4: while stat definitions are pending the 3D chart is not drawn', async () => {
+    const pending = deferred<ReturnType<typeof compareStatDefs>['players']>()
+    setup({ provider: compareProvider({ getStatDefs: vi.fn(() => pending.promise) }) })
+    await flush()
+    none()
+    expect(screen.queryByText(emptyText)).not.toBeInTheDocument()
+    await act(async () => pending.resolve(compareStatDefs().players))
+    expect(await screen.findByRole('group', { name: '3D chart' })).toBeInTheDocument()
+  })
+  it('AC4: pending stat definitions with an empty selection show only the empty text', async () => {
+    const pending = deferred<ReturnType<typeof compareStatDefs>['players']>()
+    setup({
+      provider: compareProvider({ getStatDefs: vi.fn(() => pending.promise) }),
+      defaults: compareDefaults({ players: [] }),
+    })
+    await flush()
+    none()
+    expect(screen.getAllByText('Add a player to start comparing.')).toHaveLength(1)
+  })
+  it('AC4: a failed entity load shows no 3D chart and does not crash', async () => {
+    setup({
+      provider: compareProvider({ getEntities: vi.fn(() => Promise.reject(new Error('boom'))) }),
+    })
+    await flush()
+    none()
+    expect(screen.queryByText(emptyText)).not.toBeInTheDocument()
+    expect(screen.getByRole('tablist', { name: 'View' })).toBeInTheDocument()
+  })
+  it('AC4: a failed entity load with an empty selection shows only the empty text', async () => {
+    setup({
+      provider: compareProvider({ getEntities: vi.fn(() => Promise.reject(new Error('boom'))) }),
+      defaults: compareDefaults({ players: [] }),
+    })
+    await flush()
+    none()
+    expect(screen.getAllByText('Add a player to start comparing.')).toHaveLength(1)
+  })
+  it('AC4: a failed stat definition load shows no 3D chart and does not crash', async () => {
+    setup({
+      provider: compareProvider({ getStatDefs: vi.fn(() => Promise.reject(new Error('boom'))) }),
+    })
+    await flush()
+    none()
+    expect(screen.queryByText(emptyText)).not.toBeInTheDocument()
+  })
+  it('AC4: switching to teams while their data is pending drops the player chart', async () => {
+    const pending = deferred<Entity[]>()
+    const base = compareProvider()
+    const getEntities = vi.fn((l: string, kind: EntityKind, season: string) =>
+      kind === 'teams' ? pending.promise : base.getEntities(l, kind, season),
+    )
+    const { user } = setup({ provider: compareProvider({ getEntities }) })
+    await screen.findByRole('group', { name: '3D chart' })
+    await user.click(probe('probe to teams'))
+    await flush()
+    none()
+    await act(async () => pending.resolve(compareTeams()))
+    expect(await screen.findByRole('group', { name: '3D chart' })).toBeInTheDocument()
+    expect(axisSelect('X axis')).toHaveDisplayValue('Ztpts')
+  })
+})
+
+describe('T14 AC5: no 3D content on other views', () => {
+  it('AC5: the Table view has no 3D group, axis select or Reset view button', async () => {
+    const ctx = setup()
+    await toTable(ctx)
+    expect(chart3d()).toBeNull()
+    expect(screen.queryByRole('combobox', { name: 'X axis' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Reset view' })).toBeNull()
+    expect(screen.queryByRole('heading', { name: 'Readout' })).toBeNull()
+  })
+  it('AC5: the 2D view has none of them for Bars or Radar', async () => {
+    const ctx = setup()
+    await to2D(ctx)
+    for (const mode of ['Bars', 'Radar']) {
+      await ctx.user.click(screen.getByRole('button', { name: mode }))
+      await flush()
+      expect(chart3d()).toBeNull()
+      expect(screen.queryByRole('combobox', { name: 'Z axis' })).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Reset view' })).toBeNull()
+      expect(screen.queryByRole('heading', { name: 'Readout' })).toBeNull()
+    }
+  })
+  it('AC5: the empty-selection readout is not rendered on Table or 2D', async () => {
+    const { user } = setup({ defaults: compareDefaults({ players: [] }) })
+    await user.click(tab('Table'))
+    expect(await screen.findAllByText(emptyText)).toHaveLength(1)
+    expect(screen.queryByRole('heading', { name: 'Readout' })).toBeNull()
+    await user.click(tab('2D chart'))
+    expect(await screen.findAllByText(emptyText)).toHaveLength(1)
+    expect(screen.queryByRole('heading', { name: 'Readout' })).toBeNull()
+  })
+})
+
+describe('T14 AC9: axes persist per kind', () => {
+  it('AC9: changing X for players, visiting teams and returning keeps the changed X', async () => {
+    const { user } = setup()
+    await screen.findByRole('group', { name: '3D chart' })
+    await user.selectOptions(axisSelect('X axis'), 'zsign')
+    expect(axisSelect('X axis')).toHaveDisplayValue('Zsign')
+    await user.click(probe('probe to teams'))
+    await screen.findByRole('combobox', { name: 'X axis' })
+    expect(axisSelect('X axis')).toHaveDisplayValue('Ztpts')
+    expect(axisSelect('Y axis')).toHaveDisplayValue('Ztlow')
+    expect(axisSelect('Z axis')).toHaveDisplayValue('Ztwin')
+    await user.click(probe('probe to players'))
+    await screen.findByRole('combobox', { name: 'X axis' })
+    expect(axisSelect('X axis')).toHaveDisplayValue('Zsign')
+    expect(axisSelect('Y axis')).toHaveDisplayValue('Zlow')
+    expect(screen.getByText('X · Zsign')).toBeInTheDocument()
+  })
+  it('AC9: an axis change for teams does not change the players axes', async () => {
+    const { user } = setup()
+    await user.click(probe('probe to teams'))
+    await screen.findByRole('combobox', { name: 'X axis' })
+    await user.selectOptions(axisSelect('Y axis'), 'ztwin')
+    expect(axisSelect('Y axis')).toHaveDisplayValue('Ztwin')
+    await user.click(probe('probe to players'))
+    await screen.findByRole('combobox', { name: 'X axis' })
+    expect(axisSelect('Y axis')).toHaveDisplayValue('Zlow')
+  })
+  it('AC9: the options offered match the stats of the current kind', async () => {
+    const { user } = setup()
+    await screen.findByRole('combobox', { name: 'X axis' })
+    const labels = () =>
+      within(axisSelect('X axis'))
+        .getAllByRole('option')
+        .map((o) => o.textContent)
+    expect(labels()).toEqual(['Zhigh', 'Zlow', 'Zbig', 'Zsign', 'Zsolo'])
+    await user.click(probe('probe to teams'))
+    await screen.findByRole('combobox', { name: 'X axis' })
+    expect(labels()).toEqual(['Ztpts', 'Ztlow', 'Ztwin'])
   })
 })

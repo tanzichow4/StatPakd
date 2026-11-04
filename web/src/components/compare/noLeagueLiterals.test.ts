@@ -7,8 +7,11 @@ import {
   playerStatDefs,
   teamStatDefs,
 } from '../../data/nfl'
+import axisControls from './AxisControls.tsx?raw'
 import barsChart from './BarsChart.tsx?raw'
 import barsModel from './barsModel.ts?raw'
+import chart3d from './Chart3D.tsx?raw'
+import chart3dModel from './chart3dModel.ts?raw'
 import chartPlaceholder from './ChartPlaceholder.tsx?raw'
 import comparePanel from './ComparePanel.tsx?raw'
 import compareTable from './CompareTable.tsx?raw'
@@ -17,6 +20,7 @@ import emptyState from './EmptyState.tsx?raw'
 import index from './index.ts?raw'
 import radarChart from './RadarChart.tsx?raw'
 import radarModel from './radarModel.ts?raw'
+import readout from './Readout.tsx?raw'
 
 const sources: Record<string, string> = {
   'ComparePanel.tsx': comparePanel,
@@ -29,6 +33,10 @@ const sources: Record<string, string> = {
   'EmptyState.tsx': emptyState,
   'tableModel.ts': compareTableHelpers,
   'index.ts': index,
+  'chart3dModel.ts': chart3dModel,
+  'AxisControls.tsx': axisControls,
+  'Readout.tsx': readout,
+  'Chart3D.tsx': chart3d,
 }
 
 function leagueValues(): string[] {
@@ -95,6 +103,11 @@ describe('AC28: the compare panel reads data only through the existing hooks', (
   it.each(Object.keys(sources))('AC28: %s does not import data/ or MockProvider', (name) => {
     expect(sources[name]).not.toMatch(/['"][^'"]*\/data\//)
     expect(sources[name]).not.toContain('MockProvider')
+  })
+  it('AC37: Chart3D takes its data from props and imports nothing from data/', () => {
+    expect(chart3d).not.toMatch(/from\s+['"][^'"]*data\//)
+    expect(chart3d).not.toContain('MockProvider')
+    expect(chart3dModel).not.toMatch(/from\s+['"][^'"]*data\//)
   })
   it('AC28: ComparePanel uses useEntities and useStatDefs', () => {
     expect(comparePanel).toContain('useEntities')

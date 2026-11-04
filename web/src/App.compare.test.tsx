@@ -31,21 +31,36 @@ describe('AC1: the panel is mounted in the Stat views region', () => {
     expect(screen.getAllByRole('region', { name: 'Stat views' })).toHaveLength(1)
     expect(await within(cards()).findByText('Josh Allen')).toBeInTheDocument()
   })
-  it('AC4: the app opens on 3D with its placeholder', async () => {
+  it('AC4: the app opens on 3D with the 3D chart', async () => {
     render(<App />)
     expect(
       within(panel()).getByRole('tab', { name: '3D chart', selected: true }),
     ).toBeInTheDocument()
-    expect(await within(panel()).findByText('3D chart — coming soon')).toBeInTheDocument()
+    expect(await within(panel()).findByRole('group', { name: '3D chart' })).toBeInTheDocument()
+    expect(screen.queryByText('3D chart — coming soon')).not.toBeInTheDocument()
+    expect(screen.queryByText(/coming soon/)).not.toBeInTheDocument()
   })
 })
 
 describe('AC32: the default 3D view does not duplicate App-level text', () => {
-  it('AC32: player names appear once (picker only) and no table is rendered', async () => {
+  it('AC32: player names appear once in the picker and once in the 3D readout, and no table is rendered', async () => {
     render(<App />)
     expect(await within(cards()).findByText('Josh Allen')).toBeInTheDocument()
-    expect(screen.getAllByText('Josh Allen')).toHaveLength(1)
-    expect(screen.getAllByText('Pass Yds')).toHaveLength(1)
+    expect(await within(panel()).findByRole('group', { name: '3D chart' })).toBeInTheDocument()
+    expect(screen.getAllByText('Josh Allen')).toHaveLength(2)
+    expect(within(cards()).getAllByText('Josh Allen')).toHaveLength(1)
+    expect(
+      within(within(panel()).getByRole('complementary')).getAllByText('Josh Allen'),
+    ).toHaveLength(1)
+    expect(within(panel()).queryByRole('table')).not.toBeInTheDocument()
+  })
+  it('AC32: a sidebar stat label appears once in the sidebar and otherwise only in the panel', async () => {
+    render(<App />)
+    expect(await within(panel()).findByRole('group', { name: '3D chart' })).toBeInTheDocument()
+    const all = screen.getAllByText('Pass Yds')
+    const inPanel = within(panel()).getAllByText('Pass Yds')
+    expect(inPanel.length).toBeGreaterThan(0)
+    expect(all).toHaveLength(inPanel.length + 1)
     expect(within(panel()).queryByRole('table')).not.toBeInTheDocument()
   })
 })

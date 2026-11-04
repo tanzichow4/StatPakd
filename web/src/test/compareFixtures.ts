@@ -69,7 +69,10 @@ export function compareTeams(): Entity[] {
   }))
 }
 
-/** Defaults with chosen selections and stats; ax values are unused by the compare panel. */
+/**
+ * Defaults with chosen selections and stats. The `ax` values are the initial 3D axes (x, y, z) of
+ * each kind; they are fixed and not configurable through the options.
+ */
 export function compareDefaults(
   opts: {
     players?: string[]

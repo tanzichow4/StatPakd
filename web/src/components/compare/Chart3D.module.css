@@ -1,0 +1,157 @@
+.root {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-20);
+  min-width: 0;
+  container-type: inline-size;
+}
+
+.chartCol {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  flex: 1 1 520px;
+  min-width: 0;
+}
+
+.readoutCol {
+  flex: 0 0 280px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Below 520 + 20 + 280 the Readout wraps and spans the full width. */
+@container (max-width: 819px) {
+  .readoutCol {
+    flex: 1 1 100%;
+  }
+}
+
+.card {
+  position: relative;
+  overflow: hidden;
+  background: var(--color-white);
+  border: 1px solid var(--color-border-alt);
+  border-radius: var(--radius-12);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.card:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+}
+
+.dragging {
+  cursor: grabbing;
+}
+
+.svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.grid {
+  stroke: #edede9;
+  stroke-width: 1;
+}
+
+.edge {
+  stroke: #dadad5;
+  stroke-width: 1;
+}
+
+.axis {
+  stroke: var(--color-ink);
+  stroke-width: 1.5;
+}
+
+.drop {
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.dot {
+  stroke: var(--color-white);
+  stroke-width: 1.5;
+}
+
+.unselected .drop {
+  stroke: #e0e0dc;
+}
+
+.unselected .dot {
+  fill: var(--color-chart-muted);
+}
+
+.selected .drop {
+  stroke: var(--series);
+}
+
+.selected .dot {
+  fill: var(--series);
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.axisLabel {
+  position: absolute;
+  font-family: var(--font-mono);
+  font-size: var(--text-11);
+  color: var(--color-ink);
+  white-space: nowrap;
+  transform: translate(0, -50%);
+}
+
+.axisLabel.before {
+  transform: translate(-100%, -50%);
+}
+
+.tag {
+  position: absolute;
+  padding: 0 3px;
+  border-radius: var(--radius-3);
+  background: rgb(255 255 255 / 85%);
+  font-size: var(--text-12);
+  font-weight: 600;
+  color: var(--color-ink);
+  white-space: nowrap;
+  transform: translate(0, -50%);
+}
+
+.hint {
+  position: absolute;
+  left: var(--space-12);
+  bottom: var(--space-10);
+  font-size: var(--text-12);
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
+.message {
+  margin: 0;
+  padding: 60px var(--space-20);
+  text-align: center;
+  font-size: var(--text-14);
+  color: var(--color-text-muted);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

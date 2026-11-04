@@ -211,4 +211,94 @@ describe('Select', () => {
     await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Season' }), '2023')
     expect(onChange).toHaveBeenCalledWith('2023')
   })
+
+  const opts = [
+    { value: 'a', label: 'Alpha' },
+    { value: 'b', label: 'Beta' },
+  ]
+
+  test('AC10: an unknown value shows a disabled placeholder option as the current value', () => {
+    render(
+      <Select
+        label="Pick"
+        value="nope"
+        onChange={() => {}}
+        options={opts}
+        placeholder="Choose a stat"
+      />,
+    )
+    const select = screen.getByRole('combobox', { name: 'Pick' }) as HTMLSelectElement
+    const first = select.options[0]
+    expect(first.textContent).toBe('Choose a stat')
+    expect(first.value).toBe('')
+    expect(first.disabled).toBe(true)
+    expect(select.selectedOptions[0]).toBe(first)
+    expect(select.value).toBe('')
+    expect(select.options).toHaveLength(3)
+  })
+
+  test('AC10: an empty value is also not among the options so the placeholder shows', () => {
+    render(
+      <Select
+        label="Pick"
+        value=""
+        onChange={() => {}}
+        options={opts}
+        placeholder="Choose a stat"
+      />,
+    )
+    const select = screen.getByRole('combobox', { name: 'Pick' }) as HTMLSelectElement
+    expect(select.selectedOptions[0].textContent).toBe('Choose a stat')
+  })
+
+  test('AC10: a known value renders no placeholder option', () => {
+    render(
+      <Select
+        label="Pick"
+        value="b"
+        onChange={() => {}}
+        options={opts}
+        placeholder="Choose a stat"
+      />,
+    )
+    const select = screen.getByRole('combobox', { name: 'Pick' }) as HTMLSelectElement
+    expect(select.options).toHaveLength(2)
+    expect(screen.queryByRole('option', { name: 'Choose a stat' })).toBeNull()
+    expect(select.value).toBe('b')
+  })
+
+  test('AC10: without a placeholder prop an unknown value renders no extra option', () => {
+    render(<Select label="Pick" value="nope" onChange={() => {}} options={opts} />)
+    const select = screen.getByRole('combobox', { name: 'Pick' }) as HTMLSelectElement
+    expect(select.options).toHaveLength(2)
+  })
+
+  test('AC10: choosing a real option from the placeholder state reports it', async () => {
+    const onChange = vi.fn()
+    render(
+      <Select
+        label="Pick"
+        value="nope"
+        onChange={onChange}
+        options={opts}
+        placeholder="Choose a stat"
+      />,
+    )
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Pick' }), 'a')
+    expect(onChange).toHaveBeenCalledWith('a')
+  })
+
+  test('AC35: className is applied to the select and keeps its own classes', () => {
+    render(
+      <Select label="Pick" value="a" onChange={() => {}} options={opts} className="axis-select" />,
+    )
+    const select = screen.getByRole('combobox', { name: 'Pick' })
+    expect(select).toHaveClass('axis-select')
+    expect(select.className.split(/\s+/).length).toBeGreaterThan(1)
+  })
+
+  test('AC35: without className no "undefined" class leaks into the attribute', () => {
+    render(<Select label="Pick" value="a" onChange={() => {}} options={opts} />)
+    expect(screen.getByRole('combobox', { name: 'Pick' }).className).not.toContain('undefined')
+  })
 })
