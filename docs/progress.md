@@ -16,7 +16,7 @@ Range T01-T20. Integration branch: `autobuild`. Baseline before run: web lint/ty
 | T10 | done | ticket/T10-compare-panel-and-table | Merged 98524fe. Browser QA round 1 FAIL (F1 page-level horizontal scroll from sr-only spans), fixed; round 2 PASS (docs/qa/T10-report.md, T10-report-2.md). 1209 web tests pass. |
 | T11 | done | ticket/T11-bars-chart | Merged c1d3fee. Browser QA PASS first time (docs/qa/T11-report.md). 1257 web tests pass. |
 | T12 | done | ticket/T12-radar-chart | Merged 7cfd737. 1 fix round (RadarChart markup did not match plan; lint warnings). Browser QA PASS (docs/qa/T12-report.md). 1361 web tests pass. |
-| T13 | in-progress | ticket/T13-3d-math | |
+| T13 | done | ticket/T13-3d-math | Merged ed9c836. No UI, browser QA skipped. Projection coordinates verified against the design formula in node. 1438 web tests pass. |
 | T14 | todo | ticket/T14-3d-chart | |
 | T15 | todo | ticket/T15-team-breakdown-header | |
 | T16 | todo | ticket/T16-share-of-production | |
@@ -46,6 +46,8 @@ Range T01-T20. Integration branch: `autobuild`. Baseline before run: web lint/ty
 - T11: bars not inverted for lower-is-better (design script); N/A shows muted dash with no fill; equal pool range gives ~52% width; narrow screens stack the label above the bars via flex-wrap; chart is non-interactive.
 
 - T12: null values plot at center (ticket) not at the design's 0.08 floor; axes in canonical stat order not pick order; legend note 'Not applicable: <labels>'; zero selected stats still renders nothing (panel behaviour); legend not hidden from AT..
+
+- T13: DIFFERS FROM TICKET: a selected entity with a null axis is still plotted (null -> -1), only unselected points with nulls are excluded, per the design script; unknown selected ids dropped (AC26); toCube maps min==max or null range to 0; lower-is-better not inverted in 3D; plotPoints(pool, axes, selectedIds, cam) signature chosen by coder; ties keep pool order.
 
 ## Out-of-scope ideas
 
