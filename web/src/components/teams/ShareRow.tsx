@@ -1,3 +1,4 @@
+/* oxlint-disable jsx-a11y/prefer-tag-over-role, jsx-a11y/no-noninteractive-tabindex, jsx-a11y/no-noninteractive-element-interactions -- the bar is a labelled group of focusable image segments whose focus drives the tooltip; fieldset/img cannot lay out or name them this way */
 import { useState } from 'react'
 import type { ShareRowModel } from './shareModel'
 import styles from './ShareRow.module.css'
