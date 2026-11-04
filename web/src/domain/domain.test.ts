@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { DataProvider } from './provider'
-import type { Entity, EntityKind, League, RosterEntry, StatDef } from './types'
+import type { Entity, EntityKind, League, RosterEntry, RosterUnitDef, StatDef } from './types'
 
 const leagues: League[] = [
   { id: 'league-a', name: 'League A', enabled: true },
@@ -46,6 +46,18 @@ const roster: RosterEntry[] = [
   { id: 'entity-2', name: 'Entity Two', position: 'Role Y', stats: { points: null } },
 ]
 
+const rosterUnits: RosterUnitDef[] = [
+  {
+    key: 'unit-1',
+    label: 'Unit One',
+    stats: [
+      { key: 'points', label: 'Points', group: 'Scoring', shareLabel: 'Pts' },
+      { key: 'errors', label: 'Errors', group: 'Scoring' },
+    ],
+  },
+  { key: 'unit-2', label: 'Unit Two', stats: [] },
+]
+
 const provider: DataProvider = {
   getLeagues: async () => leagues,
   getSeasons: async (leagueId) => (leagueId === 'league-a' ? ['2002', '2001'] : []),
@@ -54,6 +66,7 @@ const provider: DataProvider = {
     kind === 'players' && season === '2002' ? entities : [],
   getRoster: async (_leagueId, teamId, unit, _season) =>
     teamId === 'team-1' && unit === 'unit-1' ? roster : [],
+  getRosterUnits: async (leagueId) => (leagueId === 'league-a' ? rosterUnits : []),
 }
 
 describe('domain types and DataProvider contract', () => {
@@ -186,7 +199,48 @@ describe('domain types and DataProvider contract', () => {
       getStatDefs: async () => [],
       getEntities: async () => [],
       getRoster: async () => [],
+      getRosterUnits: async () => [],
     }
     expect(Array.isArray(syncProvider.getLeagues())).toBe(true)
+  })
+
+  it('AC6: getRosterUnits resolves to RosterUnitDef objects with ordered stat defs', async () => {
+    const result = await provider.getRosterUnits('league-a')
+    expect(result.map((u) => u.key)).toEqual(['unit-1', 'unit-2'])
+    expect(result[0]).toEqual({
+      key: 'unit-1',
+      label: 'Unit One',
+      stats: [
+        { key: 'points', label: 'Points', group: 'Scoring', shareLabel: 'Pts' },
+        { key: 'errors', label: 'Errors', group: 'Scoring' },
+      ],
+    })
+    expect(result[0].stats[1]).not.toHaveProperty('shareLabel')
+    expect(result[1].stats).toEqual([])
+  })
+
+  it('AC8: getRosterUnits resolves to [] for a disabled or unknown league', async () => {
+    expect(await provider.getRosterUnits('league-b')).toEqual([])
+    expect(await provider.getRosterUnits('missing')).toEqual([])
+  })
+
+  it('AC8: getRosterUnits returns a Promise', () => {
+    expect(provider.getRosterUnits('league-a')).toBeInstanceOf(Promise)
+  })
+
+  it('AC6: RosterUnitDef requires key, label and stats; shareLabel must be a string', () => {
+    // @ts-expect-error AC6: stats is required
+    const noStats: RosterUnitDef = { key: 'u', label: 'U' }
+    // @ts-expect-error AC6: label is required
+    const noLabel: RosterUnitDef = { key: 'u', stats: [] }
+    // @ts-expect-error AC6: key is required
+    const noKey: RosterUnitDef = { label: 'U', stats: [] }
+    // @ts-expect-error AC6: shareLabel must be a string
+    const bad: StatDef = { key: 'k', label: 'K', group: 'G', shareLabel: 3 }
+    const ok: StatDef = { key: 'k', label: 'K', group: 'G', shareLabel: '' }
+    const without: StatDef = { key: 'k', label: 'K', group: 'G' }
+    expect([noStats, noLabel, noKey, bad]).toHaveLength(4)
+    expect(ok.shareLabel).toBe('')
+    expect(without.shareLabel).toBeUndefined()
   })
 })

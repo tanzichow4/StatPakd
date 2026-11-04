@@ -5,6 +5,7 @@ import type {
   LeagueId,
   RosterEntry,
   RosterUnit,
+  RosterUnitDef,
   Season,
   StatDef,
   TeamId,
@@ -44,6 +45,13 @@ export interface DataProvider {
    * @param season a label from `getSeasons`.
    */
   getEntities(leagueId: LeagueId, kind: EntityKind, season: Season): Promise<Entity[]>
+
+  /**
+   * Resolves to the roster units of a league in display order, each with its roster stat
+   * definitions. Resolves to `[]` for a league that is not enabled.
+   * @param leagueId id of a league from `getLeagues`.
+   */
+  getRosterUnits(leagueId: LeagueId): Promise<RosterUnitDef[]>
 
   /**
    * Resolves to the roster of one team for a season.

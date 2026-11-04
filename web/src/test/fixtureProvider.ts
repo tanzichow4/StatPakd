@@ -1,6 +1,17 @@
 import { vi } from 'vitest'
 import type { DataProvider } from '../domain/provider'
-import type { Entity, EntityKind, League, LeagueUiDefaults, Season, StatDef } from '../domain/types'
+import type {
+  Entity,
+  EntityKind,
+  League,
+  LeagueUiDefaults,
+  RosterEntry,
+  RosterUnit,
+  RosterUnitDef,
+  Season,
+  StatDef,
+  TeamId,
+} from '../domain/types'
 
 /** Invented leagues: nothing here matches a real league or the mock data. */
 export const fixtureLeagues: League[] = [
@@ -19,6 +30,7 @@ export function createFixtureProvider(overrides: Partial<DataProvider> = {}): Da
     getSeasons: vi.fn(() => Promise.resolve([...fixtureSeasons])),
     getStatDefs: vi.fn(() => Promise.resolve([])),
     getEntities: vi.fn(() => Promise.resolve([])),
+    getRosterUnits: vi.fn(() => Promise.resolve([])),
     getRoster: vi.fn(() => Promise.resolve([])),
     ...overrides,
   }
@@ -192,6 +204,92 @@ export function seasonTeamsProvider(overrides: Partial<DataProvider> = {}): Data
         },
       ])
     }),
+    ...overrides,
+  })
+}
+
+/**
+ * Two invented roster units. Share and non-share defs are interleaved and one def has an empty
+ * `shareLabel` (so it is not a share stat).
+ */
+export function fixtureRosterUnits(): RosterUnitDef[] {
+  return [
+    {
+      key: 'zunit',
+      label: 'Zunit One',
+      stats: [
+        { key: 'zsnap', label: 'Zsnap', group: 'zroster' },
+        { key: 'zalpha', label: 'Zalpha', group: 'zroster', shareLabel: 'Zalpha share' },
+        { key: 'zbeta', label: 'Zbeta', group: 'zroster', shareLabel: '' },
+        { key: 'zgamma', label: 'Zgamma', group: 'zroster', shareLabel: 'Zgamma tally' },
+        { key: 'zdelta', label: 'Zdelta', group: 'zroster', extra: true, shareLabel: 'Zdelta' },
+        { key: 'zepsilon', label: 'Zepsilon', group: 'zroster', decimals: 1 },
+      ],
+    },
+    {
+      key: 'zalt',
+      label: 'Zunit Two',
+      stats: [
+        { key: 'zsnap', label: 'Zsnap', group: 'zroster' },
+        { key: 'zomega', label: 'Zomega', group: 'zroster', shareLabel: 'Zomega' },
+        { key: 'zsigma', label: 'Zsigma', group: 'zroster', shareLabel: 'Zsigma' },
+      ],
+    },
+  ]
+}
+
+/**
+ * Invented roster for a unit. `zunit` has 10 players (past the 8 series colours), a one-word name,
+ * a tie for the max in `zgamma`, a negative `zalpha`, a value under 9% in `zalpha`, and `zdelta`
+ * that is zero or null for everyone. Values depend on `salt` so team and season changes show.
+ */
+export function fixtureRoster(unit: RosterUnit, salt = 0): RosterEntry[] {
+  if (unit === 'zalt') {
+    return [
+      { id: 'zr1', name: 'Kip Zorrell', position: 'ZA', stats: { zomega: 60 + salt, zsigma: 5 } },
+      { id: 'zr2', name: 'Lona Mervish', position: 'ZB', stats: { zomega: 40, zsigma: 5 } },
+    ]
+  }
+  if (unit !== 'zunit') return []
+  const names = [
+    'Ada Brindle',
+    'Bo Cantrell',
+    'Cher',
+    'Dax Ellory',
+    'Edda Fenwick',
+    'Finn Garrow',
+    'Gwen Hollis',
+    'Hugo Imber',
+    'Ivy Jessup',
+    'Jory Kestrel Vane',
+  ]
+  return names.map((name, i) => ({
+    id: `zr${i + 1}`,
+    name,
+    position: i % 2 === 0 ? 'ZA' : 'ZB',
+    stats: {
+      zsnap: 50 + i,
+      // Player 1 leads; player 2 is under 9%; player 4 is negative; player 5 is null.
+      zalpha: [300 + salt, 20, 150, -10, null, 100, 0, 60, 40, 30][i],
+      zbeta: i + 1,
+      // Tie for the max between players 2 and 5.
+      zgamma: [10, 40, 5, 0, 40, 10, 5, 0, 20, 10][i],
+      zdelta: i % 2 === 0 ? 0 : null,
+      zepsilon: 1.5,
+    },
+  }))
+}
+
+/**
+ * Season teams plus fixture roster units and a roster that depends on team, unit and season.
+ * Unknown units resolve to an empty roster.
+ */
+export function rosterProvider(overrides: Partial<DataProvider> = {}): DataProvider {
+  return seasonTeamsProvider({
+    getRosterUnits: vi.fn(() => Promise.resolve(fixtureRosterUnits())),
+    getRoster: vi.fn((_leagueId: string, teamId: TeamId, unit: RosterUnit, season: Season) =>
+      Promise.resolve(fixtureRoster(unit, (teamId === 'zt2' ? 7 : 0) + (Number(season) % 100))),
+    ),
     ...overrides,
   })
 }

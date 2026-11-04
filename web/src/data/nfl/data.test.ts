@@ -3,6 +3,8 @@ import type { StatDef } from '../../domain/types'
 import { getLeagueRegistry } from '../leagues'
 import { SAMPLE_DATA_LABEL } from '../sampleData'
 import { DEF_T, OFF_T, RAW_P, RAW_T, ROSTERS } from './raw'
+import { NFL_SEASONS, ROSTER_UNITS, buildRoster } from './builders'
+import { rosterUnitDefs } from './rosterUnits'
 import { playerStatDefs, teamStatDefs } from './statDefs'
 
 // Expected values below are written out from the design script
@@ -266,6 +268,126 @@ describe('stat definitions', () => {
     const teams = teamStatDefs()
     teams.length = 0
     expect(teamStatDefs()).toEqual(EXPECTED_TEAM_DEFS)
+  })
+})
+
+describe('roster unit definitions (AC6, AC7)', () => {
+  const byKey = (key: string) => {
+    const unit = rosterUnitDefs().find((u) => u.key === key)
+    if (!unit) throw new Error(`expected unit ${key}`)
+    return unit
+  }
+  const shareStats = (key: string) =>
+    byKey(key)
+      .stats.filter((s) => s.shareLabel !== undefined)
+      .map((s) => [s.key, s.shareLabel])
+
+  it('AC7: the units are off "Offense" then def "Defense"', () => {
+    expect(rosterUnitDefs().map((u) => [u.key, u.label])).toEqual([
+      ['off', 'Offense'],
+      ['def', 'Defense'],
+    ])
+  })
+
+  it('AC7: offense columns follow the design order and labels', () => {
+    expect(byKey('off').stats.map((s) => [s.key, s.label])).toEqual([
+      ['snap', 'Snap %'],
+      ['touch', 'Touches'],
+      ['tgt', 'Targets'],
+      ['scrim', 'Scrim Yds'],
+      ['td', 'TD'],
+      ['ypt', 'Yds / Touch'],
+    ])
+  })
+
+  it('AC7: defense columns follow the design order, with take after sk', () => {
+    expect(byKey('def').stats.map((s) => s.key)).toEqual([
+      'snap',
+      'tkl',
+      'sk',
+      'take',
+      'int',
+      'pd',
+      'ff',
+    ])
+    expect(byKey('def').stats.map((s) => s.label)).toEqual([
+      'Snap %',
+      'Tackles',
+      'Sacks',
+      'Takeaways',
+      'INT',
+      'Pass Def',
+      'Forced Fum',
+    ])
+  })
+
+  it('AC7: offense share stats, in order, with the design share labels', () => {
+    expect(shareStats('off')).toEqual([
+      ['touch', 'Touches'],
+      ['tgt', 'Targets'],
+      ['scrim', 'Scrimmage Yds'],
+      ['td', 'Touchdowns'],
+    ])
+  })
+
+  it('AC7: defense share stats, in order, with the design share labels', () => {
+    expect(shareStats('def')).toEqual([
+      ['tkl', 'Tackles'],
+      ['sk', 'Sacks'],
+      ['take', 'Takeaways'],
+      ['pd', 'Passes Defended'],
+    ])
+  })
+
+  it('AC6: only take is marked extra, and ypt has one decimal', () => {
+    const extras = rosterUnitDefs().flatMap((u) => u.stats.filter((s) => s.extra))
+    expect(extras.map((s) => s.key)).toEqual(['take'])
+    expect(byKey('off').stats.find((s) => s.key === 'ypt')?.decimals).toBe(1)
+  })
+
+  it('AC6: every stat def has a key, label and group matching its unit', () => {
+    for (const unit of rosterUnitDefs()) {
+      for (const s of unit.stats) {
+        expect(s.key.length).toBeGreaterThan(0)
+        expect(s.label.length).toBeGreaterThan(0)
+        expect(s.group).toBe(unit.label)
+      }
+      expect(new Set(unit.stats.map((s) => s.key)).size).toBe(unit.stats.length)
+    }
+  })
+
+  it('AC7: def keys equal the stat keys buildRoster produces, for every team, season and unit', () => {
+    for (const unit of rosterUnitDefs()) {
+      const defKeys = unit.stats.map((s) => s.key).sort()
+      for (const season of NFL_SEASONS) {
+        for (const teamId of Object.keys(ROSTERS)) {
+          const rows = buildRoster(teamId, unit.key, season)
+          expect(rows.length).toBeGreaterThan(0)
+          for (const row of rows) expect(Object.keys(row.stats).sort()).toEqual(defKeys)
+        }
+      }
+    }
+  })
+
+  it('AC7: ROSTER_UNITS lists the same unit keys, in the same order', () => {
+    expect([...ROSTER_UNITS]).toEqual(rosterUnitDefs().map((u) => u.key))
+  })
+
+  it('AC10: mutating a returned list does not affect the next call', () => {
+    const first = rosterUnitDefs()
+    const unit = first[0]
+    if (!unit) throw new Error('expected a unit')
+    unit.label = 'changed'
+    const stat = unit.stats[0]
+    if (!stat) throw new Error('expected a stat')
+    stat.label = 'changed'
+    unit.stats.length = 0
+    first.length = 0
+    const second = rosterUnitDefs()
+    expect(second).toHaveLength(2)
+    expect(second[0]?.label).toBe('Offense')
+    expect(second[0]?.stats).toHaveLength(6)
+    expect(second[0]?.stats[0]?.label).toBe('Snap %')
   })
 })
 

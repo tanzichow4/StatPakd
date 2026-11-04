@@ -6,6 +6,7 @@ import type {
   LeagueId,
   RosterEntry,
   RosterUnit,
+  RosterUnitDef,
   Season,
   StatDef,
   TeamId,
@@ -18,6 +19,7 @@ import {
   buildRoster,
   buildTeams,
   playerStatDefs,
+  rosterUnitDefs,
   teamStatDefs,
 } from './nfl'
 import { ROSTERS } from './nfl/raw'
@@ -42,6 +44,11 @@ export class MockProvider implements DataProvider {
     if (!this.isEnabled(leagueId)) return []
     this.checkSeason(season)
     return kind === 'players' ? buildPlayers(season) : buildTeams(season)
+  }
+
+  async getRosterUnits(leagueId: LeagueId): Promise<RosterUnitDef[]> {
+    if (!this.isEnabled(leagueId)) return []
+    return rosterUnitDefs()
   }
 
   async getRoster(
