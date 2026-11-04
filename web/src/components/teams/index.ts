@@ -1,3 +1,5 @@
+export { RosterSection } from './RosterSection'
+export { RosterTable } from './RosterTable'
 export { ShareLegend } from './ShareLegend'
 export { ShareOfProduction } from './ShareOfProduction'
 export { ShareRow } from './ShareRow'

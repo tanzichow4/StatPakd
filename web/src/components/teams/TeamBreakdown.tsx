@@ -2,6 +2,7 @@ import { useEffect, useMemo } from 'react'
 import { useAppState } from '../../state'
 import { useEntities } from '../picker/useEntities'
 import { useStatDefs } from '../sidebar/useStatDefs'
+import { RosterSection } from './RosterSection'
 import { ShareOfProduction } from './ShareOfProduction'
 import { TeamChips } from './TeamChips'
 import { TeamHeader } from './TeamHeader'
@@ -40,7 +41,11 @@ export function TeamBreakdown() {
             meta={teamMetaLine(team, season)}
             summary={summary}
           />
-          <ShareOfProduction teamId={teamId} season={season} />
+          <ShareOfProduction
+            teamId={teamId}
+            season={season}
+            renderAfter={(unit, roster) => <RosterSection unit={unit} roster={roster} />}
+          />
         </>
       )}
     </div>

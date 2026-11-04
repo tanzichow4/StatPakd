@@ -77,7 +77,9 @@ describe('AC6/AC7/AC15-AC17: breakdown mode', () => {
     expect(sidebar()).not.toBeInTheDocument()
     expect(panel()).not.toBeInTheDocument()
     expect(screen.queryByRole('tablist')).not.toBeInTheDocument()
-    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('table', { name: 'Selected teams compared by stat' }),
+    ).not.toBeInTheDocument()
     expect(screen.queryByRole('group', { name: '3D chart' })).not.toBeInTheDocument()
     expect(screen.getByText(INSIDE_HINT)).toBeInTheDocument()
     expect(modeBtn('Team breakdown')).toHaveAttribute('aria-pressed', 'true')
@@ -95,7 +97,14 @@ describe('AC6/AC7/AC15-AC17: breakdown mode', () => {
     expect(group.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     const share = await screen.findByRole('region', { name: SHARE_TITLE })
     expect(section.nextElementSibling).toBe(share)
-    expect(share.nextElementSibling).toBeNull()
+    const roster = await screen.findByRole('region', { name: 'Roster' })
+    expect(share.nextElementSibling).toBe(roster)
+    expect(roster.nextElementSibling).toBeNull()
+    const tables = await screen.findAllByRole('table')
+    expect(tables).toHaveLength(1)
+    expect(tables[0]).toHaveAccessibleName('Roster')
+    const root = (chipGroup() as HTMLElement).parentElement as HTMLElement
+    expect(root.querySelectorAll('section')).toHaveLength(3)
     expect(screen.queryByText(/coming soon/i)).not.toBeInTheDocument()
   })
   it('AC15: the card shows the name, badge and "division · record · season"', async () => {
@@ -522,5 +531,173 @@ describe('AC7/AC9-AC12/AC17-AC21: share of team production with the mock data', 
     await user.click(unitBtn('Defense'))
     await screen.findByRole('group', { name: 'Tackles share' })
     check()
+  })
+})
+
+describe('T4: the Roster table with the mock data', () => {
+  const rosterTable = () => screen.getByRole('table', { name: 'Roster' })
+  const headerNames = () =>
+    within(rosterTable())
+      .getAllByRole('columnheader')
+      .map((h) => h.textContent?.replace(/[↓↑]/g, '').trim())
+  const header = (name: string) => within(rosterTable()).getByRole('columnheader', { name })
+  const headerBtn = (name: string) => within(rosterTable()).getByRole('button', { name })
+  const unitBtn = (name: 'Offense' | 'Defense') =>
+    within(screen.getByRole('group', { name: 'Unit' })).getByRole('button', { name })
+  const columnIndex = (name: string) => headerNames().indexOf(name)
+  /** Text of one column over the body rows, in display order. */
+  const columnTexts = (name: string) => {
+    const idx = columnIndex(name) - 1
+    return within(rosterTable())
+      .getAllByRole('rowheader')
+      .map((h) => {
+        const cells = within(h.closest('tr') as HTMLElement).getAllByRole('cell')
+        return (cells[idx].textContent ?? '').replace(/\s*team leader\s*$/, '').trim()
+      })
+  }
+  const numbers = (texts: string[]) =>
+    texts.map((t) => (t.startsWith('—') ? null : Number(t.replace(/[,%]/g, ''))))
+  const playerOrder = () =>
+    within(rosterTable())
+      .getAllByRole('rowheader')
+      .map((h) => h.textContent)
+
+  async function open() {
+    const user = userEvent.setup()
+    render(<App />)
+    await goTeams(user)
+    await enterBreakdown(user)
+    await screen.findByRole('table', { name: 'Roster' })
+    return user
+  }
+
+  it('AC7: the default team shows Roster after the share section', async () => {
+    await open()
+    const share = screen.getByRole('region', { name: SHARE_TITLE })
+    expect(share.nextElementSibling).toBe(screen.getByRole('region', { name: 'Roster' }))
+    expect(screen.getByRole('heading', { level: 2, name: 'Roster' })).toBeInTheDocument()
+    expect(screen.getByText('Click a column to sort · Black = team leader')).toBeInTheDocument()
+  })
+  it('AC10/AC13/AC14: offense headers, with Snap % sorted descending and an arrow', async () => {
+    await open()
+    expect(headerNames()).toEqual([
+      'Player',
+      'Snap %',
+      'Touches',
+      'Targets',
+      'Scrim Yds',
+      'TD',
+      'Yds / Touch',
+    ])
+    expect(header('Snap %')).toHaveAttribute('aria-sort', 'descending')
+    expect(headerBtn('Snap %')).toHaveTextContent('Snap %↓')
+    expect(header('Touches')).toHaveAttribute('aria-sort', 'none')
+  })
+  it('AC11/AC17/AC18: Snap % cells read N% and are non-increasing down the rows', async () => {
+    await open()
+    const texts = columnTexts('Snap %')
+    expect(texts.length).toBeGreaterThan(1)
+    for (const t of texts) expect(t).toMatch(/^\d+%$|^—/)
+    const values = numbers(texts).filter((n): n is number => n !== null)
+    expect(values).toEqual([...values].sort((a, b) => b - a))
+    const snapCell = within(rosterTable()).getAllByRole('cell')[0]
+    expect(snapCell.querySelector('[style*="width"]')).not.toBeNull()
+  })
+  it('AC15: clicking Touches sorts descending, then ascending', async () => {
+    const user = await open()
+    await user.click(headerBtn('Touches'))
+    expect(header('Touches')).toHaveAttribute('aria-sort', 'descending')
+    expect(header('Snap %')).toHaveAttribute('aria-sort', 'none')
+    let values = numbers(columnTexts('Touches')).filter((n): n is number => n !== null)
+    expect(values).toEqual([...values].sort((a, b) => b - a))
+    await user.click(headerBtn('Touches'))
+    expect(header('Touches')).toHaveAttribute('aria-sort', 'ascending')
+    expect(headerBtn('Touches')).toHaveTextContent('Touches↑')
+    values = numbers(columnTexts('Touches')).filter((n): n is number => n !== null)
+    expect(values).toEqual([...values].sort((a, b) => a - b))
+  })
+  it('AC3: players without a value stay at the bottom in both directions', async () => {
+    const user = await open()
+    for (const col of ['Targets', 'Yds / Touch']) {
+      await user.click(headerBtn(col))
+      for (let pass = 0; pass < 2; pass++) {
+        const vals = numbers(columnTexts(col))
+        const firstNull = vals.indexOf(null)
+        const tail = firstNull === -1 ? [] : vals.slice(firstNull)
+        expect(tail.every((v) => v === null)).toBe(true)
+        await user.click(headerBtn(col))
+      }
+    }
+  })
+  it('AC16: clicking Defense shows the defense headers and resets to Snap % descending', async () => {
+    const user = await open()
+    await user.click(headerBtn('Touches'))
+    await user.click(headerBtn('Touches'))
+    await user.click(unitBtn('Defense'))
+    await screen.findByRole('group', { name: 'Tackles share' })
+    await waitFor(() => expect(headerNames()).toContain('Tackles'))
+    expect(headerNames()).toEqual([
+      'Player',
+      'Snap %',
+      'Tackles',
+      'Sacks',
+      'INT',
+      'Pass Def',
+      'Forced Fum',
+    ])
+    expect(headerNames()).not.toContain('Takeaways')
+    expect(header('Snap %')).toHaveAttribute('aria-sort', 'descending')
+    expect(unitBtn('Defense')).toHaveAttribute('aria-pressed', 'true')
+  })
+  it('AC16: clicking the active unit keeps the sort', async () => {
+    const user = await open()
+    await user.click(headerBtn('Touches'))
+    await user.click(unitBtn('Offense'))
+    expect(header('Touches')).toHaveAttribute('aria-sort', 'descending')
+  })
+  it('AC16: a chip change keeps the active sort and reloads the rows', async () => {
+    const user = await open()
+    await user.click(headerBtn('Touches'))
+    const before = playerOrder()
+    await user.click(within(chipGroup() as HTMLElement).getByRole('button', { name: 'KC' }))
+    await screen.findByRole('region', { name: 'Kansas City Chiefs' })
+    await waitFor(() => expect(playerOrder()).not.toEqual(before))
+    expect(header('Touches')).toHaveAttribute('aria-sort', 'descending')
+    const values = numbers(columnTexts('Touches')).filter((n): n is number => n !== null)
+    expect(values).toEqual([...values].sort((a, b) => b - a))
+  })
+  it('AC16: a season change keeps the active sort', async () => {
+    const user = await open()
+    await user.click(headerBtn('Touches'))
+    await user.click(headerBtn('Touches'))
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Season' }), '2023')
+    await waitFor(() => expect(screen.getByText(/ · 2023$/)).toBeInTheDocument())
+    await screen.findByRole('table', { name: 'Roster' })
+    expect(header('Touches')).toHaveAttribute('aria-sort', 'ascending')
+  })
+  it('AC17: Yds / Touch values show one decimal', async () => {
+    await open()
+    const texts = columnTexts('Yds / Touch').filter((t) => !t.startsWith('—'))
+    expect(texts.length).toBeGreaterThan(0)
+    for (const t of texts) expect(t).toMatch(/^\d+\.\d$/)
+  })
+  it('AC17: the table never shows NaN, undefined or null', async () => {
+    const user = await open()
+    const check = () => expect(rosterTable().textContent).not.toMatch(/NaN|undefined|null|Infinity/)
+    check()
+    await user.click(unitBtn('Defense'))
+    await screen.findByRole('group', { name: 'Tackles share' })
+    check()
+  })
+  it('AC8: no roster table in compare mode or Players mode', async () => {
+    const user = await open()
+    await leaveBreakdown(user)
+    expect(screen.queryByRole('table', { name: 'Roster' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Roster' })).not.toBeInTheDocument()
+    await enterBreakdown(user)
+    await screen.findByRole('table', { name: 'Roster' })
+    await goPlayers(user)
+    await screen.findByRole('list', { name: 'Selected players' })
+    expect(screen.queryByRole('table', { name: 'Roster' })).not.toBeInTheDocument()
   })
 })

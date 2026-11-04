@@ -1,6 +1,7 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
+import type { ReactNode } from 'react'
 import { DataSource } from '../../dataSource'
 import type { DataProvider } from '../../domain/provider'
 import type {
@@ -440,5 +441,100 @@ describe('AC28: an unknown state.unit', () => {
     expect(stateUnit()).toBe('zalt')
     expect(pressed()).toEqual(['Zunit Two'])
     expect(legendNames()).toEqual(['Kip Zorrell', 'Lona Mervish'])
+  })
+})
+
+describe('AC25/T4: the optional renderAfter prop', () => {
+  function AfterHost({
+    renderAfter,
+  }: {
+    renderAfter?: (unit: RosterUnitDef, roster: readonly RosterEntry[]) => ReactNode
+  }) {
+    const { state } = useAppState()
+    return (
+      <ShareOfProduction teamId={state.teamId} season={state.season} renderAfter={renderAfter} />
+    )
+  }
+  function setupAfter(
+    renderAfter?: Parameters<typeof AfterHost>[0]['renderAfter'],
+    opts: Options = {},
+  ) {
+    const provider = opts.provider ?? rosterProvider()
+    const view = render(
+      <DataSource provider={provider}>
+        <AppStateProvider
+          defaults={opts.defaults ?? fixtureUiDefaults()}
+          statDefs={fixtureStatDefs()}
+        >
+          <AfterHost renderAfter={renderAfter} />
+        </AppStateProvider>
+      </DataSource>,
+    )
+    return { provider, ...view }
+  }
+
+  it('AC25: it is called with the current unit def and its roster', async () => {
+    const renderAfter = vi.fn(() => <p>after marker</p>)
+    setupAfter(renderAfter)
+    expect(await screen.findByText('after marker')).toBeInTheDocument()
+    const [unit, roster] = renderAfter.mock.calls.at(-1) as unknown as [
+      RosterUnitDef,
+      RosterEntry[],
+    ]
+    expect(unit.key).toBe('zunit')
+    expect(roster.map((r) => r.id)).toEqual(fixtureRoster('zunit').map((r) => r.id))
+  })
+  it('AC7: its output is the next sibling of the share section', async () => {
+    setupAfter(() => <p>after marker</p>)
+    const marker = await screen.findByText('after marker')
+    const share = screen.getByRole('region', { name: 'Share of team production' })
+    expect(share.nextElementSibling).toBe(marker)
+  })
+  it('AC8: it is not rendered or called while units are pending', async () => {
+    const pending = deferred<RosterUnitDef[]>()
+    const renderAfter = vi.fn(() => <p>after marker</p>)
+    setupAfter(renderAfter, {
+      provider: rosterProvider({ getRosterUnits: vi.fn(() => pending.promise) }),
+    })
+    await act(async () => {})
+    expect(renderAfter).not.toHaveBeenCalled()
+    expect(screen.queryByText('after marker')).toBeNull()
+  })
+  it('AC8: it is not rendered or called while the roster is pending', async () => {
+    const pending = deferred<RosterEntry[]>()
+    const renderAfter = vi.fn(() => <p>after marker</p>)
+    setupAfter(renderAfter, {
+      provider: rosterProvider({ getRoster: vi.fn(() => pending.promise) }),
+    })
+    await screen.findByRole('region', { name: 'Share of team production' })
+    await act(async () => {})
+    expect(renderAfter).not.toHaveBeenCalled()
+  })
+  it('AC8: it is not called when a load fails', async () => {
+    const renderAfter = vi.fn(() => <p>after marker</p>)
+    const getRoster = vi.fn(() => Promise.reject(new Error('boom')))
+    setupAfter(renderAfter, { provider: rosterProvider({ getRoster }) })
+    await waitFor(() => expect(getRoster).toHaveBeenCalled())
+    await act(async () => {})
+    expect(renderAfter).not.toHaveBeenCalled()
+    const getRosterUnits = vi.fn(() => Promise.reject(new Error('boom')))
+    setupAfter(renderAfter, { provider: rosterProvider({ getRosterUnits }) })
+    await waitFor(() => expect(getRosterUnits).toHaveBeenCalled())
+    await act(async () => {})
+    expect(renderAfter).not.toHaveBeenCalled()
+  })
+  it('AC8: it is not called for an unknown unit', async () => {
+    const renderAfter = vi.fn(() => <p>after marker</p>)
+    setupAfter(renderAfter, { defaults: { ...fixtureUiDefaults(), unit: 'nope' } })
+    await screen.findByRole('region', { name: 'Share of team production' })
+    await act(async () => {})
+    expect(renderAfter).not.toHaveBeenCalled()
+  })
+  it('AC25: with the prop absent the share section is the last element', async () => {
+    const { container } = setupAfter(undefined)
+    const share = await screen.findByRole('region', { name: 'Share of team production' })
+    await ready()
+    expect(share.nextElementSibling).toBeNull()
+    expect(container.querySelectorAll('section')).toHaveLength(1)
   })
 })
