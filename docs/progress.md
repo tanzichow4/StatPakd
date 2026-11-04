@@ -19,7 +19,7 @@ Range T01-T20. Integration branch: `autobuild`. Baseline before run: web lint/ty
 | T13 | done | ticket/T13-3d-math | Merged ed9c836. No UI, browser QA skipped. Projection coordinates verified against the design formula in node. 1438 web tests pass. |
 | T14 | done | ticket/T14-3d-chart | Merged e3b8502. Browser QA PASS first time (docs/qa/T14-report.md); drag ~180fps on 16-player mock pool in headless dev build. 1717 web tests pass. |
 | T15 | done | ticket/T15-team-breakdown-header | Merged 6a47b82. Browser QA PASS first time (docs/qa/T15-report.md). 1826 web tests pass. |
-| T16 | in-progress | ticket/T16-share-of-production | |
+| T16 | done | ticket/T16-share-of-production | Merged 2920571. 1 fix round (a11y lint warnings). Browser QA PASS (docs/qa/T16-report.md). 2065 web tests pass. |
 | T17 | todo | ticket/T17-roster-table | |
 | T18 | todo | ticket/T18-responsive-and-a11y | |
 | T19 | todo | ticket/T19-e2e-tests | |
@@ -53,6 +53,8 @@ Range T01-T20. Integration branch: `autobuild`. Baseline before run: web lint/ty
 
 - T15: summary stats come from optional StatDef.summaryLabel via getStatDefs (no new provider method; T22 inherits this contract); breakdown mode hides picker, sidebar and compare panel, shows only chips then header card (no placeholder for T16/T17); TeamBreakdown dispatches closeAddStatMenu once on mount; unknown teamId shows chips but no card (no auto-select); compare state is preserved across the round trip; shared pill Chip reused as-is, exact team-chip styling deferred to T20; TeamChips uses a fieldset named 'Teams'.
 
+- T16: CONTRACT CHANGE for T17/T22: new REQUIRED DataProvider.getRosterUnits(leagueId) returning RosterUnitDef{key,label,stats:StatDef[]} plus optional StatDef.shareLabel marking share stats (disabled league -> [], unknown league rejects); the NFL unit defs carry the design column and share labels and take is marked extra; shares() uses largest-remainder rounding (ties to the earlier entry; null/negative/non-finite as 0; zero total -> all 0), so a percent can differ by 1 from the design's Math.round; unit toggle uses the existing state.unit/setUnit; every segment is a Tab stop (27 on mock offense, revisit in T18); rows stack below 480px; unknown unit skips getRoster; T15 tests that pinned 'nothing after the card' / 'getRoster not called' were rewritten for the new behaviour, not deleted.
+
 ## Out-of-scope ideas
 
 - T08: at 375px the open popover is ~450px tall and extends past the viewport bottom, making the page scroll; revisit in T18 (responsive). Many-chip wrapping not stressed with mock data.
@@ -64,3 +66,5 @@ Range T01-T20. Integration branch: `autobuild`. Baseline before run: web lint/ty
 - T14: at 375px axis labels keep 11px and are clipped at card edges; with 8 selected the name tags overlap (no collision avoidance); mock pool is small so AC41 smoothness was not stress-tested on a real device. Revisit in T18/T20.
 
 - T15: chip border is #DEDEDA vs design #DADAD6 and chips are pills (design: radius 8, padding 7px 12px); check in T20.
+
+- T16: keyboard-focus tooltip is anchored at the bar's left edge rather than above the focused segment (cosmetic); 27 Tab stops per offense row set. Revisit in T18/T20.
