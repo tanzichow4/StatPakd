@@ -72,6 +72,9 @@ const flush = () => act(async () => {})
 const tableEl = () => screen.queryByRole('table', { hidden: true })
 const caption = () => screen.queryByText(/Black = best among selected/)
 const emptyText = /Add a (player|team) to start comparing\./
+const RADAR_CAPTION =
+  'Axes scaled to league range; "lower is better" stats are inverted so outward is always better.'
+const RADAR_MESSAGE = 'Pick at least 3 stats for the radar.'
 
 async function toTable(ctx: ReturnType<typeof setup>) {
   await ctx.user.click(tab('Table'))
@@ -297,12 +300,17 @@ describe('AC8: placeholders', () => {
     expect(screen.queryByText('Bars chart — coming soon')).toBeNull()
     expect(screen.queryByText(/Radar chart/)).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Radar' }))
-    expect(screen.getByText('Radar chart — coming soon')).toBeInTheDocument()
+    expect(await screen.findByRole('group', { name: 'Radar chart' })).toBeInTheDocument()
+    expect(screen.getByText(RADAR_CAPTION)).toBeInTheDocument()
+    expect(screen.queryByText(/coming soon/)).toBeNull()
+    expect(screen.queryByText('Radar chart — coming soon')).toBeNull()
     expect(screen.queryByRole('group', { name: 'Bars chart' })).toBeNull()
     expect(screen.queryByText('Bar length scaled to league range.')).toBeNull()
     expect(screen.queryByText(/Bars chart/)).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Bars' }))
     expect(await screen.findByRole('group', { name: 'Bars chart' })).toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Radar chart' })).toBeNull()
+    expect(screen.queryByText(RADAR_CAPTION)).toBeNull()
     expect(screen.queryByText(/Radar chart/)).not.toBeInTheDocument()
   })
   it('AC8: the placeholder has no controls of its own', async () => {
@@ -573,8 +581,21 @@ describe('AC23/AC31: loading and failure show nothing', () => {
     expect(screen.queryByText('Bar length scaled to league range.')).toBeNull()
     expect(screen.queryByTestId('bar-fill')).toBeNull()
     expect(screen.queryAllByRole('listitem')).toHaveLength(0)
+    await user.click(screen.getByRole('button', { name: 'Radar' }))
+    await flush()
+    expect(screen.queryByRole('group', { name: 'Radar chart' })).toBeNull()
+    expect(screen.queryByText(RADAR_MESSAGE)).toBeNull()
+    expect(screen.queryByText(RADAR_CAPTION)).toBeNull()
+    expect(screen.queryByRole('list', { name: 'Legend' })).toBeNull()
+    expect(screen.queryByTestId('radar')).toBeNull()
+    expect(screen.getByRole('tabpanel', { name: '2D chart' }).querySelector('svg')).toBeNull()
+    expect(screen.queryByText(/coming soon/)).not.toBeInTheDocument()
+    expect(screen.queryByText(emptyText)).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Bars' }))
     await act(async () => pending.resolve(comparePlayers()))
     expect(await screen.findByRole('group', { name: 'Bars chart' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Radar' }))
+    expect(await screen.findByRole('group', { name: 'Radar chart' })).toBeInTheDocument()
   })
   it('AC31: switching kind drops the old table until the new data arrives', async () => {
     const pending = deferred<Entity[]>()
@@ -711,5 +732,236 @@ describe('T11 AC17: keyboard', () => {
     expect(chart.querySelectorAll('button, a, input, select, textarea, [tabindex]')).toHaveLength(0)
     await ctx.user.tab()
     expect(chart.contains(document.activeElement)).toBe(false)
+  })
+})
+
+const radarGroup = () => screen.queryByRole('group', { name: 'Radar chart' })
+const radarSeries = () => screen.queryAllByTestId('radar-series')
+const seriesPoints = () =>
+  radarSeries().map((g) => g.querySelector('polygon')?.getAttribute('points'))
+const radarLabels = () => screen.queryAllByTestId('radar-label').map((l) => l.textContent)
+const legend = () => screen.queryByRole('list', { name: 'Legend' })
+
+async function toRadar(ctx: ReturnType<typeof setup>) {
+  await ctx.user.click(tab('2D chart'))
+  await ctx.user.click(screen.getByRole('button', { name: 'Radar' }))
+  await flush()
+}
+
+describe('T12 AC1/AC2: Radar placement and switching', () => {
+  it('AC1: Radar shows the chart, legend and caption and no placeholder', async () => {
+    const ctx = setup()
+    await toRadar(ctx)
+    expect(await screen.findByRole('group', { name: 'Radar chart' })).toBeInTheDocument()
+    expect(within(legend() as HTMLElement).getAllByRole('listitem')).toHaveLength(3)
+    expect(screen.getByText(RADAR_CAPTION)).toBeInTheDocument()
+    expect(screen.queryByText(/coming soon/)).toBeNull()
+    expect(radarSeries()).toHaveLength(3)
+  })
+  it('AC2: only one of Bars and Radar is in the document at a time, in both directions', async () => {
+    const ctx = setup()
+    await to2D(ctx)
+    expect(radarGroup()).toBeNull()
+    await ctx.user.click(screen.getByRole('button', { name: 'Radar' }))
+    expect(await screen.findByRole('group', { name: 'Radar chart' })).toBeInTheDocument()
+    expect(barsGroup()).toBeNull()
+    await ctx.user.click(screen.getByRole('button', { name: 'Bars' }))
+    expect(await screen.findByRole('group', { name: 'Bars chart' })).toBeInTheDocument()
+    expect(radarGroup()).toBeNull()
+    expect(screen.queryByTestId('radar')).toBeNull()
+    await ctx.user.click(screen.getByRole('button', { name: 'Radar' }))
+    expect(await screen.findByRole('group', { name: 'Radar chart' })).toBeInTheDocument()
+    expect(barsGroup()).toBeNull()
+  })
+})
+
+describe('T12 AC8/AC9: pool scaling and axis order in the panel', () => {
+  it('AC8: values scale to the 8-player pool, not to the selection', async () => {
+    const ctx = setup()
+    await toRadar(ctx)
+    await screen.findByRole('group', { name: 'Radar chart' })
+    const pts = seriesPoints()
+    expect(pts[2]?.split(' ')[0]).toBe('260,136.7')
+    expect(pts[1]?.split(' ')[2]).toBe('241.6,220.6')
+    expect(pts[0]?.split(' ')[0]).toBe('260,60')
+    expect(pts[1]?.split(' ')[1]).toBe('389.9,285')
+  })
+  it('AC9: axes follow canonical order regardless of pick order', async () => {
+    const ctx = setup({
+      defaults: compareDefaults({ playerStats: ['zsolo', 'zbig', 'zhigh', 'zsign'] }),
+    })
+    await toRadar(ctx)
+    await screen.findByRole('group', { name: 'Radar chart' })
+    expect(radarLabels()).toEqual(['Zhigh', 'Zbig', 'Zsign', 'Zsolo'])
+  })
+  it('AC9: a selected key without a definition adds no axis', async () => {
+    const ctx = setup({
+      defaults: compareDefaults({ playerStats: ['zhigh', 'zlow', 'zbig', 'znope'] }),
+    })
+    await toRadar(ctx)
+    await screen.findByRole('group', { name: 'Radar chart' })
+    expect(radarLabels()).toEqual(['Zhigh', 'Zlow', 'Zbig'])
+  })
+})
+
+describe('T12 AC11: selection, season and kind changes', () => {
+  it('AC11: toggling a fourth entity adds a series and legend item and moves nothing else', async () => {
+    const ctx = setup()
+    await toRadar(ctx)
+    await screen.findByRole('group', { name: 'Radar chart' })
+    const before = seriesPoints()
+    await ctx.user.click(probe('probe toggle zp4'))
+    expect(await screen.findAllByTestId('radar-series')).toHaveLength(4)
+    expect(within(legend() as HTMLElement).getAllByRole('listitem')).toHaveLength(4)
+    expect(seriesPoints().slice(0, 3)).toEqual(before)
+    await ctx.user.click(probe('probe toggle zp4'))
+    expect(radarSeries()).toHaveLength(3)
+    expect(seriesPoints()).toEqual(before)
+  })
+  it('AC11: a fourth entity with a null zhigh plots that vertex at the centre', async () => {
+    const ctx = setup()
+    await toRadar(ctx)
+    await ctx.user.click(probe('probe toggle zp4'))
+    await screen.findAllByTestId('radar-series')
+    expect(seriesPoints()[3]?.split(' ')[0]).toBe('260,210')
+    expect(screen.getByText('Not applicable: Zhigh')).toBeInTheDocument()
+  })
+  it('AC11: changing the season recomputes the ranges', async () => {
+    const getEntities = vi.fn((_l: string, kind: EntityKind, season: string) =>
+      Promise.resolve(
+        kind === 'players'
+          ? comparePlayers().map((p) =>
+              p.id === 'zp1' && season === '3030' ? { ...p, stats: { ...p.stats, zbig: 8000 } } : p,
+            )
+          : [],
+      ),
+    )
+    const ctx = setup({ provider: compareProvider({ getEntities }) })
+    await toRadar(ctx)
+    await screen.findByRole('group', { name: 'Radar chart' })
+    const before = seriesPoints()[1]
+    expect(before?.split(' ')[2]).toBe('241.6,220.6')
+    await ctx.user.click(probe('probe season'))
+    await vi.waitFor(() => expect(seriesPoints()[1]?.split(' ')[2]).not.toBe('241.6,220.6'))
+    expect(seriesPoints()[1]?.split(' ')[2]).toBe('246.2,218')
+    expect(seriesPoints()[1]?.split(' ')[0]).toBe(before?.split(' ')[0])
+  })
+  it('AC11/AC17: Teams with the 2 default stats show the message, then Players restore', async () => {
+    const ctx = setup()
+    await toRadar(ctx)
+    await screen.findByRole('group', { name: 'Radar chart' })
+    await ctx.user.click(probe('probe to teams'))
+    expect(await screen.findByText(RADAR_MESSAGE)).toBeInTheDocument()
+    expect(radarGroup()).toBeNull()
+    expect(screen.getByText('Zephyr Flarns')).toBeInTheDocument()
+    expect(screen.queryByText('Ola Quenby')).toBeNull()
+    expect(screen.getByText(RADAR_CAPTION)).toBeInTheDocument()
+    await ctx.user.click(probe('probe to players'))
+    expect(await screen.findByRole('group', { name: 'Radar chart' })).toBeInTheDocument()
+    expect(screen.queryByText(RADAR_MESSAGE)).toBeNull()
+  })
+  it('AC17: Teams with three stats chart with the team labels', async () => {
+    const ctx = setup({ defaults: compareDefaults({ teamStats: ['ztpts', 'ztlow', 'ztwin'] }) })
+    await toRadar(ctx)
+    await ctx.user.click(probe('probe to teams'))
+    expect(await screen.findByRole('group', { name: 'Radar chart' })).toBeInTheDocument()
+    expect(radarLabels()).toEqual(['Ztpts', 'Ztlow', 'Ztwin'])
+    expect(radarSeries()).toHaveLength(3)
+  })
+})
+
+describe('T12 AC4/AC6: fewer than 3 stats in the panel', () => {
+  it('AC4: 2 stats show the message with legend and caption but no chart', async () => {
+    const ctx = setup({ defaults: compareDefaults({ playerStats: ['zhigh', 'zlow'] }) })
+    await toRadar(ctx)
+    expect(await screen.findByText(RADAR_MESSAGE)).toBeInTheDocument()
+    expect(radarGroup()).toBeNull()
+    expect(radarSeries()).toHaveLength(0)
+    expect(radarLabels()).toHaveLength(0)
+    expect(screen.getByRole('tabpanel', { name: '2D chart' }).querySelector('svg')).toBeNull()
+    expect(within(legend() as HTMLElement).getAllByRole('listitem')).toHaveLength(3)
+    expect(screen.getByText(RADAR_CAPTION)).toBeInTheDocument()
+  })
+  it('AC4: 1 stat shows the message', async () => {
+    const ctx = setup({ defaults: compareDefaults({ playerStats: ['zhigh'] }) })
+    await toRadar(ctx)
+    expect(await screen.findByText(RADAR_MESSAGE)).toBeInTheDocument()
+    expect(radarGroup()).toBeNull()
+  })
+  it('AC6: adding a third stat shows the chart and removing it restores the message', async () => {
+    const ctx = setup({ defaults: compareDefaults({ playerStats: ['zhigh', 'zlow'] }) })
+    await toRadar(ctx)
+    expect(await screen.findByText(RADAR_MESSAGE)).toBeInTheDocument()
+    await ctx.user.click(probe('probe stat zsolo'))
+    expect(await screen.findByRole('group', { name: 'Radar chart' })).toBeInTheDocument()
+    expect(screen.queryByText(RADAR_MESSAGE)).toBeNull()
+    expect(radarLabels()).toEqual(['Zhigh', 'Zlow', 'Zsolo'])
+    await ctx.user.click(probe('probe stat zsolo'))
+    expect(await screen.findByText(RADAR_MESSAGE)).toBeInTheDocument()
+    expect(radarGroup()).toBeNull()
+  })
+})
+
+describe('T12 AC3: empty, failed and other tabs', () => {
+  it('AC3: an empty selection on Radar shows the empty state and no radar parts', async () => {
+    const ctx = setup({ defaults: compareDefaults({ players: [] }) })
+    await toRadar(ctx)
+    expect(await screen.findByText('Add a player to start comparing.')).toBeInTheDocument()
+    expect(radarGroup()).toBeNull()
+    expect(screen.queryByText(RADAR_MESSAGE)).toBeNull()
+    expect(legend()).toBeNull()
+    expect(screen.queryByText(RADAR_CAPTION)).toBeNull()
+    expect(screen.queryByTestId('radar')).toBeNull()
+  })
+  it('AC3: a failed entity load on Radar shows nothing and does not crash', async () => {
+    const ctx = setup({
+      provider: compareProvider({ getEntities: vi.fn(() => Promise.reject(new Error('boom'))) }),
+    })
+    await toRadar(ctx)
+    expect(radarGroup()).toBeNull()
+    expect(screen.queryByText(RADAR_MESSAGE)).toBeNull()
+    expect(legend()).toBeNull()
+    expect(screen.queryByText(emptyText)).not.toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Chart type' })).toBeInTheDocument()
+  })
+  it('AC3: with every stat deselected the Radar panel renders nothing', async () => {
+    const ctx = setup({ defaults: compareDefaults({ playerStats: [] }) })
+    await toRadar(ctx)
+    expect(radarGroup()).toBeNull()
+    expect(screen.queryByText(RADAR_MESSAGE)).toBeNull()
+    expect(screen.queryByTestId('radar')).toBeNull()
+  })
+  it('AC3: the Table and 3D tabs show no radar when Radar is the 2D mode', async () => {
+    const ctx = setup()
+    await toRadar(ctx)
+    await screen.findByRole('group', { name: 'Radar chart' })
+    await ctx.user.click(tab('Table'))
+    expect(await screen.findByRole('table')).toBeInTheDocument()
+    expect(radarGroup()).toBeNull()
+    expect(screen.queryByTestId('radar')).toBeNull()
+    expect(screen.queryByText(RADAR_CAPTION)).toBeNull()
+    await ctx.user.click(tab('3D chart'))
+    expect(await screen.findByText('3D chart — coming soon')).toBeInTheDocument()
+    expect(radarGroup()).toBeNull()
+    expect(screen.queryByTestId('radar')).toBeNull()
+    expect(legend()).toBeNull()
+  })
+})
+
+describe('T12 AC20: keyboard', () => {
+  it('AC20: Tab goes 2D tab, Bars, Radar and never into the radar', async () => {
+    const ctx = setup()
+    await toRadar(ctx)
+    const chart = await screen.findByRole('group', { name: 'Radar chart' })
+    tab('2D chart').focus()
+    await ctx.user.tab()
+    expect(screen.getByRole('button', { name: 'Bars' })).toHaveFocus()
+    await ctx.user.tab()
+    expect(screen.getByRole('button', { name: 'Radar' })).toHaveFocus()
+    const root = screen.getByTestId('radar')
+    expect(root.querySelectorAll('button, a, input, select, textarea, [tabindex]')).toHaveLength(0)
+    await ctx.user.tab()
+    expect(chart.contains(document.activeElement)).toBe(false)
+    expect(root.contains(document.activeElement)).toBe(false)
   })
 })

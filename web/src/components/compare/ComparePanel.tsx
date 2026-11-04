@@ -5,6 +5,7 @@ import { useStatDefs } from '../sidebar/useStatDefs'
 import { SegmentedControl, TabPanel, Tabs } from '../ui'
 import { BarsChart } from './BarsChart'
 import { ChartPlaceholder } from './ChartPlaceholder'
+import { RadarChart } from './RadarChart'
 import { resolveColumns, resolveRows } from './tableModel'
 import styles from './ComparePanel.module.css'
 import { CompareTable } from './CompareTable'
@@ -49,7 +50,7 @@ export function ComparePanel() {
     if (value === 'num') return <CompareTable kind={kind} columns={columns} rows={rows} />
     if (value === '2d') {
       if (chart2 === 'bars') return <BarsChart columns={columns} rows={rows} pool={entities} />
-      return <ChartPlaceholder title="Radar chart" />
+      return <RadarChart columns={columns} rows={rows} pool={entities} />
     }
     return placeholder3d
   }
