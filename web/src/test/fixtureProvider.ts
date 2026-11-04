@@ -148,3 +148,50 @@ export function entitiesProvider(overrides: Partial<DataProvider> = {}): DataPro
     ...overrides,
   })
 }
+
+/**
+ * Invented team stat defs for the team header: two have `summaryLabel` (one with one decimal, one
+ * signed), interleaved with plain defs.
+ */
+export function fixtureTeamSummaryStatDefs(): StatDef[] {
+  return [
+    { key: 'ztpts', label: 'Ztpts', group: 'ztoff' },
+    { key: 'ztavg', label: 'Ztavg', group: 'ztoff', decimals: 1, summaryLabel: 'Zavg / G' },
+    { key: 'ztwin', label: 'Ztwin', group: 'ztoff' },
+    { key: 'ztdiff', label: 'Ztdiff', group: 'ztdef', signed: true, summaryLabel: 'Zdiff' },
+    { key: 'ztblk', label: 'Ztblk', group: 'ztdef', extra: true },
+  ]
+}
+
+/** Teams whose `meta` and stats depend on the requested season; includes a null and a missing key. */
+export function seasonTeamsProvider(overrides: Partial<DataProvider> = {}): DataProvider {
+  return createFixtureProvider({
+    getStatDefs: vi.fn((_leagueId: string, kind: EntityKind) =>
+      Promise.resolve(kind === 'teams' ? fixtureTeamSummaryStatDefs() : []),
+    ),
+    getEntities: vi.fn((_leagueId: string, kind: EntityKind, season: Season) => {
+      if (kind !== 'teams') return Promise.resolve([])
+      const n = Number(season) % 100
+      return Promise.resolve<Entity[]>([
+        {
+          id: 'zt1',
+          name: 'Zephyr Flarns',
+          shortName: 'ZQA',
+          meta: `${n}-${n + 1} record`,
+          badge: 'ZQA',
+          stats: { ztpts: n, ztavg: n + 0.25, ztdiff: n, ztwin: 2 },
+        },
+        {
+          id: 'zt2',
+          name: 'Quark Boulders',
+          shortName: 'ZQB',
+          meta: `${n + 2}-${n + 3} record`,
+          badge: 'ZQB',
+          // ztavg is null and ztdiff is missing.
+          stats: { ztpts: n, ztavg: null, ztwin: 3 },
+        },
+      ])
+    }),
+    ...overrides,
+  })
+}
