@@ -17,7 +17,7 @@ Range T01-T20. Integration branch: `autobuild`. Baseline before run: web lint/ty
 | T11 | done | ticket/T11-bars-chart | Merged c1d3fee. Browser QA PASS first time (docs/qa/T11-report.md). 1257 web tests pass. |
 | T12 | done | ticket/T12-radar-chart | Merged 7cfd737. 1 fix round (RadarChart markup did not match plan; lint warnings). Browser QA PASS (docs/qa/T12-report.md). 1361 web tests pass. |
 | T13 | done | ticket/T13-3d-math | Merged ed9c836. No UI, browser QA skipped. Projection coordinates verified against the design formula in node. 1438 web tests pass. |
-| T14 | in-progress | ticket/T14-3d-chart | |
+| T14 | done | ticket/T14-3d-chart | Merged e3b8502. Browser QA PASS first time (docs/qa/T14-report.md); drag ~180fps on 16-player mock pool in headless dev build. 1717 web tests pass. |
 | T15 | todo | ticket/T15-team-breakdown-header | |
 | T16 | todo | ticket/T16-share-of-production | |
 | T17 | todo | ticket/T17-roster-table | |
@@ -49,6 +49,8 @@ Range T01-T20. Integration branch: `autobuild`. Baseline before run: web lint/ty
 
 - T13: DIFFERS FROM TICKET: a selected entity with a null axis is still plotted (null -> -1), only unselected points with nulls are excluded, per the design script; unknown selected ids dropped (AC26); toCube maps min==max or null range to 0; lower-is-better not inverted in 3D; plotPoints(pool, axes, selectedIds, cam) signature chosen by coder; ties keep pool order.
 
+- T14: 3D view always uses the 3 saved axes per kind, independent of sidebar stats (not hidden by the no-stat-rows gate); selected points drawn last (ticket) rather than pure depth sort (design); drag uses pointer capture and ends on release/cancel/lostcapture; arrows rotate 10px-equivalents (Shift x5, Home reset, Ctrl/Alt/Meta ignored); Select gained optional placeholder/className props; container query used for Readout layout; existing 3D-placeholder tests were rewritten for the new behaviour, not deleted.
+
 ## Out-of-scope ideas
 
 - T08: at 375px the open popover is ~450px tall and extends past the viewport bottom, making the page scroll; revisit in T18 (responsive). Many-chip wrapping not stressed with mock data.
@@ -56,3 +58,5 @@ Range T01-T20. Integration branch: `autobuild`. Baseline before run: web lint/ty
 - T07: placeholder h1 sits flush at x=0 (fine until T08+ replaces the placeholder). Playwright MCP tools not reachable from subagents: qa-tester falls back to playwright-core scripts.
 
 - T12: at 375px on Teams radar, long axis labels near the box edge wrap to 2-3 lines and 'Pts Allowed / G' can overlap the bottom ring vertex; revisit in T18 (responsive).
+
+- T14: at 375px axis labels keep 11px and are clipped at card edges; with 8 selected the name tags overlap (no collision avoidance); mock pool is small so AC41 smoothness was not stress-tested on a real device. Revisit in T18/T20.
