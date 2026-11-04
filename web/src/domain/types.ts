@@ -53,6 +53,21 @@ export interface StatDef {
    * Summary stats show in definition order.
    */
   summaryLabel?: string
+  /**
+   * Short label shown in the share-of-production rows. When set, the stat is a share stat.
+   * Share stats show in definition order.
+   */
+  shareLabel?: string
+}
+
+/**
+ * One roster unit of a league. `stats` are the roster stat definitions of the unit, in display
+ * order; non-`extra` definitions are the roster table columns.
+ */
+export interface RosterUnitDef {
+  key: RosterUnit
+  label: string
+  stats: StatDef[]
 }
 
 /** Default selections for one entity kind. */

@@ -244,6 +244,87 @@ describe('getRoster', () => {
   })
 })
 
+describe('getRosterUnits', () => {
+  it('AC8: returns a Promise', () => {
+    expect(provider.getRosterUnits('nfl')).toBeInstanceOf(Promise)
+  })
+
+  it('AC7: NFL resolves to Offense then Defense with share stats in design order', async () => {
+    const units = await provider.getRosterUnits('nfl')
+    expect(units.map((u) => [u.key, u.label])).toEqual([
+      ['off', 'Offense'],
+      ['def', 'Defense'],
+    ])
+    const share = (i: number) =>
+      units[i]?.stats.filter((s) => s.shareLabel !== undefined).map((s) => [s.key, s.shareLabel])
+    expect(share(0)).toEqual([
+      ['touch', 'Touches'],
+      ['tgt', 'Targets'],
+      ['scrim', 'Scrimmage Yds'],
+      ['td', 'Touchdowns'],
+    ])
+    expect(share(1)).toEqual([
+      ['tkl', 'Tackles'],
+      ['sk', 'Sacks'],
+      ['take', 'Takeaways'],
+      ['pd', 'Passes Defended'],
+    ])
+    expect(units[1]?.stats.map((s) => s.key)).toEqual([
+      'snap',
+      'tkl',
+      'sk',
+      'take',
+      'int',
+      'pd',
+      'ff',
+    ])
+    expect(units[1]?.stats.find((s) => s.key === 'take')?.extra).toBe(true)
+  })
+
+  it('AC7: each unit def key matches the stat keys of getRoster rows for that unit', async () => {
+    const units = await provider.getRosterUnits('nfl')
+    for (const unit of units) {
+      const keys = unit.stats.map((s) => s.key).sort()
+      for (const season of SEASONS) {
+        for (const teamId of TEAM_IDS) {
+          for (const row of await provider.getRoster('nfl', teamId, unit.key, season)) {
+            expect(Object.keys(row.stats).sort()).toEqual(keys)
+          }
+        }
+      }
+    }
+  })
+
+  it('AC8: disabled leagues resolve to []', async () => {
+    for (const id of ['nba', 'mlb', 'nhl']) {
+      expect(await provider.getRosterUnits(id)).toEqual([])
+    }
+  })
+
+  it('AC8: unknown league ids reject with an Error, never throw synchronously', async () => {
+    for (const id of ['', 'NFL', 'xfl', '__proto__', 'toString', 'constructor']) {
+      let p: Promise<unknown> | undefined
+      expect(() => {
+        p = provider.getRosterUnits(id)
+      }).not.toThrow()
+      await expect(p).rejects.toBeInstanceOf(Error)
+    }
+  })
+
+  it('AC10: mutating the result does not affect a later call', async () => {
+    const first = await provider.getRosterUnits('nfl')
+    const unit = first[0]
+    if (!unit) throw new Error('expected a unit')
+    unit.stats.length = 0
+    unit.label = 'changed'
+    first.length = 0
+    const second = await provider.getRosterUnits('nfl')
+    expect(second).toHaveLength(2)
+    expect(second[0]?.label).toBe('Offense')
+    expect(second[0]?.stats.length).toBeGreaterThan(0)
+  })
+})
+
 describe('disabled leagues resolve to empty arrays (A6)', () => {
   for (const id of ['nba', 'mlb', 'nhl']) {
     it(`AC9: ${id} gives [] from every method`, async () => {

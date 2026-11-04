@@ -16,6 +16,7 @@ const picker = (kind: 'teams' | 'players') =>
 const sidebar = () => screen.queryByRole('complementary', { name: 'Stats' })
 const panel = () => screen.queryByRole('region', { name: 'Stat views' })
 const chipGroup = () => screen.queryByRole('group', { name: 'Teams' })
+const SHARE_TITLE = 'Share of team production'
 const COMPARE_HINT = 'Compare up to 8 teams side by side'
 const INSIDE_HINT = 'Compare players within one team'
 
@@ -92,7 +93,9 @@ describe('AC6/AC7/AC15-AC17: breakdown mode', () => {
     expect(within(group).getByRole('button', { name: 'PHI', pressed: true })).toBeInTheDocument()
     const section = screen.getByRole('region', { name: 'Philadelphia Eagles' })
     expect(group.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(section.nextElementSibling).toBeNull()
+    const share = await screen.findByRole('region', { name: SHARE_TITLE })
+    expect(section.nextElementSibling).toBe(share)
+    expect(share.nextElementSibling).toBeNull()
     expect(screen.queryByText(/coming soon/i)).not.toBeInTheDocument()
   })
   it('AC15: the card shows the name, badge and "division · record · season"', async () => {
@@ -337,5 +340,187 @@ describe('AC18: season change in breakdown', () => {
     )
     expect(screen.getAllByRole('definition')).toHaveLength(4)
     await act(async () => {})
+  })
+})
+
+describe('AC7/AC9-AC12/AC17-AC21: share of team production with the mock data', () => {
+  const share = () => screen.getByRole('region', { name: SHARE_TITLE })
+  const unitGroup = () => within(share()).getByRole('group', { name: 'Unit' })
+  const unitBtn = (name: 'Offense' | 'Defense') => within(unitGroup()).getByRole('button', { name })
+  const barNames = () =>
+    within(share())
+      .getAllByRole('group')
+      .filter((g) => g !== unitGroup())
+      .map((g) => g.getAttribute('aria-label'))
+  const legendNames = () =>
+    within(within(share()).getByRole('list', { name: 'Legend' }))
+      .getAllByRole('listitem')
+      .map((li) => li.textContent)
+  const totals = () =>
+    within(share())
+      .getAllByText(/ total$/)
+      .map((n) => n.textContent)
+  const pctOf = (el: HTMLElement) =>
+    Number(/\((\d+)%\)$/.exec(el.getAttribute('aria-label') ?? '')?.[1])
+
+  async function open() {
+    const user = userEvent.setup()
+    render(<App />)
+    await goTeams(user)
+    await enterBreakdown(user)
+    await screen.findByRole('group', { name: 'Touches share' })
+    return user
+  }
+
+  it('AC9: the default team shows the section below the card with heading and subtitle', async () => {
+    await open()
+    expect(within(share()).getByRole('heading', { level: 2 })).toHaveTextContent(SHARE_TITLE)
+    expect(
+      within(share()).getByText('How the workload splits across the roster'),
+    ).toBeInTheDocument()
+  })
+  it('AC10: Offense and Defense buttons in order, Offense pressed by default', async () => {
+    await open()
+    expect(
+      within(unitGroup())
+        .getAllByRole('button')
+        .map((b) => b.textContent),
+    ).toEqual(['Offense', 'Defense'])
+    expect(unitBtn('Offense')).toHaveAttribute('aria-pressed', 'true')
+    expect(unitBtn('Defense')).toHaveAttribute('aria-pressed', 'false')
+  })
+  it('AC7: the offense rows are Touches, Targets, Scrimmage Yds, Touchdowns', async () => {
+    await open()
+    expect(barNames()).toEqual([
+      'Touches share',
+      'Targets share',
+      'Scrimmage Yds share',
+      'Touchdowns share',
+    ])
+    for (const label of ['Touches', 'Targets', 'Scrimmage Yds', 'Touchdowns']) {
+      expect(within(share()).getByText(label)).toBeInTheDocument()
+    }
+  })
+  it('AC17: the Touches row leader reads "Leader: Barkley NN%"', async () => {
+    await open()
+    expect(within(share()).getAllByText(/^Leader: /)).toHaveLength(4)
+    let row: HTMLElement | null = within(share()).getByRole('group', { name: 'Touches share' })
+    while (row && !within(row).queryByText(/^Leader: /)) row = row.parentElement
+    expect(row).not.toBeNull()
+    expect(within(row as HTMLElement).getByText('Touches')).toBeInTheDocument()
+    expect(within(row as HTMLElement).getByText(/^Leader: Barkley \d+%$/)).toBeInTheDocument()
+  })
+  it('AC21: the Touches segments are named "Name · value (pct%)"', async () => {
+    await open()
+    const bar = within(share()).getByRole('group', { name: 'Touches share' })
+    const names = within(bar)
+      .getAllByRole('img')
+      .map((s) => s.getAttribute('aria-label') ?? '')
+    expect(names.length).toBeGreaterThan(0)
+    expect(names.some((n) => /^Saquon Barkley · [\d,]+ \(\d+%\)$/.test(n))).toBe(true)
+    for (const n of names) expect(n).toMatch(/^.+ · [\d,]+ \(\d+%\)$/)
+  })
+  it('AC18: the percentages in each offense row add to 100', async () => {
+    await open()
+    for (const name of barNames()) {
+      const bar = within(share()).getByRole('group', { name: name as string })
+      const sum = within(bar)
+        .getAllByRole('img')
+        .map(pctOf)
+        .reduce((a, b) => a + b, 0)
+      expect(sum).toBe(100)
+    }
+  })
+  it('AC24: the legend lists the offense roster including Saquon Barkley', async () => {
+    await open()
+    const names = legendNames()
+    expect(names.length).toBeGreaterThan(1)
+    expect(names).toContain('Saquon Barkley')
+    expect(new Set(names).size).toBe(names.length)
+  })
+  it('AC11: clicking Defense shows the four defense rows and a different legend', async () => {
+    const user = await open()
+    const offenseLegend = legendNames()
+    await user.click(unitBtn('Defense'))
+    await screen.findByRole('group', { name: 'Tackles share' })
+    expect(barNames()).toEqual([
+      'Tackles share',
+      'Sacks share',
+      'Takeaways share',
+      'Passes Defended share',
+    ])
+    expect(unitBtn('Defense')).toHaveAttribute('aria-pressed', 'true')
+    expect(unitBtn('Offense')).toHaveAttribute('aria-pressed', 'false')
+    expect(legendNames()).not.toEqual(offenseLegend)
+  })
+  it('AC11: clicking Offense again returns to the offense rows', async () => {
+    const user = await open()
+    await user.click(unitBtn('Defense'))
+    await screen.findByRole('group', { name: 'Tackles share' })
+    await user.click(unitBtn('Offense'))
+    expect(await screen.findByRole('group', { name: 'Touches share' })).toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Tackles share' })).not.toBeInTheDocument()
+  })
+  it('AC12: Defense stays selected after a chip change', async () => {
+    const user = await open()
+    await user.click(unitBtn('Defense'))
+    await screen.findByRole('group', { name: 'Tackles share' })
+    await user.click(within(chipGroup() as HTMLElement).getByRole('button', { name: 'KC' }))
+    await screen.findByRole('region', { name: 'Kansas City Chiefs' })
+    expect(unitBtn('Defense')).toHaveAttribute('aria-pressed', 'true')
+    expect(await screen.findByRole('group', { name: 'Tackles share' })).toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Touches share' })).not.toBeInTheDocument()
+  })
+  it('AC26: a chip change loads different numbers for the same unit', async () => {
+    const user = await open()
+    const before = totals()
+    await user.click(within(chipGroup() as HTMLElement).getByRole('button', { name: 'KC' }))
+    await screen.findByRole('region', { name: 'Kansas City Chiefs' })
+    await waitFor(() => expect(totals()).not.toEqual(before))
+    expect(unitBtn('Offense')).toHaveAttribute('aria-pressed', 'true')
+    expect(barNames()).toHaveLength(4)
+  })
+  it('AC12/AC26: Defense stays selected after a season change', async () => {
+    const user = await open()
+    await user.click(unitBtn('Defense'))
+    await screen.findByRole('group', { name: 'Tackles share' })
+    const before = totals()
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Season' }), '2023')
+    await waitFor(() => expect(screen.getByText(/ · 2023$/)).toBeInTheDocument())
+    await waitFor(() => expect(totals()).not.toEqual(before))
+    expect(unitBtn('Defense')).toHaveAttribute('aria-pressed', 'true')
+    expect(barNames()).toHaveLength(4)
+  })
+  it('AC12: Defense stays selected through breakdown -> compare -> breakdown', async () => {
+    const user = await open()
+    await user.click(unitBtn('Defense'))
+    await screen.findByRole('group', { name: 'Tackles share' })
+    await leaveBreakdown(user)
+    await enterBreakdown(user)
+    expect(await screen.findByRole('group', { name: 'Tackles share' })).toBeInTheDocument()
+    expect(unitBtn('Defense')).toHaveAttribute('aria-pressed', 'true')
+  })
+  it('AC9: the section is absent in compare mode and in Players mode', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    expect(screen.queryByRole('region', { name: SHARE_TITLE })).not.toBeInTheDocument()
+    await goTeams(user)
+    expect(screen.queryByRole('region', { name: SHARE_TITLE })).not.toBeInTheDocument()
+    await enterBreakdown(user)
+    expect(await screen.findByRole('region', { name: SHARE_TITLE })).toBeInTheDocument()
+    await leaveBreakdown(user)
+    expect(screen.queryByRole('region', { name: SHARE_TITLE })).not.toBeInTheDocument()
+    await enterBreakdown(user)
+    await goPlayers(user)
+    await screen.findByRole('list', { name: 'Selected players' })
+    expect(screen.queryByRole('region', { name: SHARE_TITLE })).not.toBeInTheDocument()
+  })
+  it('AC19: the section never contains NaN, Infinity or undefined', async () => {
+    const user = await open()
+    const check = () => expect(share().textContent).not.toMatch(/NaN|Infinity|undefined/)
+    check()
+    await user.click(unitBtn('Defense'))
+    await screen.findByRole('group', { name: 'Tackles share' })
+    check()
   })
 })

@@ -13,6 +13,7 @@ import {
   fixtureStatDefs,
   fixtureTeamSummaryStatDefs,
   fixtureUiDefaults,
+  rosterProvider,
   seasonTeamsProvider,
 } from '../../test/fixtureProvider'
 import { TeamBreakdown } from './TeamBreakdown'
@@ -30,6 +31,7 @@ function Probe({ always }: { always: boolean }) {
           teamId: state.teamId,
           season: state.season,
           addStatOpen: state.addStatOpen,
+          unit: state.unit,
         })}
       </output>
       <button type="button" onClick={send({ type: 'setKind', kind: 'teams' })}>
@@ -46,6 +48,9 @@ function Probe({ always }: { always: boolean }) {
       </button>
       <button type="button" onClick={send({ type: 'toggleAddStatMenu', group: 'zgroup' })}>
         probe menu
+      </button>
+      <button type="button" onClick={send({ type: 'setUnit', unit: 'zalt' })}>
+        probe unit zalt
       </button>
       <button type="button" onClick={send({ type: 'setSeason', season: '3030' })}>
         probe season 3030
@@ -85,7 +90,10 @@ const pressed = () =>
   within(screen.getByRole('group', { name: 'Teams' }))
     .queryAllByRole('button', { pressed: true })
     .map((b) => b.textContent)
-const card = () => screen.queryByRole('region')
+const SHARE_TITLE = 'Share of team production'
+// The team header card: the one region that is not the share section.
+const card = () => screen.queryAllByRole('region', { name: (n) => n !== SHARE_TITLE })[0] ?? null
+const shareSection = () => screen.queryByRole('region', { name: SHARE_TITLE })
 const terms = () => screen.getAllByRole('term').map((t) => t.textContent)
 const values = () => screen.getAllByRole('definition').map((d) => d.textContent)
 
@@ -100,15 +108,17 @@ describe('AC7/AC11/AC12/AC15: chips then the card', () => {
     await screen.findByRole('group', { name: 'Teams' })
     expect(pressed()).toEqual(['ZQA'])
   })
-  it('AC7: the chips come first, then the card, then nothing else', async () => {
-    const { container } = setup()
+  it('AC7: the chips come first, then the card, then only the share section', async () => {
+    const { container } = setup({ provider: rosterProvider() })
     const group = await screen.findByRole('group', { name: 'Teams' })
     const section = await screen.findByRole('region', { name: 'Zephyr Flarns' })
     expect(group.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(section.nextElementSibling).toBeNull()
+    const share = await screen.findByRole('region', { name: SHARE_TITLE })
+    expect(section.nextElementSibling).toBe(share)
+    expect(share.nextElementSibling).toBeNull()
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
     expect(screen.queryByText(/coming soon/i)).not.toBeInTheDocument()
-    expect(container.querySelectorAll('section')).toHaveLength(1)
+    expect(container.querySelectorAll('section')).toHaveLength(2)
   })
   it('AC15: the card shows the name and "meta · season" for the chosen team', async () => {
     setup()
@@ -192,11 +202,25 @@ describe('AC14/AC23: loading and failure', () => {
     expect(chipGroup()).toBeNull()
     expect(card()).toBeNull()
   })
-  it('AC14: only team entities are requested, and no roster', async () => {
+  it('AC14: only team entities are requested for the chips and card', async () => {
     const provider = seasonTeamsProvider()
     setup({ provider })
     await screen.findByRole('group', { name: 'Teams' })
     expect(provider.getEntities).toHaveBeenCalledWith(expect.anything(), 'teams', '3031')
+    expect(provider.getEntities).not.toHaveBeenCalledWith(expect.anything(), 'players', '3031')
+  })
+  it('AC26: getRoster is called with the team, unit and season, and never for players', async () => {
+    const provider = rosterProvider()
+    setup({ provider })
+    await screen.findByRole('group', { name: 'Zalpha share share' })
+    expect(provider.getRoster).toHaveBeenCalledWith('zorb', 'zt1', 'zunit', '3031')
+    expect(provider.getRoster).toHaveBeenCalledTimes(1)
+  })
+  it('AC9: with no roster units the card still shows and no roster is requested', async () => {
+    const provider = seasonTeamsProvider()
+    setup({ provider })
+    await screen.findByRole('region', { name: 'Zephyr Flarns' })
+    await act(async () => {})
     expect(provider.getRoster).not.toHaveBeenCalled()
   })
 })
@@ -296,5 +320,106 @@ describe('AC9: no add-stat menu is open once breakdown shows', () => {
     setup()
     await screen.findByRole('group', { name: 'Teams' })
     expect(readState().addStatOpen).toBeNull()
+  })
+})
+
+describe('AC9/AC12/AC26: the share section below the card', () => {
+  it('AC9: the section shows its heading, subtitle and toggle after the card', async () => {
+    setup({ provider: rosterProvider() })
+    const share = await screen.findByRole('region', { name: SHARE_TITLE })
+    expect(within(share).getByRole('heading', { level: 2 })).toHaveTextContent(SHARE_TITLE)
+    expect(within(share).getByText('How the workload splits across the roster')).toBeInTheDocument()
+    expect(within(share).getByRole('group', { name: 'Unit' })).toBeInTheDocument()
+    const cardEl = screen.getByRole('region', { name: 'Zephyr Flarns' })
+    expect(cardEl.compareDocumentPosition(share) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+  it('AC9: it is not rendered in compare mode or Players mode', async () => {
+    const { user } = setup({ provider: rosterProvider(), always: false })
+    await user.click(probe('teams'))
+    await user.click(probe('inside'))
+    await screen.findByRole('region', { name: SHARE_TITLE })
+    await user.click(probe('compare'))
+    expect(shareSection()).toBeNull()
+    await user.click(probe('inside'))
+    await screen.findByRole('region', { name: SHARE_TITLE })
+    await user.click(probe('players'))
+    expect(shareSection()).toBeNull()
+  })
+  it('AC9: not rendered while teams are pending', async () => {
+    const pending = deferred<Entity[]>()
+    const provider = rosterProvider({ getEntities: vi.fn(() => pending.promise) })
+    setup({ provider })
+    await act(async () => {})
+    expect(shareSection()).toBeNull()
+    expect(screen.queryByRole('heading', { name: SHARE_TITLE })).toBeNull()
+  })
+  it('AC9: not rendered when the teams load fails', async () => {
+    const getEntities = vi.fn(() => Promise.reject(new Error('boom')))
+    setup({ provider: rosterProvider({ getEntities }) })
+    await waitFor(() => expect(getEntities).toHaveBeenCalled())
+    await act(async () => {})
+    expect(shareSection()).toBeNull()
+  })
+  it('AC9: not rendered for an unknown teamId, and no roster is requested', async () => {
+    const provider = rosterProvider()
+    setup({ provider, defaults: { ...fixtureUiDefaults(), teamId: 'nobody' } })
+    await screen.findByRole('group', { name: 'Teams' })
+    await act(async () => {})
+    expect(shareSection()).toBeNull()
+    expect(provider.getRoster).not.toHaveBeenCalled()
+  })
+  it('AC9: clicking a chip for an unknown teamId then shows the section', async () => {
+    const { user } = setup({
+      provider: rosterProvider(),
+      defaults: { ...fixtureUiDefaults(), teamId: 'nobody' },
+    })
+    await screen.findByRole('group', { name: 'Teams' })
+    await user.click(screen.getByRole('button', { name: 'ZQB' }))
+    expect(await screen.findByRole('region', { name: SHARE_TITLE })).toBeInTheDocument()
+  })
+  it('AC12/AC26: a chip change reloads the roster for the new team and keeps the unit', async () => {
+    const provider = rosterProvider()
+    const { user } = setup({ provider })
+    await screen.findByRole('group', { name: 'Zalpha share share' })
+    expect(screen.getByText('731 total')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'ZQB' }))
+    await waitFor(() => expect(screen.getByText('738 total')).toBeInTheDocument())
+    expect(provider.getRoster).toHaveBeenLastCalledWith('zorb', 'zt2', 'zunit', '3031')
+    expect(readState().unit).toBe('zunit')
+  })
+  it('AC12/AC26: a season change reloads the roster and keeps the unit', async () => {
+    const provider = rosterProvider()
+    const { user } = setup({ provider })
+    await screen.findByRole('group', { name: 'Zalpha share share' })
+    await user.click(probe('season 3030'))
+    await waitFor(() => expect(screen.getByText('730 total')).toBeInTheDocument())
+    expect(provider.getRoster).toHaveBeenLastCalledWith('zorb', 'zt1', 'zunit', '3030')
+  })
+  it('AC12: the chosen unit survives a chip change, a season change and a compare round trip', async () => {
+    const { user } = setup({ provider: rosterProvider(), always: false })
+    await user.click(probe('teams'))
+    await user.click(probe('inside'))
+    await screen.findByRole('group', { name: 'Zalpha share share' })
+    await user.click(screen.getByRole('button', { name: 'Zunit Two' }))
+    await screen.findByRole('group', { name: 'Zomega share' })
+    await user.click(screen.getByRole('button', { name: 'ZQB' }))
+    await user.click(probe('season 3030'))
+    await user.click(probe('compare'))
+    await user.click(probe('inside'))
+    await screen.findByRole('group', { name: 'Zomega share' })
+    expect(readState().unit).toBe('zalt')
+    const share = screen.getByRole('region', { name: SHARE_TITLE })
+    expect(
+      within(share)
+        .getAllByRole('button', { pressed: true })
+        .map((b) => b.textContent),
+    ).toEqual(['Zunit Two'])
+    expect(screen.queryByRole('group', { name: 'Zalpha share share' })).toBeNull()
+  })
+  it('AC11: the unit set elsewhere shows that unit', async () => {
+    const { user } = setup({ provider: rosterProvider() })
+    await screen.findByRole('group', { name: 'Zalpha share share' })
+    await user.click(probe('unit zalt'))
+    expect(await screen.findByRole('group', { name: 'Zomega share' })).toBeInTheDocument()
   })
 })

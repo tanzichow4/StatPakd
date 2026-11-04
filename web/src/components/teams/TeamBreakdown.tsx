@@ -2,6 +2,7 @@ import { useEffect, useMemo } from 'react'
 import { useAppState } from '../../state'
 import { useEntities } from '../picker/useEntities'
 import { useStatDefs } from '../sidebar/useStatDefs'
+import { ShareOfProduction } from './ShareOfProduction'
 import { TeamChips } from './TeamChips'
 import { TeamHeader } from './TeamHeader'
 import { findTeam, summaryStats, teamMetaLine } from './teamHeaderModel'
@@ -32,12 +33,15 @@ export function TeamBreakdown() {
         onSelect={(id) => dispatch({ type: 'setTeam', teamId: id })}
       />
       {team && (
-        <TeamHeader
-          badge={team.badge}
-          name={team.name}
-          meta={teamMetaLine(team, season)}
-          summary={summary}
-        />
+        <>
+          <TeamHeader
+            badge={team.badge}
+            name={team.name}
+            meta={teamMetaLine(team, season)}
+            summary={summary}
+          />
+          <ShareOfProduction teamId={teamId} season={season} />
+        </>
       )}
     </div>
   )

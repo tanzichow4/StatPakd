@@ -1,0 +1,92 @@
+.row {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr) 150px;
+  gap: var(--space-16);
+  align-items: center;
+}
+
+.label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.name {
+  font-size: var(--text-14);
+  font-weight: 500;
+}
+
+.total {
+  font-family: var(--font-mono);
+  font-size: var(--text-11);
+  color: var(--color-text-faint);
+}
+
+.barWrap {
+  position: relative;
+  min-width: 0;
+}
+
+.track {
+  display: flex;
+  gap: 2px;
+  height: 30px;
+  border-radius: var(--radius-5);
+  overflow: hidden;
+  background: var(--color-track-alt);
+}
+
+.segment {
+  flex-basis: 0;
+  min-width: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: var(--color-white);
+  font-size: var(--text-11);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.segment:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: -2px;
+  box-shadow: inset 0 0 0 4px var(--color-white);
+}
+
+.tooltip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  z-index: 2;
+  max-width: 100%;
+  padding: var(--space-4) var(--space-8);
+  border-radius: var(--radius-4);
+  background: var(--color-ink);
+  color: var(--color-white);
+  font-size: var(--text-12);
+  pointer-events: none;
+  overflow-wrap: anywhere;
+}
+
+.leader {
+  min-width: 0;
+  font-size: var(--text-12);
+  color: #555555;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 479px) {
+  .row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-6);
+  }
+
+  .leader {
+    text-align: left;
+  }
+}
