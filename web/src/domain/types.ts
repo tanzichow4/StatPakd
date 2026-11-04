@@ -48,6 +48,11 @@ export interface StatDef {
   signed?: boolean
   /** True for secondary stats that are hidden by default. */
   extra?: boolean
+  /**
+   * Short label shown in the team header summary. When set, the stat is a summary stat.
+   * Summary stats show in definition order.
+   */
+  summaryLabel?: string
 }
 
 /** Default selections for one entity kind. */

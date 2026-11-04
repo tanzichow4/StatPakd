@@ -34,13 +34,20 @@ const EXPECTED_PLAYER_DEFS: StatDef[] = [
 ]
 
 const EXPECTED_TEAM_DEFS: StatDef[] = [
-  { key: 'ppg', label: 'Points / G', group: 'Offense', decimals: 1 },
-  { key: 'ypg', label: 'Yards / G', group: 'Offense', decimals: 1 },
+  { key: 'ppg', label: 'Points / G', group: 'Offense', decimals: 1, summaryLabel: 'Pts / G' },
+  { key: 'ypg', label: 'Yards / G', group: 'Offense', decimals: 1, summaryLabel: 'Yds / G' },
   { key: 'pass', label: 'Pass Yds / G', group: 'Offense', decimals: 1 },
   { key: 'rush', label: 'Rush Yds / G', group: 'Offense', decimals: 1 },
   { key: 'third', label: '3rd Down %', group: 'Offense', decimals: 1 },
-  { key: 'papg', label: 'Pts Allowed / G', group: 'Defense', decimals: 1, lowerIsBetter: true },
-  { key: 'to', label: 'Turnover Diff', group: 'Overall', signed: true },
+  {
+    key: 'papg',
+    label: 'Pts Allowed / G',
+    group: 'Defense',
+    decimals: 1,
+    lowerIsBetter: true,
+    summaryLabel: 'Allowed / G',
+  },
+  { key: 'to', label: 'Turnover Diff', group: 'Overall', signed: true, summaryLabel: 'TO Diff' },
   { key: 'win', label: 'Win %', group: 'Overall', decimals: 1 },
   { key: 'totPts', label: 'Total Points', group: 'Offense', extra: true },
   { key: 'passPct', label: 'Pass Yds Share %', group: 'Offense', decimals: 1, extra: true },
@@ -231,6 +238,22 @@ describe('stat definitions', () => {
     expect(
       [...playerStatDefs(), ...teamStatDefs()].filter((d) => d.signed).map((d) => d.key),
     ).toEqual(['to', 'pdiff'])
+  })
+
+  it('AC16: the team defs with a summaryLabel are exactly ppg, ypg, papg, to with the design labels', () => {
+    const summary = teamStatDefs()
+      .filter((d) => d.summaryLabel !== undefined)
+      .map((d) => [d.key, d.summaryLabel])
+    expect(summary).toEqual([
+      ['ppg', 'Pts / G'],
+      ['ypg', 'Yds / G'],
+      ['papg', 'Allowed / G'],
+      ['to', 'TO Diff'],
+    ])
+  })
+
+  it('AC16/AC20: no player def has a summaryLabel', () => {
+    for (const d of playerStatDefs()) expect(d).not.toHaveProperty('summaryLabel')
   })
 
   it('AC10: mutating a returned def list does not affect the next call', () => {

@@ -1,510 +1,403 @@
-# Plan: T14 3D chart, axes and readout
+# Plan: T15 Teams mode switch, team chips, team header card
 
-Source: `docs/tickets/T14-3d-chart.md`. The contract is `docs/plans/00-requirements.md`: AC1 to
-AC41 and assumptions 1 to 16. This plan runs without stopping for approval. The requirements list
-no blocking questions, so every default under Assumptions applies.
+Source: `docs/tickets/T15-team-breakdown-header.md`. The contract is `docs/plans/00-requirements.md`:
+AC1 to AC22 and assumptions A1 to A12. This plan runs without stopping for approval. The
+requirements list no blocking questions, so every default under Assumptions applies.
 
 ## 1. Goal and out of scope
 
-Goal: replace the 3D placeholder with the design's interactive SVG 3D scatter. It has three axis
-selects, a Reset view button, the full league pool plotted with selected entities highlighted and
-named, drag and keyboard rotation, and a Readout aside listing each selected entity's X/Y/Z values.
-The chart must stay league-agnostic and work by keyboard and touch. At 375px it must not cause
-page-level horizontal scroll.
+Goal: when the entity kind is Teams, show a "Compare teams" | "Team breakdown" switch with hint text.
+In Team breakdown mode, replace the compare UI with a row of team chips and a header card for the
+chosen team (badge, name, "meta · season" and the summary stats). Everything comes from the
+DataProvider for the current season, so the components stay league-agnostic and the card follows
+team and season changes.
 
 Out of scope (from the requirements):
-- Changes to the projection math, `plotPoints`, `dragCamera` or the reducer actions.
-- Inverting lower-is-better stats in 3D.
-- three.js or WebGL, zoom, pan, inertia, auto-rotate, and Reset animation.
-- Hover tooltips, click-to-select, name tags on unselected points, and label collision avoidance.
-- A separate camera per kind, and persisting axes or camera (URL or localStorage).
-- The team breakdown view. Table and 2D stay as they are, apart from the shared panel gating.
-- The full 768/1280 responsive and a11y audit, axe sweep, contrast fixes and 40px touch targets
-  (all T18).
-- Removing `ChartPlaceholder` or its own tests.
+- Share of team production, Offense/Defense toggle and legend (T16).
+- Roster table and sorting (T17). T15 makes no `getRoster` calls.
+- Any "coming soon" placeholder for T16/T17 content.
+- Responsive and a11y polish beyond what is listed here (T18), e2e tests (T19), pixel fidelity (T20).
+- League switching and the real API provider (T22/T23).
+- Linking the breakdown team to the compare selection (`sel.teams`). They stay independent.
+- Any change to the Players view.
 
 ## 2. Acceptance criteria (copied from 00-requirements.md, same numbers)
 
-Panel integration and states
-- AC1: With the 3D tab active, entities and stat definitions loaded and at least one selected entity,
-  the 3D panel shows (in order) the controls row, the chart card and the Readout aside; the text
-  "3D chart — coming soon" is no longer rendered anywhere.
-- AC2: The 3D chart does not depend on the sidebar's selected stats: it renders whenever the pool and
-  stat definitions are loaded, even if the sidebar stat list would leave the Table/2D views without
-  rows. Axis keys come only from `state.ax[kind]`.
-- AC3: With an empty selection (and data loaded), the controls row and chart card still render, with
-  every eligible league entity plotted as an unselected grey dot and no name tags; the Readout aside
-  shows its "Readout" heading followed by the existing empty-state text ("Add a player to start
-  comparing." / "Add a team to start comparing.") and no cards.
-- AC4: While entities or stat definitions are not yet loaded (or failed to load, which `useEntities`
-  reports as an empty pool), the 3D panel renders no SVG, no axis selects and no Reset button; with
-  an empty selection it shows only the empty-state text (current behaviour), otherwise nothing.
-- AC5: Hidden tab panels still render no content (T10 AC32): nothing from the 3D chart is in the DOM
-  while Table or 2D is the active view.
+Mode switch
+- AC1: When `kind` is Teams, a segmented control labelled "Team view" (accessible name) is rendered
+  above the picker/breakdown content with two buttons, "Compare teams" and "Team breakdown", in that
+  order. Exactly one has `aria-pressed="true"`, matching `state.teamMode` (`compare` -> "Compare
+  teams", `inside` -> "Team breakdown").
+- AC2: When `kind` is Players, neither the switch nor its hint text is rendered, regardless of
+  `state.teamMode`.
+- AC3: Hint text is shown to the right of the switch: "Compare up to 8 teams side by side" in compare
+  mode and "Compare players within one team" in breakdown mode. The number comes from
+  `MAX_SELECTED`, not a literal in the component.
+- AC4: Clicking "Team breakdown" sets `teamMode` to `inside`; clicking "Compare teams" sets it to
+  `compare`. Clicking the already-active option leaves the view unchanged.
+- AC5: `teamMode` persists across kind switches: Teams + breakdown -> Players shows the normal
+  players compare UI; switching back to Teams shows breakdown mode again.
 
-Axis selects
-- AC6: Three selects appear left to right with visible labels "X", "Y", "Z" (monospace) and
-  accessible names "X axis", "Y axis", "Z axis". Each lists every stat definition of the current kind
-  (label text, canonical order, same list for all three) and shows the current `ax[kind][i]`.
-- AC7: Choosing a stat in a select dispatches `setAxis` for that index; the plot, the axis overlay
-  label ("X · <stat label>", "Y · ...", "Z · ...") and the matching readout cell (value and stat
-  label) update to the new stat.
-- AC8: The same stat may be chosen on more than one axis (no de-duplication).
-- AC9: Axes persist per kind: after changing X for players, switching to teams shows the teams' axes,
-  and switching back shows the changed players' X again.
-- AC10: If an axis key in state has no matching stat definition, that select shows a disabled
-  "Choose a stat" option as its current value and the chart card shows the message
-  "Pick a stat for each axis." instead of the SVG; the readout shows "—" for that axis.
+What breakdown mode shows and hides
+- AC6: In Teams + breakdown mode, the entity picker, the stat sidebar and the compare panel (view
+  tabs, table, charts, readout) are not rendered (absent from the DOM / accessibility tree). In Teams
+  + compare mode and in Players mode they render exactly as before T15.
+- AC7: In Teams + breakdown mode, the content below the switch is, in order: the team chips row, then
+  the team header card, then nothing else (the share-of-production section and roster table arrive in
+  T16/T17). No placeholder text is shown for them.
+- AC8: Leaving breakdown mode restores the compare UI with its previous state intact: selected teams,
+  selected stats, active view tab, 2D sub-mode, 3D axes and camera are unchanged by a round trip
+  compare -> breakdown -> compare.
+- AC9: No stat-sidebar "Add stat" menu is open when the sidebar becomes visible again after breakdown
+  mode, whichever way breakdown mode was entered: (a) a menu open in Teams compare mode, then switch
+  to breakdown and back; (b) a menu open in Players mode, then switch kind to Teams while `teamMode`
+  is `inside`, then switch to "Compare teams". In both cases `state.addStatOpen` is `null` once
+  breakdown mode is showing.
+- AC10: The add-entity popover is closed after entering breakdown mode (existing `setTeamMode`
+  behaviour) and is still closed on returning to compare mode.
 
-Reset view
-- AC11: A "Reset view" button sits at the right end of the controls row; activating it (click, Enter
-  or Space) dispatches `resetView`, restoring yaw -0.65 and pitch 0.38, and the plot redraws at the
-  default camera. It does not change axes or selection, and keyboard focus stays on the button.
+Team chips
+- AC11: The chips row shows one chip per team entity returned by
+  `getEntities(activeLeague, 'teams', state.season)`, in provider order, each labelled with the
+  entity's `badge`, in the mono font. The component contains no team ids, names or abbreviations.
+- AC12: The chip whose entity `id` equals `state.teamId` is active (`aria-pressed="true"`, black
+  background, white text); all others are inactive (white background, `#DADAD6` border). The chips
+  are grouped under an accessible name ("Teams").
+- AC13: Clicking an inactive chip makes it the only active chip and the header card switches to that
+  team. Clicking the active chip changes nothing.
+- AC14: While team entities are loading, or if loading failed, no chips and no header card are
+  rendered and nothing throws.
 
-Chart card and SVG drawing
-- AC12: The chart card is a bordered card (`#E6E6E3`, radius 12, white) containing a 600 x 460
-  viewBox SVG at 100% of the card width with preserved aspect ratio.
-- AC13: The SVG draws, in this order: 20 floor/back-wall grid lines (`#EDEDE9`, 1px), 12 cube edges
-  (`#DADAD5`, 1px), 3 axis lines (`#111`, 1.5px), then the points, all from the T13 helpers at the
-  current camera.
-- AC14: Every entity returned by `plotPoints(pool, ax[kind], sel[kind], camera)` is drawn as one dashed
-  drop line (1px, dash 3 3) from the point to its floor foot, plus a circle with a white 1.5px stroke.
-  Unselected: r 4.5, fill `#C9C9C4`, drop line `#E0E0DC`. Selected: r 7, fill and drop line in the
-  series colour for its selection index (`seriesColor(selIndex)`).
-- AC15: Draw order is all unselected points in back-to-front order, then all selected points in
-  back-to-front order, so every selected circle is later in the DOM than every unselected circle
-  (verifiable by DOM order in a test).
-- AC16: Each selected point has an HTML name tag (the entity's `shortName`, 12px/600, `#111`,
-  white 85% background, padding 0 3px, radius 3) absolutely positioned at
-  left `(x + 10) / 600 * 100%`, top `y / 460 * 100%`, translated `(0, -50%)`.
-- AC17: Three HTML axis labels "X · <label>", "Y · <label>", "Z · <label>" are positioned from
-  `axisLabelAnchors(camera)` at left `x / 600 * 100%`, top `max(10, y) / 460 * 100%`, translated
-  `(-100%, -50%)` when the anchor x is below 300, otherwise `(0, -50%)`. Percentages rounded to 1
-  decimal as in the design.
-- AC18: The hint "Drag to rotate · gray dots = rest of league" sits at the bottom left of the card
-  (12px, `#7A7A75`).
-- AC19: The SVG and the overlay labels are hidden from assistive technology; overlays do not capture
-  pointer events (dragging over a name tag still rotates).
+Team header card
+- AC15: The header card shows, for the entity whose `id` equals `state.teamId`: its `badge` (mono,
+  44px), its `name` (22px/600) and a meta line equal to `` `${entity.meta} · ${state.season}` ``
+  (for the mock NFL default team in 2024 this reads like "NFC East · 14–3 · 2024", with the record
+  coming from the data). The card has a 4px `#111` top border, 1px `#E3E3E0` other borders, radius
+  12 and padding `18px 22px`.
+- AC16: The right side of the card shows the team summary stats supplied by the data layer (see
+  Assumption A3), in the order supplied. For the mock NFL data these are exactly four, labelled
+  "Pts / G", "Yds / G", "Allowed / G", "TO Diff" and taken from the team stat keys `ppg`, `ypg`,
+  `papg`, `to`. Labels are 11px/600 uppercase with letter-spacing .08em in `#8A8A85`; values are mono
+  22px/600.
+- AC17: Each summary value is formatted with `formatStat` using that stat's definition (decimals and
+  sign), so `ppg` shows one decimal (e.g. "27.2") and a positive `to` shows a leading "+" (e.g.
+  "+11"). A null or missing value shows "—".
+- AC18: Changing the season in the global nav while in breakdown mode reloads the team entities for
+  the new season: the chips stay on the same `teamId`, and the card's record, meta season suffix and
+  summary values reflect the new season's data.
+- AC19: If no team entity matches `state.teamId` after loading (for example a future data source
+  without that team), no chip is active and the header card is not rendered; nothing throws and the
+  state is not changed automatically. Clicking any chip then shows that team's card.
+- AC20: No component added or changed by T15 contains league-specific names or stat keys (team ids,
+  abbreviations, "NFL", `ppg`, etc.); the existing `noLeagueLiterals` tests cover any new component
+  folder.
 
-Drag rotation (mouse, pen, touch)
-- AC20: Pressing the primary button / touching the plot area and moving updates the camera to
-  `dragCamera(startCamera, dx, dy)` where dx, dy are CSS-pixel deltas from the press point (not
-  scaled by the SVG's rendered size), dispatched through `setCamera`; the plot redraws during the
-  drag.
-- AC21: Releasing (pointerup), cancelling (pointercancel) or losing pointer capture ends the drag;
-  further pointer moves without a press do not change the camera.
-- AC22: The plot captures the pointer on press (when `setPointerCapture` is available), so a drag
-  that leaves the card keeps rotating until release. Only one pointer drives a drag at a time;
-  additional simultaneous pointers are ignored. Non-primary mouse buttons do not start a drag.
-- AC23: The plot area has `touch-action: none` and `user-select: none`, so a touch drag on the chart
-  rotates instead of scrolling the page. The cursor is `grab`, and `grabbing` while dragging.
-- AC24: Pressing the plot area moves keyboard focus to it (so arrow keys work right after a click).
-
-Keyboard rotation and focus
-- AC25: The plot area is a single tab stop (`tabindex="0"`) with `role="group"`, accessible name
-  "3D chart" and a description (via `aria-describedby`) that includes the visible hint plus
-  "Use arrow keys to rotate, Home to reset." (the extra sentence may be visually hidden).
-- AC26: When the plot has focus: ArrowRight adds 0.1 to yaw and ArrowLeft subtracts 0.1 (same
-  direction as dragging right/left, 10px of drag); ArrowDown adds 0.08 to pitch and ArrowUp
-  subtracts 0.08 (same direction as dragging down/up). With Shift held the step is 5 times larger.
-  Pitch stays clamped to [-0.2, 1.3]. Home dispatches `resetView`.
-- AC27: Handled keys call `preventDefault` (the page does not scroll); all other keys, including
-  Tab and Shift+Tab, behave normally.
-- AC28: The focused plot shows a visible focus indicator (2px `#111` outline on the card, offset so it
-  is not clipped) only for keyboard focus (`:focus-visible`).
-- AC29: Tab order within the 3D panel is X select, Y select, Z select, Reset view, plot.
-
-Readout
-- AC30: The Readout aside has the heading "Readout" (11px/600 uppercase, letter-spacing .08em,
-  `#8A8A85`) and one card per selected entity that exists in the pool, in selection order.
-- AC31: Each card shows a 10px series-colour square and the entity's full name (14px/600, ellipsis
-  when too long), then three cells X, Y, Z, each with the axis letter (10px mono `#7A7A75`), the
-  value formatted with `formatStat` for that stat (15px/600 mono) and the stat label (10px `#9A9A95`,
-  ellipsis).
-- AC32: A null or missing value shows "—" in its cell; a selected entity with a null axis is still
-  plotted (at -1 on that axis, per T13) and still has a card.
-- AC33: The readout is plain text in the accessibility tree (it is the text alternative for the
-  chart); it is a list of entities or a list-like structure that a screen reader announces with the
-  entity name followed by "X <label> <value>" style cells.
-
-Layout and narrow screens
-- AC34: At widths where both fit, the chart column (flex 1 1 520px, min-width 0) and the 280px
-  Readout sit side by side with a 20px gap; below that they wrap and the Readout spans the full
-  width under the chart.
-- AC35: The controls row wraps; selects shrink to fit (no fixed min width forcing overflow) and
-  Reset view stays right-aligned on its line.
-- AC36: The chart card clips its overlays (labels and name tags that project outside the card do not
-  extend the page), so at a 375px viewport there is no page-level horizontal scroll on the 3D view
-  with the default selection and with 8 selected entities.
-
-League-agnostic and quality
-- AC37: No league-specific names in the new components or model; all labels, names and stat lists
-  come from the DataProvider (the existing `noLeagueLiterals` test covers the compare folder).
-- AC38: Pure layout helpers (overlay percentage/translate computation, draw-order split, keyboard
-  step mapping) live outside components and have unit tests.
-- AC39: Component tests cover: axis change (AC7, AC9), Reset (AC11), readout content including "—"
-  (AC30-AC32), selected-after-unselected draw order (AC15), keyboard rotation (AC26-AC27), a simulated
-  drag (AC20-AC21) and the empty/loading states (AC3-AC4). Existing ComparePanel tests that asserted
-  the 3D "coming soon" placeholder are updated to the new behaviour, not deleted.
-- AC40: `npm test`, `npm run lint`, `npm run typecheck` and `npm run build` pass.
-- AC41 (manual): with the full league pool, dragging in a production build on a desktop browser
-  feels smooth (about 60fps, no visible lag), and touch drag works in a mobile browser or device
-  emulation; the result is noted in the PR description.
+Tests
+- AC21: Component tests (Vitest + Testing Library, using the fixture provider) cover: switch visible
+  only for Teams (AC1, AC2), mode switching and hint text (AC3, AC4), what is hidden in breakdown
+  mode (AC6, AC7), the add-stat menu rule (AC9), chip rendering and selection (AC11-AC13), header
+  card content and formatting (AC15-AC17), season change (AC18), and the unknown-team case (AC19).
+  Existing tests are not deleted or weakened.
+- AC22: `npm run lint`, `npm run typecheck`, `npm test` and `npm run build` pass in `web/`.
 
 Added
-- AC42 (added): Arrow keys and Home pressed together with Ctrl, Alt or Meta are not handled. They do
-  not change the camera or call `preventDefault`, so browser and OS shortcuts such as Alt+Left
-  (history back) keep working. Gap: AC26-AC27 did not cover modifier combinations, and handling
-  them would break a platform shortcut.
+- AC23 (added): Whenever a season change is in flight (`useEntities` returns `[]` for the stale
+  season), the breakdown shows no chips and no card for that moment rather than the previous season's
+  data, and it never shows the old meta line with the new season suffix. Gap: AC14 and AC18 did not
+  say what shows between the season change and the new load. `useEntities` already behaves this way,
+  so this AC pins it with a test.
 
 ## 3. Architecture
 
-Approach: follow the T11/T12 pattern of a pure model plus thin components, all in
-`web/src/components/compare/`. The model turns state and data into render-ready values (positions in
-viewBox units and percentages, draw order, readout cells, key-to-action mapping). The components only
-map those values to markup and attach handlers. The T13 `projection.ts` module is used unchanged.
+Approach: follow the earlier pattern of a pure model plus thin components. The breakdown gets its own
+league-agnostic folder, `web/src/components/teams/`. App decides which block shows. No reducer
+changes: only existing actions are used (`setTeamMode`, `setTeam`, `closeAddStatMenu`).
 
-New files (all in `web/src/components/compare/`)
-- `chart3dModel.ts` and `chart3dModel.test.ts`. Pure, with no React and no DOM. It imports
-  `projection.ts`, `stats.ts` (`formatStat`, `NULL_PLACEHOLDER`), `canonicalStatOrder` and
-  `tableModel` (`CompareColumn`).
-  - `CHART3D = { width: 600, height: 460 }`, `LABEL_MIN_Y = 10`, `NAME_TAG_DX = 10`,
-    `KEY_STEP_PX = 10`, `SHIFT_MULTIPLIER = 5`. The 300 split threshold uses `CENTER_X`.
-  - `pct(v, total)`: `Math.round(v / total * 1000) / 10`, giving a percentage with 1 decimal.
-  - `axisDefs(axes, defs)` returns `[StatDef | undefined, x3]` by key lookup. `axesComplete(...)`
-    is true when all three are defined (AC10).
-  - `axisOptions(defs)` returns `SelectOption[]` (`value` = key, `label` = def label) in canonical
-    order (AC6).
-  - `axisLabelLayout(camera, defs3)` returns three `{ letter: 'X'|'Y'|'Z', text, left, top,
-    side: 'before' | 'after' }`. Here `text` = `${letter} · ${label}`, `left` = `pct(x, 600)`,
-    `top` = `pct(max(10, y), 460)`, and `side` is `'before'` when `x < CENTER_X` (AC17).
-  - `nameTagPosition(point)` returns `{ left: pct(x + 10, 600), top: pct(y, 460) }` (AC16).
-  - `drawOrder(points)` returns `[...unselected, ...selected]` and keeps the input (back-to-front)
-    order inside each group. It does not mutate its input (AC15).
-  - `cameraForKey({ key, shiftKey, ctrlKey, altKey, metaKey }, camera)` returns
-    `{ type: 'setCamera', yaw, pitch } | { type: 'resetView' } | null`. Arrows compute
-    `dragCamera(camera, dx, dy)` with dx/dy = ±10px (±50 with Shift), so the steps are 0.1 yaw and
-    0.08 pitch and pitch stays clamped. Home returns `resetView`. Ctrl, Alt or Meta, and any other
-    key, return `null` (AC26, AC27, AC42). The returned object is a valid `AppAction`, so the
-    component dispatches it directly.
-  - `readoutModel(columns, defs3)` returns one card per column in selection order:
-    `{ entity, colorIndex, cells: [{ letter, label, text, na }] x3 }`. `text` is
-    `formatStat(value, def)`, or `NULL_PLACEHOLDER` when the value is null or missing or the def is
-    undefined. `label` is the def label, or `''` when the def is undefined (AC30-AC32, AC10).
-  - `chart3dModel(pool, axes, selIds, camera, defs3)` returns `{ ok, grid, edges, axes, points,
-    tags, labels }`. `ok` is `axesComplete`. When `ok` is false the geometry arrays are empty.
-    `points` is `drawOrder(plotPoints(...))`. `tags` lists the selected points with `shortName` and
-    position, resolved by an id-to-entity map. This one function is what the component memoizes.
-- `AxisControls.tsx`, `AxisControls.module.css` and `AxisControls.test.tsx`. These hold the controls
-  row: three labelled selects and the Reset view button. Props are `options`, `axes`, `onAxis(index,
-  key)` and `onReset()`. There is no state access, so the component is easy to test in isolation.
-- `Readout.tsx`, `Readout.module.css` and `Readout.test.tsx`. Props are `cards` and `kind`. The
-  aside contains `<h2>` "Readout" (sidebar groups use h2), then either `<EmptyState kind>` or
-  `<ul role="list">` with one `<li>` per card. Each `li` holds the name and three cells whose text
-  reads "X Zlow 3.50"-style in DOM order (AC33).
-- `Chart3D.tsx`, `Chart3D.module.css` and `Chart3D.test.tsx`. This is the panel body. It reads
-  `useAppState()` for `ax[kind]`, `sel[kind]`, `yaw` and `pitch`, takes `pool` and `defs` as props,
-  and renders `AxisControls`, the chart card and `Readout` inside a wrapping flex layout.
+Domain and data (A3)
+- `web/src/domain/types.ts`: add an optional field to `StatDef`:
+  `summaryLabel?: string`, with the doc comment "Short label shown in the team header summary. When
+  set, the stat is a summary stat. Summary stats show in definition order." This is additive: every
+  existing def and caller stays valid, and the T22 API contract inherits it.
+- `web/src/data/nfl/statDefs.ts`: set `summaryLabel` on `ppg` ("Pts / G"), `ypg` ("Yds / G"),
+  `papg` ("Allowed / G") and `to` ("TO Diff"). Their definition order already matches the design.
+  `MockProvider.getStatDefs` returns copies of these defs, so the field reaches the UI with no
+  provider change.
+- `web/src/test/fixtureProvider.ts`: add new helpers only. Existing fixtures stay unchanged.
+  - `fixtureTeamSummaryStatDefs()`: invented team defs. Two have `summaryLabel` (one with
+    `decimals: 1`, one `signed`) and are interleaved with plain defs, so order and filtering are
+    tested.
+  - `seasonTeamsProvider(overrides?)`: teams whose `meta` and stats depend on the requested season.
+    It includes a null value and a missing key.
+  - Every name is invented (z-prefixed).
 
-State wiring (no reducer changes; the T06 actions are reused as they are)
-- Axis select change: `dispatch({ type: 'setAxis', index, key })`. The reducer already rejects
-  unknown keys and no-ops on the same key. It is per kind, which gives AC9 with no extra code.
-- Reset button and Home key: `dispatch({ type: 'resetView' })`.
-- Arrow keys: `dispatch(cameraForKey(...))` when the result is not null, and only then call
-  `preventDefault`.
-- Drag: a `useRef<{ pointerId, startX, startY, start: Camera } | null>` plus a `useState` boolean
-  `dragging` for the cursor class.
-  - `onPointerDown`: ignore it if a drag is already active, if `!e.isPrimary`, or if this is a mouse
-    with `button !== 0`. Otherwise store the start values, call `currentTarget.focus()` (AC24),
-    `setPointerCapture?.(id)` inside try/catch (AC22) and `preventDefault()`.
-  - `onPointerMove`: act only for the stored pointerId. Dispatch `setCamera` with
-    `dragCamera(start, clientX - startX, clientY - startY)` (AC20).
-  - `onPointerUp`, `onPointerCancel` and `onLostPointerCapture` for the stored id clear the ref and
-    `dragging` (AC21).
-  - The camera comes from state at press time, so a drag is relative to its start (T13 AC19).
-  - One dispatch per move is enough. If the manual check (AC41) shows lag, coalesce moves with
-    `requestAnimationFrame` (assumption 15). That changes no observable behaviour.
-- `ComparePanel.tsx`: `loaded = entities.length > 0 && defs.length > 0`. The 3D branch is evaluated
-  before the `hasSelection` and `ready` gates:
-  - `view === '3d' && loaded` renders `<Chart3D pool={entities} defs={defs} />` (AC1-AC3).
-  - `view === '3d' && !loaded && !hasSelection` renders `<EmptyState>` (AC4).
-  - `view === '3d'` otherwise renders `null` (AC4).
-  - The `ChartPlaceholder` import is removed. The file and its tests stay.
-  - The Table and 2D branches are unchanged.
+New folder `web/src/components/teams/`
+- `teamHeaderModel.ts` and `teamHeaderModel.test.ts`. Pure, with no React.
+  - `findTeam(entities, teamId): Entity | undefined`.
+  - `teamMetaLine(entity, season)` returns `` `${entity.meta} · ${season}` `` (A4, no parsing).
+  - `summaryStats(defs, stats)` returns `{ key, label, text }[]`. It keeps defs with a non-empty
+    `summaryLabel`, in definition order. `label` is the `summaryLabel` and `text` is
+    `formatStat(stats[key], def)`, which already gives `NULL_PLACEHOLDER` for null or missing values
+    (AC16, AC17).
+  - `teamModeHint(mode, max)` returns the hint string, with `max` passed in as `MAX_SELECTED` (AC3).
+- `TeamModeSwitch.tsx`, `.module.css` and `.test.tsx`.
+  - Reads `useAppState()` and returns `null` unless `kind === 'teams'` (AC2).
+  - Renders a flex row with the `SegmentedControl` (light variant, label "Team view", options
+    `compare`/"Compare teams" and `inside`/"Team breakdown") and a `<p>` hint.
+  - `onChange` dispatches `setTeamMode` only when the value differs from `state.teamMode` (AC4).
+    This avoids a no-op state change that would still close the add popover.
+- `TeamChips.tsx`, `.module.css` and `.test.tsx`.
+  - Props: `teams: Entity[]`, `activeId`, `onSelect(id)`.
+  - Renders `<div role="group" aria-label="Teams">` with one `Chip mono` per team, labelled with
+    `badge` and keyed by id (AC11, AC12).
+  - `onSelect` fires only for inactive chips (AC13).
+- `TeamHeader.tsx`, `.module.css` and `.test.tsx`.
+  - Props: `team: Entity`, `season`, `summary` (the `summaryStats` output).
+  - Renders a `<section aria-labelledby>`. The left part has the badge (span, mono 44px), an `<h2>`
+    with the name, and the meta line. The right part is a `<dl>` with one `<div>` per stat holding a
+    `<dt>` (label) and a `<dd>` (mono value).
+  - The CSS sets the AC15/AC16 borders, radius, padding and type. The label case comes from
+    `text-transform`, so the DOM text stays "Pts / G".
+- `TeamBreakdown.tsx`, `.module.css` and `.test.tsx`. This is the container.
+  - Data: `useEntities('teams', state.season)` and `useStatDefs('teams')`, reusing the T08/T09 hooks
+    from `components/picker` and `components/sidebar`, as `ComparePanel` does.
+  - It renders `null` when there are no teams (AC14, AC23). Otherwise it renders `TeamChips`, then
+    `TeamHeader` only when `findTeam` finds a team (AC19), inside a column flex with a 22px gap
+    (AC7).
+  - Selecting a chip dispatches `setTeam` (AC13).
+  - On mount, `useLayoutEffect(() => dispatch({ type: 'closeAddStatMenu' }), [dispatch])` runs
+    (A8, AC9). This covers both entry paths with one existing action. Path (a) is the switch. Path
+    (b) is a kind change while `inside`: there `StatSidebar` unmounts in the same render, so its
+    own kind-change effect never runs. The effect runs before paint and is a no-op when the menu is
+    already closed, so it is safe under StrictMode.
+  - Summary stats wait for the defs: until they load, the card shows without the stats list and
+    without a placeholder.
+- `index.ts`: exports `TeamModeSwitch` and `TeamBreakdown`.
+- `noLeagueLiterals.test.ts`, following the sidebar and compare pattern (AC20).
 
-Shared UI change (additive, existing callers unaffected)
-- `web/src/components/ui/Select.tsx` gets two optional props.
-  - `placeholder?: string`. When `value` is not among the options, it renders a first
-    `<option value="" disabled>{placeholder}</option>` and the select shows it (AC10).
-  - `className?: string`, merged through `cx`, so the axis selects can set `min-width: 0;
-    max-width: 100%` (AC35).
-  - Tests are added in `ui.test.tsx`.
+App wiring (`web/src/App.tsx`)
+- Move the main-content body into a small inner component `AppMain` in `App.tsx` (it needs
+  `useAppState`, which is only available inside the provider).
+  - `breakdown = kind === 'teams' && teamMode === 'inside'`.
+  - It renders `<TeamModeSwitch />`. If `breakdown` is true it then renders `<TeamBreakdown />`.
+    Otherwise it renders the existing `<EntityPicker />` plus the `.body` div holding the sidebar
+    and the "Stat views" section, unchanged (AC1, AC6, AC7).
+- The compare UI unmounts, but all of its state (`sel`, `stats`, `view`, `chart2`, `ax`, `yaw`,
+  `pitch`) lives in the reducer, so a round trip restores it (AC8). Nothing in T15 dispatches
+  anything that changes those fields.
+- AC10 needs no change: `setTeamMode` sets `addOpen: false`, and `setKind` does too.
+- `EntityPicker`'s own breakdown guard stays, since it is harmless and has its own tests.
 
-Data, API, config and dependencies: no DataProvider, type, reducer or env changes, and no new
-dependencies. The SVG and pointer events are native.
+Dependencies, config and env: none new. No `.env` or provider-interface method changes.
 
 ## 4. Design
 
-User flow: the app opens on 3D (the default view). The user sees the controls row, the cube with grey
-league dots and coloured, named selected dots, and a Readout card per selected entity. Changing a
-select redraws the plot, the axis label and the readout cell. Dragging, or using the arrow keys
-after focusing the plot, rotates the cube. Reset view or Home restores the default angle. Switching
-kind shows that kind's axes, and the camera is shared between kinds.
+User flow: the user clicks the "Teams" tab in the global nav and sees the switch with "Compare
+teams" pressed and the hint "Compare up to 8 teams side by side", above the usual compare UI. They
+click "Team breakdown": the picker, sidebar and panel disappear, and the hint changes to "Compare
+players within one team". Below the switch are the team chips (default team active) and the header
+card. Clicking another chip moves the active chip and swaps the card. Changing the season in the nav
+reloads the chips and card for that season with the same team. Clicking "Compare teams" restores the
+compare UI as it was left.
 
 States
-- Loading or failed (pool or defs empty): there is no SVG, select or button. With an empty
-  selection, only the existing empty-state text shows. Otherwise the panel is empty, as in Table and
-  2D today (AC4).
-- Empty selection after load: the controls and chart (grey dots only, no tags) show, plus the
-  Readout heading and empty-state text with no cards (AC3).
-- Missing axis definition: that select shows the disabled "Choose a stat" option. The card shows
-  "Pick a stat for each axis." with no SVG, overlays or hint. The readout cell shows "—" (AC10).
-  Because the reducer only accepts known keys, this can only come from bad league defaults.
-- Pool loaded but no entity eligible and nothing selected: the cube draws with no points and no
-  message (assumption 3).
-- Success: the full chart (AC12-AC19) and readout (AC30-AC33).
+- Loading or failed team entities: the switch and hint are shown, with nothing below them (AC14,
+  AC23).
+- Team defs still loading or failed: the card shows the badge, name and meta, but no stats list.
+- Unknown `teamId`: the chips are shown with none active and no card. Clicking a chip shows its card
+  (AC19).
+- Empty provider list (`[]`): same as loading, with nothing below the switch.
+- Success: the chips and card (AC11-AC17).
 
-Desktop: the chart column (`flex: 1 1 520px; min-width: 0`) and a 280px Readout sit side by side
-with a 20px gap (AC34). The controls row is `display: flex; flex-wrap: wrap; gap`, with the Reset
-button pushed right by `margin-left: auto` (AC35).
+Desktop (1280px): the switch and hint sit on one row (gap 14px, `align-items: center`). The chips are
+in a wrapping row with a 6px gap. The card is a wrapping flex row with a 22px gap: the badge, the
+name/meta block, and the summary list pushed right by `margin-left: auto`, with a 32px gap between
+stats.
 
-Mobile (375px): the Readout wraps under the chart at full width (`flex: 1 1 100%` once wrapped, via
-`flex: 1 1 280px; max-width: 100%` on a wrapping row, with `min-width: 0`). The selects shrink
-(`min-width: 0`) and the label text ellipsizes. The card has `position: relative; overflow:
-hidden` so projected overlays cannot widen the page (AC36). The SVG is `width: 100%; height: auto;
-display: block`. `touch-action: none` and `user-select: none` apply only to the card (AC23).
+Mobile (375px): everything wraps, so there is no horizontal scroll.
+- The hint drops below the switch.
+- The chips wrap onto two or more lines.
+- In the card, the summary list wraps under the name block (2x2 or similar), with `min-width: 0` on
+  the flex children.
+- Long names wrap rather than overflow (`overflow-wrap: anywhere` on the h2).
+- Checked manually in T8.
 
 Accessibility
-- The focusable card is `role="group"`, `aria-label="3D chart"` and `tabIndex={0}`. Its
-  `aria-describedby` points to the hint id plus a visually hidden span "Use arrow keys to rotate,
-  Home to reset." (AC25).
-- The SVG has `aria-hidden="true"` and `focusable="false"`. The overlay layer has `aria-hidden` and
-  `pointer-events: none` (AC19).
-- The focus ring is `.card:focus-visible { outline: 2px solid #111; outline-offset: 2px }`. The
-  outline sits outside the card's own clip box, so `overflow: hidden` does not cut it (AC28).
-- Tab order follows DOM order: X, Y, Z, Reset, plot (AC29). Each select sits in a `<label>` holding a
-  visible mono letter and the `Select` with `label="X axis"`, so clicking the letter focuses the
-  select (AC6).
-- The Readout list is plain text, used as the text alternative (AC33). No live region (assumption 9).
+- The switch is a fieldset named "Team view" with `aria-pressed` buttons, from the existing
+  component (AC1).
+- The chips are a group named "Teams" with `aria-pressed` buttons (AC12). Chip buttons are native, so
+  they are reachable by Tab and work with Enter and Space.
+- The card is a `section` labelled by its `h2` (the team name). The summary list is a `dl`, so
+  screen readers pair each label with its value.
+- The hint is plain text next to the switch. No live region is used. The visible content change is
+  the feedback, as with the view tabs.
+- Focus: when the compare UI unmounts, focus stays on the pressed switch button, which remains in
+  the DOM.
+- 40px touch targets and an axe sweep are T18.
 
 ## 5. Risk and security
 
-- Input validation: axis keys come from state, which the reducer validates. A key in state with no
-  definition is handled by AC10. Values go through `formatStat` and `normalize`, so null or missing
-  values never produce NaN coordinates. `setCamera` ignores non-finite values and clamps pitch.
-  Safeguard: model tests feed null and missing values and an unknown axis key, and assert no `NaN`
-  in any position or percentage (T1, T2).
-- Auth and data exposure: none. Everything is client-side, rendering data already on screen. Text is
-  rendered as React text nodes, never as HTML.
+- Input validation: all values come from the provider. `formatStat` handles null and missing
+  values, and `summaryStats` skips defs without a `summaryLabel`. `findTeam` returning undefined is
+  handled (AC19). Safeguard: the model tests cover null, missing, empty `summaryLabel` and unknown
+  team (T2).
+- Auth and data exposure: none. This is client-side rendering of provider data as React text nodes,
+  never as HTML.
 - Failure modes and safeguards:
-  - jsdom has no `setPointerCapture` or layout: guard the capture call with optional chaining and
-    try/catch. Drag tests use `fireEvent.pointerDown/Move/Up` with `clientX/clientY`, `isPrimary`,
-    `pointerId` and `button`. jsdom may drop unknown `PointerEvent` init fields, so T6 checks this
-    first and defines a small `MouseEvent`-based helper in the test file if needed (T6).
-  - Stuck drag (lost pointerup): handled by `pointercancel` and `lostpointercapture`, and a second
-    pointer is ignored while a drag is active (AC21-AC22). Tested in T6.
-  - Lint rules on interactive roles: oxlint jsx-a11y may flag `tabIndex`, `onKeyDown` or
-    `onPointerDown` on `role="group"`. Use a scoped `oxlint-disable` comment with a reason, as
-    `RadarChart.tsx` does, rather than changing the role. The AC25 role and name are required.
-  - Performance with the full pool (AC41): memoize `chart3dModel` on `[pool, axes, sel, yaw, pitch,
-    defs]`. Build the id-to-entity map once per pool. Use keys = entity id so React reuses nodes. The
-    rAF fallback is above.
-  - Existing tests that assumed a quiet 3D view now see entity names, stat labels, a button and
-    comboboxes on the default view. Update them to the new behaviour, scoped and not weakened (T9,
-    T10). Each superseded assertion is replaced by an equivalent one for the new content
-    (assumption 16).
-  - Duplicate text: with an empty selection the empty-state text must appear once, inside the
-    Readout, not also above it. The existing "only the visible panel holds the message" test
-    (`findAllByText` length 1) guards this.
-  - League literals: new files are added to `noLeagueLiterals.test.ts`, and the fixtures use invented
-    keys (T10).
+  - A stale add-stat menu after breakdown (AC9 path (b)) is invisible in the DOM when the group
+    names differ between kinds, as they do in the NFL data. So the tests assert
+    `state.addStatOpen === null` through a state probe, not only the DOM (T5).
+  - An entity load failure shows nothing and does not throw (AC14). It is tested with a rejecting
+    provider (T5).
+  - A season-change race: `useEntities` already drops stale loads. A test resolves the old season
+    after the new one and asserts that the new season's data shows (T5, AC18, AC23).
+  - Updated expectations: `data/nfl/data.test.ts` (`EXPECTED_TEAM_DEFS`) and
+    `data/mockProvider.test.ts` (`teams[6]`) assert exact defs, so they gain the new
+    `summaryLabel` values. That is an update to new expected data, with no assertion removed (T1).
+  - App tests that assume the sidebar and panel are always present: the default `teamMode` is
+    `compare`, so they keep passing unchanged. If any breaks, fix it by scoping, never by loosening
+    (T6).
+  - League literals: the new folder gets its own scan, which includes team ids, names, badges and
+    divisions and the summary labels (T7).
 
 ## 6. Gaps check
 
-- Auth: not applicable, since there is no network write and no user data.
-- Validation: unknown axis keys (AC10), null and missing values (AC32), non-finite camera (the
-  reducer) and modifier keys (AC42, added) are covered.
-- Error handling: a load failure shows the loading state (AC4). The model never throws on typed
-  input and is NaN-tested.
-- Mobile: touch drag (AC20-AC23), wrap and clip at 375px (AC34-AC36), plus a manual check (AC41).
-  The 768/1280 audit is T18.
-- Accessibility: group role and name, description, focus ring, tab order, keyboard rotation, hidden
-  decorative SVG and a text alternative (AC19, AC24-AC29, AC33).
+- Auth: not applicable, since there are no network writes and no user data.
+- Validation: null and missing values, empty summary labels, unknown team and failed loads are
+  covered (AC14, AC17, AC19).
+- Error handling: a load failure shows an empty breakdown under the switch with no throw. A defs
+  failure shows the card without stats.
+- Mobile: wrapping layout as above, with a manual check at 375px in T8.
+- Accessibility: named group and fieldset, `aria-pressed`, a section with a heading, and a `dl`.
+  The full audit is T18.
 - Config and env vars: none. `.env` is not touched.
-- Tests: there are unit tests for each pure helper (T1, T2) and component tests for AxisControls,
-  Readout and Chart3D (T4-T7). ComparePanel and App integration tests are updated (T8, T9). The
-  literals test is extended (T10), and the full gate runs in T11.
+- Tests: there are model unit tests, component tests per component, a container test with a state
+  probe, App integration tests, the literal scan and the full gate (T1-T8).
 
 ## 7. Tasks
 
-Each task is one commit with tests in the same commit. All paths are under `web/src/`.
+Each task is one commit with its tests in the same commit. Paths are under `web/src/`.
 
-- T1: Layout helpers in the model. Add `chart3dModel.ts` with `CHART3D` and the constants, `pct`,
-  `axisLabelLayout`, `nameTagPosition` and `drawOrder`.
-  - Tests in `chart3dModel.test.ts`:
-    - `pct` rounding, e.g. `pct(310, 600) = 51.7`.
-    - At `DEFAULT_CAMERA` the label left/top equal `pct` of `axisLabelAnchors`.
-    - A y below 10 is raised to 10 (pick a camera where an anchor is above the top, e.g. pitch 1.3,
-      and assert top = `pct(10, 460)`).
-    - `side` is `'before'` exactly when x < 300 (check both sides with two cameras).
-    - The name tag is offset by 10.
-    - `drawOrder` puts unselected before selected, keeps relative order and leaves deep-frozen
-      input unchanged.
-  - Files: `components/compare/chart3dModel.ts`, `components/compare/chart3dModel.test.ts`.
-  - ACs: AC15, AC16, AC17, AC38.
-- T2: Keyboard mapping, axis resolution and readout model. Add `cameraForKey`, `axisDefs`,
-  `axesComplete`, `axisOptions`, `readoutModel` and `chart3dModel`.
-  - `cameraForKey` tests:
-    - ArrowRight/Left give yaw ±0.1 and ArrowDown/Up give pitch ±0.08 (`toBeCloseTo`).
-    - Shift gives ±0.5 and ±0.4.
-    - Pitch clamps at 1.3 and -0.2.
-    - Home returns `resetView`.
-    - Ctrl, Alt or Meta with an arrow returns `null`, and Tab, Enter and letters return `null`.
-  - `axisOptions` follows canonical order, not definition order (use the fixture's `zhigh`,
-    `zlow`, `zbig` order).
-  - `readoutModel` tests:
-    - Cards come in selection order and skip ids missing from the pool.
-    - `formatStat` text is used, with signed and decimals cases.
-    - Null and missing values give "—" with `na: true`.
-    - An undefined def gives "—" and `''`.
-    - The same stat on two axes gives two cells.
-  - `chart3dModel` tests:
-    - `ok` is false and the geometry is empty when an axis def is missing.
-    - Otherwise there are 20/12/3 lines, the points are in `drawOrder` order, and tags exist only
-      for selected points, with `shortName`.
-    - No NaN appears anywhere for an all-null stat.
-  - Files: `chart3dModel.ts`, `chart3dModel.test.ts`.
-  - ACs: AC6, AC8, AC10, AC14, AC26, AC27, AC30, AC31, AC32, AC38, AC42.
-- T3: `Select` placeholder and className. Add the optional `placeholder` and `className` props as
-  described in section 3.
-  - Tests in `ui.test.tsx`:
-    - With an unknown value the select's displayed value is the disabled placeholder option.
-    - With a known value no placeholder option is rendered.
-    - `className` is applied.
-    - Existing Select tests stay unchanged.
-  - Files: `components/ui/Select.tsx`, `components/ui/ui.test.tsx`.
-  - ACs: AC10, AC35.
-- T4: `AxisControls` component. Add the controls row with three `<label>` wrappers (a mono letter
-  plus `Select` named "X axis" and so on, placeholder "Choose a stat") and the "Reset view" button,
-  with CSS for wrapping, shrinking and the right-aligned Reset.
+- T1: Summary-label field, NFL data and fixtures.
+  - Add `summaryLabel?: string` to `StatDef` with a doc comment.
+  - Set it on the four NFL team defs.
+  - Add `fixtureTeamSummaryStatDefs` and `seasonTeamsProvider` to `test/fixtureProvider.ts`.
   - Tests:
-    - The accessible names and visible letters are correct.
-    - The options match the given list and are the same for all three selects.
-    - The current values are shown.
-    - Changing Y calls `onAxis(1, key)`.
-    - The same key can be chosen on two selects.
-    - Click, Enter and Space on Reset call `onReset`, and focus stays on the button.
-    - Tab order is X, Y, Z, Reset.
-    - An unknown axis value shows "Choose a stat".
-  - Files: `components/compare/AxisControls.tsx`, `AxisControls.module.css`,
-    `AxisControls.test.tsx`.
-  - ACs: AC6, AC7 (dispatch side), AC8, AC10, AC11 (button), AC29 (partial), AC35.
-- T5: `Readout` component. Add the aside with the h2 "Readout", the EmptyState when there are no
-  cards, and otherwise a `ul role="list"` of cards: a colour square styled with `seriesColor`, the
-  full name with ellipsis, and three cells (letter, value, label).
+    - Update `EXPECTED_TEAM_DEFS` in `data/nfl/data.test.ts` and `teams[6]` in
+      `data/mockProvider.test.ts` to include the labels.
+    - Add a test that the team defs with `summaryLabel` are exactly `ppg`, `ypg`, `papg`, `to`
+      with labels "Pts / G", "Yds / G", "Allowed / G", "TO Diff", in that order.
+    - Add a test that no player def has one.
+    - Add a `domain.test.ts` case showing a def with `summaryLabel` is valid and one without is
+      still valid.
+  - Files: `domain/types.ts`, `domain/domain.test.ts`, `data/nfl/statDefs.ts`,
+    `data/nfl/data.test.ts`, `data/mockProvider.test.ts`, `test/fixtureProvider.ts`.
+  - ACs: AC16, AC20 (data side).
+- T2: Pure header model. Add `components/teams/teamHeaderModel.ts` with `findTeam`, `teamMetaLine`,
+  `summaryStats` and `teamModeHint`.
   - Tests:
-    - The heading text is correct.
-    - Cards come in the given order.
-    - The cell text is correct, including "—".
-    - The square uses the series var for its index.
-    - The empty cards case shows the heading plus the player or team empty text and no list.
-    - The list item's text reads the name followed by "X <label> <value>"-style cells (AC33).
-  - Files: `components/compare/Readout.tsx`, `Readout.module.css`, `Readout.test.tsx`.
-  - ACs: AC3 (readout part), AC30, AC31, AC32, AC33.
-- T6: `Chart3D` component, covering drawing, state wiring, drag and keyboard. Render `AxisControls`,
-  the card and `Readout`; wire `setAxis`, `resetView` and `setCamera` as in section 3. The card holds
-  the SVG (grid, edges and axes in order, then the points in model order, each as a `<g>` with a
-  dashed line and a circle), the overlay layer (axis labels, name tags), the hint, the hidden
-  keyboard sentence, or the AC10 message. Add the CSS for card, focus ring, cursor, touch-action,
-  clipping and the column layout.
-  - Tests use an `AppStateProvider` with the compare fixtures and a state probe:
-    - Line counts and colours, and `viewBox` "0 0 600 460".
-    - Every selected circle follows every unselected circle in the DOM (AC15).
-    - Radius and fill per type.
-    - Name tags show shortNames at the model positions.
-    - Axis labels read "X · Zhigh" and so on, with `aria-hidden` on the SVG and overlay.
-    - Changing X updates the label, the readout label and value, and the circle positions.
-    - Reset restores the default yaw and pitch and leaves `ax` and `sel` alone.
-    - Arrow, Shift+Arrow and Home dispatch the expected camera, a handled key is
-      `defaultPrevented` and Tab/Alt+Left are not.
-    - A drag (down, move by 100/50, up, then move) gives yaw -0.65+1 and pitch 0.38+0.4. Moves
-      after up and from a second pointerId change nothing. A right button press does not start a
-      drag. pointercancel and lostpointercapture end the drag.
-    - A press focuses the card.
-    - The cursor class changes while dragging.
-    - The group name and description are correct.
-    - An unknown axis key in the defaults shows "Pick a stat for each axis." and no svg.
-  - Files: `components/compare/Chart3D.tsx`, `Chart3D.module.css`, `Chart3D.test.tsx`.
-  - ACs: AC7, AC10-AC28, AC34, AC36 (CSS), AC39 (component part).
-- T7: `ComparePanel` wiring. Add the `loaded` flag and the 3D branch ahead of the `hasSelection`
-  and `rows` gates, as in section 3. Remove the `ChartPlaceholder` usage. Export `Chart3D` from
-  `index.ts` only if other compare components are exported there.
-  - New ComparePanel tests:
-    - The default view shows the controls, card and readout in DOM order, and no "coming soon"
-      (AC1).
-    - With `playerStats: []` the 3D chart still renders (AC2).
-    - An empty selection shows the selects, card, Readout heading and empty text once, with no
-      tags (AC3).
-    - Pending and failed entity or def loads show no svg, combobox or Reset button, with the empty
-      text only when nothing is selected (AC4).
-    - On Table and 2D, no "3D chart" group or Reset button exists (AC5).
-    - Changing X for players, going to teams (team axes shown) and back shows the changed X
-      (AC9).
-  - Files: `components/compare/ComparePanel.tsx`, `components/compare/ComparePanel.test.tsx`,
-    `components/compare/index.ts` (if needed).
-  - ACs: AC1, AC2, AC3, AC4, AC5, AC9, AC39.
-- T8: Update the existing ComparePanel tests that described the placeholder, rewriting them for the
-  new behaviour and deleting none. All are in `ComparePanel.test.tsx`.
-  - "AC32: on the default 3D view no table, entity name or stat label is in the DOM" now asserts no
-    table and no caption. The entity name and stat label appear only inside the 3D tabpanel.
-  - "AC32: the placeholder text exists only in the selected panel" becomes: after switching to 2D,
-    no "3D chart" group, "Reset view" button or "X axis" combobox is in the DOM.
-  - "AC8: 3D shows the 3D chart coming-soon placeholder" becomes: the 3D view shows the "3D chart"
-    group and no "coming soon" text.
-  - "AC8: the placeholder has no controls of its own" becomes: the 3D panel's controls are exactly
-    the 3 axis comboboxes, the Reset view button and no links.
-  - "T11 AC3: the Table and 3D tabs show no Bars chart" and "T12 AC3: ... no radar" swap
-    `findByText('3D chart — coming soon')` for `findByRole('group', { name: '3D chart' })`.
-  - Also update the `compareDefaults` doc comment in `test/compareFixtures.ts` ("ax values are
-    unused" is no longer true). Do not change the fixture data.
-  - Files: `components/compare/ComparePanel.test.tsx`, `test/compareFixtures.ts`.
-  - ACs: AC1, AC5, AC39.
-- T9: Update the App-level tests for the new default view in `App.compare.test.tsx`.
-  - "AC4: the app opens on 3D with its placeholder" becomes "with the 3D chart": find the group
-    "3D chart" in the panel and expect no "coming soon".
-  - "AC32: the default 3D view does not duplicate App-level text" stays the same idea, but scoped.
-    The player name appears once in the picker card list and once in the Readout. A sidebar stat
-    label appears once in the sidebar, and its other occurrences are inside the Stat views region.
-    No table is rendered.
-  - Run the other `App.*.test.tsx` files. Fix any query broken by the new duplicate text by scoping
-    it with `within`, never by loosening it.
-  - Files: `App.compare.test.tsx` (others only if they break).
-  - ACs: AC1, AC39.
-- T10: League-literal coverage. Add `chart3dModel.ts`, `AxisControls.tsx`, `Readout.tsx` and
-  `Chart3D.tsx` as `?raw` imports to the `sources` map in
-  `components/compare/noLeagueLiterals.test.ts`, plus a planted-literal check for `Chart3D.tsx` and
-  `chart3dModel.ts`. Also check that `Chart3D.tsx` imports nothing from `data/`.
-  - Files: `components/compare/noLeagueLiterals.test.ts`.
-  - ACs: AC37.
-- T11: Quality gate and manual checks.
-  - Run `npm test`, `npm run lint`, `npm run typecheck`, `npm run format` and `npm run build` in
+    - `findTeam` hit and miss.
+    - The meta line is exactly `meta · season`.
+    - Summary stats keep definition order, skip non-summary and empty-label defs, give one decimal
+      for `decimals: 1`, show "+" for a positive signed value and no "+" for zero or negative, and
+      show "—" for null and for a missing key.
+    - The hint text for both modes, using `MAX_SELECTED` (expects "Compare up to 8 teams side by
+      side").
+    - Inputs are not mutated.
+  - Files: `components/teams/teamHeaderModel.ts`, `components/teams/teamHeaderModel.test.ts`.
+  - ACs: AC3, AC15 (meta), AC16, AC17, AC19 (lookup).
+- T3: `TeamModeSwitch`. Add the component, its CSS (row gap 14, wrap; hint 13px `#7A7A75`) and tests
+  with `AppStateProvider` and fixture defaults plus a state probe.
+  - Tests:
+    - Players renders no "Team view" group and no hint, in both modes (AC2).
+    - Teams renders the buttons in order with the correct `aria-pressed` (AC1).
+    - Clicking toggles `teamMode` and the hint text (AC3, AC4).
+    - Clicking the active option dispatches nothing: the state object is unchanged and the add
+      popover stays open.
+  - Files: `components/teams/TeamModeSwitch.tsx`, `TeamModeSwitch.module.css`,
+    `TeamModeSwitch.test.tsx`, `components/teams/index.ts`.
+  - ACs: AC1, AC2, AC3, AC4, AC21.
+- T4: `TeamChips` and `TeamHeader` presentational components and their CSS.
+  - Chips tests:
+    - One chip per team in order, labelled by badge, with the mono class.
+    - Only the active chip is pressed.
+    - Clicking an inactive chip calls `onSelect(id)`, and clicking the active chip does not.
+    - The group is named "Teams".
+    - With an unknown `activeId`, no chip is pressed.
+  - Header tests:
+    - Badge, `h2` name and meta line text.
+    - The section is labelled by the name.
+    - The summary `dt`/`dd` pairs are in order, with "—" shown.
+    - With no summary, no `dl` is rendered.
+  - Files: `components/teams/TeamChips.tsx`, `TeamChips.module.css`, `TeamChips.test.tsx`,
+    `TeamHeader.tsx`, `TeamHeader.module.css`, `TeamHeader.test.tsx`.
+  - ACs: AC11, AC12, AC13, AC15, AC16, AC17, AC19.
+- T5: `TeamBreakdown` container. Wire `useEntities` and `useStatDefs`, `findTeam` and
+  `summaryStats`, `setTeam`, and the mount-time `closeAddStatMenu`.
+  - Tests use the fixture providers with a state probe:
+    - Chips and card render in DOM order, with nothing after the card (AC7).
+    - Clicking a chip switches the card and `teamId` (AC13).
+    - A pending (deferred) or rejected `getEntities` renders no group and no section, and does not
+      throw (AC14).
+    - With defs pending, the card shows without a `dl`.
+    - Changing the season via the probe's dispatch keeps the same active chip and updates the meta
+      suffix, record and values. With the old season resolving late, the new season's data shows,
+      and in the gap no stale card is shown (AC18, AC23).
+    - An unknown `teamId` shows no pressed chip and no card, `teamId` stays unchanged, and clicking a
+      chip shows its card (AC19).
+    - AC9: a harness opens the add-stat menu via `toggleAddStatMenu`. (a) With kind teams, it
+      switches `teamMode` to `inside`. (b) With kind players and `teamMode` `inside`, it switches
+      kind to teams. In both cases, once the breakdown is shown, `addStatOpen` is `null`.
+  - Files: `components/teams/TeamBreakdown.tsx`, `TeamBreakdown.module.css`,
+    `TeamBreakdown.test.tsx`, `components/teams/index.ts`.
+  - ACs: AC7, AC9, AC13, AC14, AC18, AC19, AC21, AC23.
+- T6: App wiring. Add `AppMain` in `App.tsx` with the switch, then either the breakdown or the
+  existing compare block (section 3).
+  - New `App.teams.test.tsx`, using the real mock data like the other App tests:
+    - The switch is absent on Players and present on Teams (AC1, AC2).
+    - Breakdown removes the "Selected teams" list, the "Stats" complementary and the "Stat views"
+      region, and shows the "Teams" chip group and the default team card with the four summary
+      labels and formatted values (AC6, AC7, AC15-AC17).
+    - Players while in breakdown shows the players compare UI and no switch, and back to Teams shows
+      breakdown (AC5).
+    - Round trip (AC8): before breakdown, set a deselected team, a toggled stat, the Table or 2D
+      Radar view and a changed 3D X axis. After returning, the same cards, checkboxes, pressed tab or
+      sub-mode and axis select value are shown. Camera round trip: press ArrowRight on the "3D chart"
+      group, note the overlay label position, do the round trip, and check the position is the same.
+    - The add-entity popover open, then breakdown, then compare leaves it closed (AC10).
+    - AC9 path (a) in the DOM: open the "Offense" add-stat menu in Teams compare, do the round trip,
+      and check that no menu is open.
+    - A season change in breakdown updates the meta suffix and record (AC18).
+  - Run the existing `App.*.test.tsx`. They are expected to pass unchanged. Fix any break by scoping
+    only.
+  - Files: `App.tsx`, `App.teams.test.tsx` (existing App tests only if they break).
+  - ACs: AC1, AC2, AC5, AC6, AC7, AC8, AC9, AC10, AC18, AC21.
+- T7: League-literal coverage. Add `components/teams/noLeagueLiterals.test.ts` with the same
+  `leagueValues` list as the compare scan, plus team ids, names, abbreviations and divisions from
+  `RAW_T` and every `summaryLabel`.
+  - Sources: every new `.ts`/`.tsx` in `components/teams/`.
+  - Add a planted-literal check (for example `'ppg'`, `"Pts / G"`, a team abbreviation) and a
+    check that none of the files import `data/` or `MockProvider`.
+  - Files: `components/teams/noLeagueLiterals.test.ts`.
+  - ACs: AC11, AC20.
+- T8: Quality gate and manual checks.
+  - Run `npm run lint`, `npm run typecheck`, `npm test`, `npm run format` and `npm run build` in
     `web/`, and fix findings without weakening tests.
-  - In the dev or preview build, check at 375px for no horizontal scroll with the default selection
-    and with 8 selected (AC36), and the wrap layout (AC34-AC35).
-  - With the full pool in `npm run build` + preview, check desktop drag smoothness and touch drag in
-    device emulation. If it lags, apply the rAF coalescing in `Chart3D.tsx` and re-run the tests.
-  - Record the results for the PR description.
-  - Files: none expected (or `Chart3D.tsx` if rAF is needed).
-  - ACs: AC36, AC40, AC41.
+  - In the dev server at 375px and 1280px, check Teams compare and breakdown: no horizontal scroll,
+    the hint wraps, chips wrap, and the card stats wrap under the name at 375px and sit right at
+    1280px. Check keyboard Tab through the switch and chips.
+  - Note the results for the PR.
+  - Files: none expected.
+  - ACs: AC22, plus a manual check of the section 4 layout.
 
 ## 8. Open questions
 
 None blocking. The defaults below are applied and can be changed at review.
-1. AC10 readout label: when an axis has no definition, the readout cell shows "—" with an empty stat
-   label. Should it show "Choose a stat" instead?
-2. AC42 (added): Ctrl/Alt/Meta with arrows or Home is left to the browser. Confirm this is
-   preferred over rotating.
-3. Readout heading level: `<h2>`, matching the sidebar group headings. Confirm it fits the page
-   outline (the only h1 is the hidden "StatPakd").
-4. If the AC41 manual check needs rAF coalescing, a drag test may need `vi.useFakeTimers` or a rAF
-   stub. Behaviour stays the same, but the test setup changes.
+1. Provider contract (A3): summary stats are marked with an optional `StatDef.summaryLabel` rather
+   than a new `LeagueUiDefaults` field or provider method. Is this acceptable for the T22 API?
+2. Unknown team (A7): show no card and no active chip, or auto-select the first team?
+3. Chip shape: the shared `Chip` is pill-shaped with `6px 14px` padding, while the design's team
+   chips use radius 8 and `7px 12px`. The plan reuses `Chip` as is and leaves exact fidelity to T20.
+   Should T15 add a variant instead?
+4. Add-stat menu close: done by a mount effect in `TeamBreakdown` using the existing
+   `closeAddStatMenu`, rather than changing the `setKind`/`setTeamMode` reducer cases. Is the
+   reducer change preferred?

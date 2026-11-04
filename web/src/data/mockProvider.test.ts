@@ -76,7 +76,13 @@ describe('getStatDefs', () => {
       decimals: 1,
       extra: true,
     })
-    expect(teams[6]).toEqual({ key: 'to', label: 'Turnover Diff', group: 'Overall', signed: true })
+    expect(teams[6]).toEqual({
+      key: 'to',
+      label: 'Turnover Diff',
+      group: 'Overall',
+      signed: true,
+      summaryLabel: 'TO Diff',
+    })
     expect(teams[12]).toEqual({ key: 'wins', label: 'Wins', group: 'Overall', extra: true })
   })
 

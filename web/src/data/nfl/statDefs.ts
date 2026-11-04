@@ -28,13 +28,20 @@ const PLAYER_STAT_DEFS: readonly StatDef[] = [
 
 /** Team stat definitions, ported from the design's STATS.teams (same order). */
 const TEAM_STAT_DEFS: readonly StatDef[] = [
-  { key: 'ppg', label: 'Points / G', group: 'Offense', decimals: 1 },
-  { key: 'ypg', label: 'Yards / G', group: 'Offense', decimals: 1 },
+  { key: 'ppg', label: 'Points / G', group: 'Offense', decimals: 1, summaryLabel: 'Pts / G' },
+  { key: 'ypg', label: 'Yards / G', group: 'Offense', decimals: 1, summaryLabel: 'Yds / G' },
   { key: 'pass', label: 'Pass Yds / G', group: 'Offense', decimals: 1 },
   { key: 'rush', label: 'Rush Yds / G', group: 'Offense', decimals: 1 },
   { key: 'third', label: '3rd Down %', group: 'Offense', decimals: 1 },
-  { key: 'papg', label: 'Pts Allowed / G', group: 'Defense', decimals: 1, lowerIsBetter: true },
-  { key: 'to', label: 'Turnover Diff', group: 'Overall', signed: true },
+  {
+    key: 'papg',
+    label: 'Pts Allowed / G',
+    group: 'Defense',
+    decimals: 1,
+    lowerIsBetter: true,
+    summaryLabel: 'Allowed / G',
+  },
+  { key: 'to', label: 'Turnover Diff', group: 'Overall', signed: true, summaryLabel: 'TO Diff' },
   { key: 'win', label: 'Win %', group: 'Overall', decimals: 1 },
   { key: 'totPts', label: 'Total Points', group: 'Offense', extra: true },
   { key: 'passPct', label: 'Pass Yds Share %', group: 'Offense', decimals: 1, extra: true },

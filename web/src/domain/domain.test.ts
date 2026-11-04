@@ -168,6 +168,16 @@ describe('domain types and DataProvider contract', () => {
     expect([withString, withUndefined, noStats, rosterString]).toHaveLength(4)
   })
 
+  it('AC16: a StatDef may carry a summaryLabel string, and may omit it', () => {
+    const withLabel: StatDef = { key: 'k', label: 'K', group: 'G', summaryLabel: 'K / G' }
+    const without: StatDef = { key: 'k', label: 'K', group: 'G' }
+    expect(withLabel.summaryLabel).toBe('K / G')
+    expect(without.summaryLabel).toBeUndefined()
+    // @ts-expect-error AC16: summaryLabel must be a string
+    const bad: StatDef = { key: 'k', label: 'K', group: 'G', summaryLabel: 3 }
+    expect(bad).toBeDefined()
+  })
+
   it('AC9: a synchronous provider is a type error', () => {
     const syncProvider: DataProvider = {
       // @ts-expect-error AC9: getLeagues must return a Promise, not a plain array
