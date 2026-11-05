@@ -1,247 +1,228 @@
-# T16 requirements: Share of team production stacked bars
+# T17 requirements: Sortable roster table
 
-Source ticket: `docs/tickets/T16-share-of-production.md` (its acceptance criteria are the contract).
-Design references: `design_handoff_statpakd/README.md` section 5 (lines 46-49) and State Management
-(line 71, `unit: 'off' | 'def'`); `design_handoff_statpakd/design/StatPakd App.dc.html` markup lines
-166-177 (heading, unit toggle, share rows, legend) and script lines 196 (`COLORS`), 212-213
-(`OFF_SHARE`, `DEF_SHARE`), 309-325 (`buildRoster`), 423-436 (`shares`, `segs`, `lead`, `legend`,
-`last`), 450-451 (`unitTabs`).
+Source ticket: `docs/tickets/T17-roster-table.md` (its acceptance criteria are the contract).
+Design references: `design_handoff_statpakd/README.md` line 50 (roster table) and line 71
+(`tSort: { k, d }`); `design_handoff_statpakd/design/StatPakd App.dc.html` markup lines 178-188
+(heading, scroll container, header row, body rows, snap mini bar, caption) and script lines 210-211
+(`OFF_COLS`, `DEF_COLS`), 425 (`sorted`), 437 (`cols` grid template), 438-442 (`heads`, `rows`,
+`cells`, leader rule, cell text), 451 (unit toggle resets `tSort` to `snap` desc).
+
 Merged building blocks to reuse (do not change their existing behaviour unless stated below):
-- `web/src/components/teams/` (T15): `TeamBreakdown` renders the team chips and the header card and
-  nothing below them (T15 A2). T16 adds its section below the header card.
-- `web/src/state/appState.ts` (T06): `unit` (`RosterUnit`, default `LeagueUiDefaults.unit`, `'off'`
-  for the NFL), action `setUnit` (also resets `tSort`), `teamId`, `season`.
-- `web/src/domain/provider.ts` / `types.ts` (T03): `getRoster(leagueId, teamId, unit, season)`,
-  `RosterEntry { id, name, position, number?, stats }`, `RosterUnit` is an opaque string,
-  `StatDef.summaryLabel` (T15 precedent for "a marker field on StatDef").
-- `web/src/data/mockProvider.ts`, `web/src/data/nfl/builders.ts` (T04): `buildRoster` produces
-  offense stats `snap, touch, tgt, scrim, td, ypt` and defense stats `snap, tkl, sk, int, pd, ff,
-  take`; `ROSTER_UNITS = ['off', 'def']`.
-- `web/src/components/ui`: `SegmentedControl`. `web/src/styles/series.ts`: `seriesColor(i)`.
-  `web/src/lib/stats.ts`: `formatStat`.
+- `web/src/components/teams/` (T15/T16): `TeamBreakdown` renders team chips, the header card and
+  `ShareOfProduction` (heading, `UnitToggle`, share rows, legend). Hooks `useRosterUnits()` and
+  `useRoster(teamId, unitKey | null, season)`; `shareModel.ts` (`findUnit`, `legendItems`);
+  `UnitToggle` dispatches `setUnit` only when the clicked unit differs from `state.unit`.
+- `web/src/domain/types.ts` (T03/T16): `RosterUnitDef { key, label, stats: StatDef[] }`, whose
+  non-`extra` stat defs are the roster table columns (documented on the type);
+  `RosterEntry { id, name, position, number?, stats }`; `StatValue = number | null`.
+- `web/src/data/nfl/rosterUnits.ts` (T16): offense defs `snap, touch, tgt, scrim, td, ypt`
+  (labels "Snap %", "Touches", "Targets", "Scrim Yds", "TD", "Yds / Touch"; `ypt` 1 decimal); defense
+  defs `snap, tkl, sk, take(extra), int, pd, ff` (labels "Snap %", "Tackles", "Sacks", "Takeaways",
+  "INT", "Pass Def", "Forced Fum").
+- `web/src/state/appState.ts` (T06): `tSort: RosterSort { k: string; d: -1 | 1 }` initialised to
+  `{ k: LeagueUiDefaults.sortKey, d: -1 }` (`'snap'` for the NFL); action `sortRoster { key }`
+  (same key flips direction, new key starts at desc `-1`); `setUnit` resets `tSort` to
+  `{ k: defaultSortKey, d: -1 }`. `setTeam` and `setSeason` leave `tSort` unchanged.
+- `web/src/lib/stats.ts`: `formatStat`, `NULL_PLACEHOLDER` ("—"). `web/src/styles/series.ts`:
+  `seriesColor(i)`. `web/src/components/compare/CompareTable` (T10): semantic table inside a
+  focusable, bordered `overflow-x: auto` container; precedent for 375px behaviour.
 - `web/src/test/fixtureProvider.ts`: invented-league fixture provider for component tests.
 
 ## Goal
 
-In Team breakdown mode, below the team header card, show a "Share of team production" section with
-an Offense/Defense (data-defined unit) toggle, one 100% stacked bar per share stat showing how each
-roster player contributes, a leader line per stat, and a colour legend of the roster. The roster
-units, their labels and which stats are share stats all come from the DataProvider, so components
-stay league-agnostic and T17's roster table can reuse the same unit definitions.
+In Team breakdown mode, below the share-of-production section, show a "Roster" table of the selected
+team's players for the selected unit, one column per non-extra roster stat, sortable by clicking a
+column header (descending first, then ascending), with a mini bar in percentage columns and a black
+pill on each column's team leader. The same Offense/Defense toggle drives both sections, and columns,
+labels and formatting come from the DataProvider's roster unit definitions so components stay
+league-agnostic.
 
 ## Acceptance criteria
 
-`shares()` (pure function)
+Sort function (pure)
 
-- AC1: A pure, exported `shares(values)` function takes an ordered list of stat values (`number`,
-  `null` or `undefined`) and returns a list of integer percentages of the same length and order.
-- AC2: `null`, `undefined`, zero and negative values count as 0 and always get 0%.
-- AC3: When the sum of counted values is greater than 0, the percentages are non-negative integers
-  that sum to exactly 100, computed by the largest-remainder method: each share starts at
-  `floor(100 * v / total)`, and the leftover points go one each to the entries with the largest
-  fractional remainders; equal remainders are broken by earlier position first. Examples that must be
-  unit-tested: `[1, 1, 1]` -> `[34, 33, 33]`; `[2, 1]` -> `[67, 33]`; `[50, 50]` -> `[50, 50]`;
-  `[5, 0, null, 5]` -> `[50, 0, 0, 50]`; `[7]` -> `[100]`.
-- AC4: When the counted total is 0 (all zero/null/missing, or an empty list), every entry is 0 and the
-  function returns no `NaN` or `Infinity`. `[]` -> `[]`.
-- AC5: `shares()` does not mutate its input.
+- AC1: A pure, exported sort function takes a roster (`RosterEntry[]`), a stat key and a direction
+  (`-1` descending, `1` ascending) and returns a new array; the input array and entries are not
+  mutated.
+- AC2: Entries with a numeric value for the key are ordered by value in the given direction.
+- AC3: Entries whose value is `null`, missing (key absent) or not finite (`NaN`, `Infinity`) are
+  placed after all numeric entries in both directions, keeping their original relative order.
+- AC4: Ties (equal values) keep their original roster order in both directions (ascending is not a
+  reversal of descending for tied entries).
+- AC5: An empty roster returns `[]`; a key that no entry has returns the roster in original order.
+  Unit tests cover AC1-AC5, including a mixed case such as values `[3, null, 5, 3, undefined, 5]`
+  -> desc order by index `[2, 5, 0, 3, 1, 4]`, asc `[0, 3, 2, 5, 1, 4]`.
 
-Data contract (league-agnostic unit and share definitions)
+Data contract (percentage marker)
 
-- AC6: The DataProvider exposes the roster units of a league (see Assumption A1): for each unit an
-  opaque key, a display label and the stat definitions of that unit's roster stats, in display order.
-  Share stats are marked on those stat definitions with a short share label; share rows render in
-  definition order.
-- AC7: For the mock NFL league the units are, in order, `off` labelled "Offense" and `def` labelled
-  "Defense". Offense share stats, in order: `touch` "Touches", `tgt` "Targets", `scrim` "Scrimmage
-  Yds", `td` "Touchdowns". Defense share stats, in order: `tkl` "Tackles", `sk` "Sacks", `take`
-  "Takeaways", `pd` "Passes Defended". Each key matches a stat key produced by `buildRoster` for that
-  unit (tested in the data layer).
-- AC8: The MockProvider, the fixture provider and the domain contract tests are updated for the
-  addition; for a disabled league it resolves to `[]` (same rule as the other methods).
+- AC6: A stat definition can be marked as a 0-100 percentage through one new optional `StatDef`
+  field (see A3). For a percentage stat, cells show the formatted value followed by `%` (e.g.
+  "87%") and include the mini bar (AC17). For the mock NFL league, `snap` is marked as a percentage
+  in both units and no other roster stat is; a data-layer test asserts this. No other provider
+  method or type changes; existing provider/contract tests still pass.
 
-Section placement and header
+Placement and structure
 
-- AC9: In Teams + breakdown mode, below the team header card, a section is rendered containing an
-  `h2` "Share of team production", a subtitle "How the workload splits across the roster" (13px,
-  `#7A7A75`) and, to their right (wrapping below on narrow widths), the unit toggle. The section is
-  not rendered in compare mode or Players mode, and is not rendered when the header card is not
-  rendered (T15 AC14/AC19 cases: teams loading/failed or unknown `teamId`).
-- AC10: The unit toggle is a segmented control with accessible name "Unit", one button per unit from
-  the data, in data order, labelled with the unit label ("Offense", "Defense" for the mock data). The
-  button whose key equals `state.unit` has `aria-pressed="true"`; the others `false`.
+- AC7: In Teams + breakdown mode, below the share-of-production legend, a roster section renders
+  with an `h2` "Roster" (18px/600), the table, and below the table the caption text
+  "Click a column to sort · Black = team leader" (12px, `#7A7A75`; `·` is U+00B7). Vertical gap
+  between heading, table and caption is 8px.
+- AC8: The roster section is not rendered in compare mode or Players mode, nor when the header card
+  is not rendered (T15 cases), nor while the unit definitions or roster are loading, nor if either
+  load fails, nor when `state.unit` matches no unit (same rules as T16 AC27/AC28). Nothing throws and
+  no error text is required.
+- AC9: The table is a semantic table (table / column headers / row headers / cells exposed with the
+  matching ARIA roles, as T10's compare table) with an accessible name that identifies it as the
+  roster (e.g. "Roster"), and the caption text is associated with it as its description.
+- AC10: Columns are, in order: a "Player" column, then one column per stat definition of the selected
+  unit that is not `extra`, in definition order, headed by the definition's `label`. For the mock
+  data: Offense "Snap %", "Touches", "Targets", "Scrim Yds", "TD", "Yds / Touch"; Defense "Snap %",
+  "Tackles", "Sacks", "INT", "Pass Def", "Forced Fum" (Takeaways is not a column).
+- AC11: One body row per roster entry of the selected unit, ordered by the sort function (AC1-AC5)
+  using `state.tSort.k` and `state.tSort.d`. If `state.tSort.k` is not one of the visible stat
+  columns, rows are in roster order and no column is marked sorted.
 
-Toggle behaviour
+Headers and sorting
 
-- AC11: Clicking an inactive unit button dispatches `setUnit` with that unit's key; the rows switch
-  to that unit's share stats and the bars, leaders and legend reflect that unit's roster for the same
-  team and season. Clicking the active button changes nothing.
-- AC12: The selected unit is the global `state.unit`: it persists across team chip changes, season
-  changes and breakdown -> compare -> breakdown round trips (existing reducer behaviour).
+- AC12: Each stat column header contains a button whose accessible name is the column label (the
+  arrow glyph is hidden from assistive technology). The "Player" header is not a button and is not
+  sortable.
+- AC13: The column header (`columnheader`) of the sorted column has `aria-sort="descending"` when
+  `tSort.d` is `-1` and `aria-sort="ascending"` when it is `1`; every other stat column header has
+  `aria-sort="none"`. The Player header has no `aria-sort`.
+- AC14: Visually, the sorted column's header shows its label followed by `↓` (descending) or `↑`
+  (ascending) in `#111`; unsorted headers show no arrow in `#7A7A75`.
+- AC15: Clicking (or activating with Enter/Space) an unsorted column's header sorts by that column
+  descending; clicking the sorted column's header flips the direction (desc -> asc -> desc ...). This
+  uses the existing `sortRoster` action.
+- AC16: Switching the unit with the shared Offense/Defense toggle (the one in the share section; there
+  is only one toggle on the page) switches the table's columns and rows to that unit and resets the
+  sort to the league's default sort key, descending (mock data: "Snap %" desc), even if another
+  column or ascending order was active. Clicking the already-active unit changes nothing (sort is
+  kept). Changing the team chip or season keeps the current sort and reloads the rows.
 
-Share rows
+Cells
 
-- AC13: One row per share stat of the selected unit, in definition order, laid out as a grid of
-  `150px | minmax(0, 1fr) | 150px` with a 16px gap at desktop widths; rows are 12px apart.
-- AC14: Left cell: the share label (14px/500) and below it the total text `` `${total} total` ``
-  (11px, Geist Mono, `#9A9A95`), where `total` is the sum of counted values formatted with
-  `formatStat` for that stat (en-US grouping, e.g. "1,234 total").
-- AC15: Middle cell: a 30px tall bar, radius 5, 2px gap between segments, track background
-  `#F3F3F0`, clipped (`overflow: hidden`). There is one segment per roster player whose value for the
-  stat is greater than 0, in roster order; each segment's width is proportional to its value (design:
-  `flex-grow = value`, `flex-basis: 0`, `min-width: 3px`), coloured with the player's legend colour.
-- AC16: A segment shows its percentage as white 11px/600 text `"<pct>%"` when its `shares()`
-  percentage is 9 or more, and no text when it is below 9.
-- AC17: Right cell: `"Leader: <leader name> <pct>%"` (12px, `#555`, right aligned), where the
-  leader is the roster player with the largest value (first in roster order on a tie), the leader
-  name is the player's name without its first word (the full name if it has one word), and `pct` is
-  that player's percentage from `shares()` (the same number shown in the segment and tooltip).
-  Example with mock data: the default team's offense Touches row reads "Leader: Barkley NN%".
-- AC18: All percentages shown in one row (segment text, tooltips, leader) come from a single
-  `shares()` call over that row's roster values, so they are mutually consistent and the row's
-  percentages sum to 100 when the total is greater than 0.
+- AC17: Stat cells are right aligned. The value text uses `formatStat` with the column's definition
+  (en-US grouping, `decimals` honoured, e.g. Yds / Touch "4.8"), with `%` appended for percentage
+  stats (AC6). `null` or missing values show "—" and are never shown as "0", "NaN", "null" or
+  "undefined".
+- AC18: Percentage-stat cells show, below the value, a 72x4 mini bar (radius 2, track `#EDEDE9`,
+  fill `#111`) whose fill width is the value as a percentage, clamped to 0-100. A `null`/missing
+  value shows an empty track. The bar is decorative (hidden from assistive technology). Non-percentage
+  cells have no bar.
+- AC19: Team leader: in each stat column, every entry whose value equals the column's maximum
+  value among the unit's roster, and is greater than 0, shows its value in a black pill (background
+  `#111`, white text, padding 2px 8px, radius 5); all tied leaders get the pill. A column whose values
+  are all `null`/missing/0 or negative has no pill. A one-player roster with a positive value gets
+  the pill. Leaders do not depend on the sort order.
+- AC20: Each leader cell also exposes that it is the team leader to assistive technology (for example
+  visually hidden text "team leader"), so the meaning is not conveyed by colour alone.
+- AC21: The Player cell (a row header) shows a 10x10 colour square (radius 2) in the player's legend
+  colour (`seriesColor` of the player's index in the unsorted roster, so it matches the share legend
+  regardless of sort), the full name (14px/600, no wrapping) and below it the meta line
+  `` `${position} · #${number}` `` (12px, `#7A7A75`); when `number` is absent the meta line is just
+  the position.
 
-Zero total and missing data
+Layout and styling
 
-- AC19: A stat whose counted total is 0 renders the empty track only (no segments, no percent text),
-  the total text "0 total" and an empty right cell (no "Leader" text). No "NaN", "Infinity" or
-  "undefined" appears anywhere in the section.
-- AC20: An empty roster (`[]`) renders every share row as in AC19 and an empty legend; nothing
-  throws.
+- AC22: The table sits in a container with a 1px `#E6E6E3` border and radius 12. At desktop widths
+  each row is a grid of `minmax(220px, 1.6fr)` followed by one `minmax(96px, 1fr)` per stat column,
+  with a table minimum width of 820px. Header row: background `#FAFAF8`, bottom border `#E6E6E3`,
+  header cells padding `12px 18px`, 11px/600 uppercase, letter-spacing .08em. Body rows: bottom border
+  `#F0F0ED`, player cell padding `10px 18px`, stat cell padding `8px 18px`, value Geist Mono 15/500.
+- AC23: At a 375px viewport the page has no horizontal scroll: the table scrolls horizontally inside
+  its bordered container (keyboard focusable scroll region with an accessible name, as T10), and the
+  heading and caption stay within the viewport.
 
-Tooltips and accessibility
+League-agnosticism and regressions
 
-- AC21: Each segment has the tooltip text `` `${name} · ${value} (${pct}%)` `` (full player name,
-  value formatted with `formatStat`, `·` is U+00B7), e.g. "Saquon Barkley · 378 (54%)". It is shown
-  on mouse hover (a `title` attribute is acceptable for hover).
-- AC22: Every segment is reachable with the Tab key (in roster order within a row, rows top to
-  bottom), has the tooltip text as its accessible name, and while it has keyboard focus the tooltip
-  text is visible on screen (not only in a `title` attribute) and a visible focus indicator is shown.
-  Segments with percent text do not announce the bare percentage instead of the full tooltip text.
-- AC23: Each bar has an accessible name that identifies its stat (e.g. "Touches share"), so a screen
-  reader user knows which stat the segments belong to.
-
-Legend
-
-- AC24: Below the rows, a legend lists every roster player of the selected unit in roster order: a
-  10x10 square (radius 2) in the player's colour and the full name (12px/500), wrapping with a 16px
-  gap.
-- AC25: Player colours are the series colours by roster index (`seriesColor(i)`: first player
-  `#111111`, second `#E0472B`, ...), wrapping after 8, and are identical in the legend and the
-  segments.
-
-Loading, data changes and errors
-
-- AC26: The section loads the roster with `getRoster(activeLeague, state.teamId, state.unit,
-  state.season)`. Changing the team chip, the unit or the season reloads it; results of a superseded
-  load are ignored (no flash of the previous team/unit/season after the new one has shown).
-- AC27: While the unit definitions or the roster are loading, or if either load fails, the share rows
-  and legend are not rendered and nothing throws; the heading, subtitle and toggle render once the
-  unit definitions are available. No error text is required.
-- AC28: If `state.unit` matches no unit from the data, no toggle button is pressed and no share rows
-  or legend render; state is not changed automatically. Clicking a unit button then shows that unit.
-
-Layout and league-agnosticism
-
-- AC29: At a 375px viewport the section causes no page-level horizontal scroll: the label/total and
-  the leader text remain fully visible (stacked above or below the bar), the bar spans the available
-  width, and the toggle wraps below the heading if needed.
-- AC30: No component, hook or model added or changed by T16 contains league-specific names or stat
-  keys (`off`, `def`, `touch`, "Offense", player names, "NFL", etc.); the `noLeagueLiterals` test for
-  `web/src/components/teams/` (and any new component folder) still passes.
+- AC24: No component, hook or model added or changed by T17 contains league-specific names or stat
+  keys (`snap`, `off`, `def`, "Snap %", "Offense", player names, "NFL", etc.); the `noLeagueLiterals`
+  tests still pass. The percentage behaviour, column set and labels come only from the stat
+  definitions.
+- AC25: T16 behaviour (share rows, legend, toggle) is unchanged; existing tests are not deleted or
+  weakened.
 
 Tests
 
-- AC31: Unit tests for `shares()` cover AC1-AC5. Data-layer tests cover AC7-AC8. Component tests
-  (Vitest + Testing Library, using invented fixture units, stats and roster) cover: the toggle
-  (AC10-AC11), the leader text including a tie (AC17), the zero-total row (AC19), the empty roster
-  (AC20), segment percent text threshold (AC16), tooltip text, keyboard focus and accessible names
-  (AC21-AC23), legend order and colours (AC24-AC25), reload on team/unit/season change and stale load
-  (AC26), loading/failure (AC27) and the unknown unit (AC28). Existing tests are not deleted or
-  weakened.
-- AC32: `npm run lint`, `npm run typecheck`, `npm test` and `npm run build` pass in `web/`.
+- AC26: Unit tests for the sort function cover AC1-AC5. A data-layer test covers AC6 (and that the
+  non-extra NFL defs give the AC10 column sets). Component tests (Vitest + Testing Library, invented
+  fixture units, stats and roster including `null` values, a tie and a percentage stat) cover:
+  column set and order with an `extra` stat excluded (AC10), sort toggle desc -> asc -> desc on one
+  column and switching column back to desc (AC13-AC15), arrows (AC14), `aria-sort` values (AC13),
+  nulls last in both directions and stable ties in the rendered rows (AC3/AC4/AC11), unit switch
+  resetting the sort (AC16), leader pill including tied leaders and an all-null/zero column (AC19,
+  AC20), "—" for null (AC17), mini bar presence and width (AC18), player colour independent of sort
+  (AC21), unknown sort key (AC11), and loading/failure/unknown unit rendering nothing (AC8).
+- AC27: `npm run lint`, `npm run typecheck`, `npm test` and `npm run build` pass in `web/`.
 
 ## Out of scope
 
-- The roster table, column sorting, snap mini bars and leader pills (T17). T16 may define the full
-  per-unit stat list in the data (A1) but renders none of it except the share rows.
-- Responsive and accessibility polish beyond AC22/AC23/AC29 (T18), e2e tests (T19), pixel fidelity
-  pass including exact toggle radius/padding (T20).
-- The design's "Sample data for design purposes." footer.
-- League switching, the Python API serving the new provider method (T22/T23); T22 inherits the
-  contract.
-- Changing compare mode, the Players view, team chips or the header card.
-- Animations or transitions of bar segments.
+- Changing the share-of-production section, the unit toggle look, team chips or the header card.
+- Changing reducer semantics of `sortRoster`/`setUnit`, or persisting the sort per unit.
+- Sorting by the Player column, multi-column sort, or `lowerIsBetter`-aware leaders (no roster stat
+  uses `lowerIsBetter`; leaders are always the maximum).
+- Sticky header or sticky first column, row hover/selection, row click to open a player.
+- Showing `extra` stats (e.g. Takeaways) as columns or offering a column picker.
+- Responsive/accessibility polish beyond AC20/AC23 (T18), e2e tests (T19), pixel fidelity pass
+  (T20), the "Sample data for design purposes." footer, the Python API serving the new `StatDef`
+  field (T22 inherits it).
+- Animations of sorting or bars.
 
 ## Assumptions
 
-No human input was requested; each default below follows CLAUDE.md, `docs/plan.md`, T03/T15 notes and
-the design handoff.
+No human input was requested; each default below follows CLAUDE.md, `docs/plan.md`, the T16 contract
+and the design handoff.
 
-- A1 (where unit and share definitions come from; least invasive addition reusable by T17): T03 left
-  the roster unit opaque and column/share definitions out of the DataProvider ("revisit in
-  T15-T17"). Units, their labels and share stats are league-specific, so they must come from data.
-  Add one new provider method returning the league's roster units, e.g.
-  `getRosterUnits(leagueId): Promise<RosterUnitDef[]>` with
-  `RosterUnitDef { key: RosterUnit; label: string; stats: StatDef[] }`, and one optional marker field
-  on `StatDef` for share stats (e.g. `shareLabel?: string`), following the T15 `summaryLabel`
-  precedent. The share label is separate from `label` because the design's share labels differ from
-  the roster column labels ("Scrimmage Yds" vs "Scrim Yds", "Touchdowns" vs "TD", "Passes Defended"
-  vs "Pass Def"), and `take` is a share stat but not a table column. The NFL unit stat lists include
-  every roster stat `buildRoster` produces, labelled with the design's column labels (`OFF_COLS`,
-  `DEF_COLS`), `ypt` with 1 decimal, and `take` ("Takeaways") marked `extra` so T17 can treat
-  non-extra defs as columns. Defense defs are ordered `snap, tkl, sk, take, int, pd, ff` so share
-  order (`tkl, sk, take, pd`) and column order (`snap, tkl, sk, int, pd, ff`) both follow definition
-  order. A new kind on `getStatDefs` was rejected because `EntityKind` is used across the compare
-  UI; `LeagueUiDefaults` was rejected because it is not served by the provider. The method is
-  required on the interface (the fixture provider defaults it to `[]`) so T22 must serve it. The
-  planner may choose exact names, provided AC6-AC8 and AC30 hold.
-- A2 (`shares()` rounding): largest-remainder (Hamilton) method with earlier-index tie-break, so
-  percentages sum to 100 (ticket AC). This deliberately differs from the design script, which uses
-  independent `Math.round` per segment and a separate `Math.round` for the leader (can sum to 99 or
-  101 and disagree with the segment). The 9% text threshold and leader percentage use these rounded
-  values.
-- A3 (zero/negative/null): treated as 0, excluded from segments (design filters `> 0`). A positive
-  value can round to 0%; its segment still renders (3px minimum width) with "(0%)" in its tooltip.
-- A4 (zero total): empty track, "0 total", no leader text (design: `lead` is `''` when total is 0).
-- A5 (toggle state): the toggle uses the existing global reducer field `state.unit` and `setUnit`
-  action (design keeps `unit` in app state, and T17 needs the same unit), not local component state.
-  `setUnit` resetting `tSort` is existing behaviour and harmless for T16.
-- A6 (placement): the section renders inside `TeamBreakdown`, directly below the header card, only
-  when the header card renders (T15 left nothing below it). Order inside the section follows the
-  design: heading row, share rows, legend. T17 will add the roster table below the legend.
-- A7 (toggle look): reuse the existing light `SegmentedControl` as T15 did. The design's toggle has
-  radius 8 / item radius 6 / padding `6px 14px` versus the shared control's radius 9 / `7px 16px`;
-  that difference is deferred to T20. Accessible name "Unit" is generic.
-- A8 (tooltip accessibility): ticket requires keyboard reachability and a text alternative. Each
-  segment is a tab stop whose accessible name is the tooltip text, and a visible tooltip appears on
-  focus (a native `title` alone is not shown on keyboard focus). This adds up to rows x players tab
-  stops (28 for the mock offense); accepted per the ticket. The exact element/role is the planner's
-  choice as long as AC22/AC23 are testable with Testing Library.
-- A9 (leader name and ties): design uses `last(name)` = name without its first word (or the full
-  name), and `reduce` with `>` so the first player in roster order wins a tie. Both kept. Uses only
-  `RosterEntry.name`; no league-specific parsing.
-- A10 (number formatting): totals and tooltip values use `formatStat` with the share stat's
-  definition (en-US grouping). The design tooltip shows raw numbers; grouping is chosen for
-  consistency with the total text.
-- A11 (colours): colour by roster index via `seriesColor(i)` (design `COLORS[p.i]`), independent of
-  the compare selection colours.
-- A12 (loading/error): mirror T15/T08 patterns: render nothing for rows/legend while loading or on
-  failure, ignore stale loads, no error message (T18 may add one). The heading and toggle stay
-  visible once units are known so the user can still switch units.
-- A13 (375px layout): the 150px/1fr/150px grid leaves no room for the bar at 375px, so below a
-  narrow breakpoint (planner picks, consistent with existing breakpoints) the row stacks: label and
-  total plus leader around a full-width bar. Desktop layout matches the design exactly.
-- A14 (unknown unit): like T15's unknown team (A7 there), no auto-correction of `state.unit`; nothing
-  renders below the toggle until a valid unit is chosen.
+- A1 (columns = non-extra defs): T16 marked `take` as `extra` precisely so T17 can take non-extra
+  defs as columns; the resulting sets match the ticket's column lists exactly, so extra stats are not
+  table columns.
+- A2 (sort state): use the existing global `state.tSort` and `sortRoster`/`setUnit` actions (design
+  keeps `tSort` in app state; README line 71). Ticket "resets sort to Snap % desc" is implemented as
+  "reset to `LeagueUiDefaults.sortKey` desc", which is `snap` for the NFL; this is already what
+  `setUnit` does. Team and season changes keep the sort (design and current reducer).
+- A3 (percentage marker): the design hard-codes `k === 'snap'` for the `%` suffix and the mini bar;
+  components may not name `snap`, so a new optional `StatDef` marker (e.g. `percent?: boolean`,
+  meaning "0-100 percentage") is added, following the T15 `summaryLabel` / T16 `shareLabel`
+  precedent. The planner picks the name. Any column so marked gets both suffix and bar.
+- A4 (nulls and ties): ticket overrides the design (design maps null to -1, which puts nulls first in
+  ascending order and uses an unspecified tie order). Nulls, missing and non-finite values go last in
+  both directions; ties keep roster order in both directions.
+- A5 (`aria-sort` placement): `aria-sort` is only valid on `columnheader`/`rowheader`, so it goes on
+  the header cell that contains the button, not on the button. Unsorted sortable headers carry
+  `aria-sort="none"`; the Player header carries none. The ticket's "headers are buttons with
+  aria-sort" is read as this pairing.
+- A6 (leader rule): follows the design (`v != null && v > 0 && v === max`), so all tied leaders get
+  the pill and a one-player roster still has a leader (unlike `bestIndex`, which needs 2 values).
+  Snap % and Yds / Touch columns get pills too, as in the design.
+- A7 (leader accessibility): visually hidden "team leader" text added so the black pill is not the
+  only signal; small, cheap and testable. Full a11y review remains T18.
+- A8 (placement): the roster section goes directly below the share legend, inside breakdown mode,
+  matching the design order. Whether it is a sibling of `ShareOfProduction` in `TeamBreakdown` or a
+  part of it is the planner's choice; there must be exactly one unit toggle and both sections must
+  show the same unit, team and season. Sharing a single roster load between the two sections is
+  preferred (avoids the two sections briefly showing different rosters) but not required.
+- A9 (caption): the design shows the caption below the table as plain text; keep it below, visible,
+  and associate it with the table (e.g. `aria-describedby`) rather than an HTML `<caption>` above.
+- A10 (number formatting): `formatStat` with the column def replaces the design's per-key branches
+  (`ypt` toFixed(1) is `decimals: 1` in the data; others en-US grouping).
+- A11 (player colour and meta): colour by unsorted roster index, so a player's square matches the
+  share legend and segments. Meta format follows the design `pos · #num`, falling back to the
+  position alone when `number` is missing (it is optional in `RosterEntry`).
+- A12 (375px): same pattern as T10's compare table: the design's `overflow-x: auto` container with an
+  820px minimum inner width; page itself never scrolls horizontally. The scroll region is focusable
+  so keyboard users can scroll it.
+- A13 (empty roster): renders the header row with no body rows and no pills; nothing throws.
+- A14 (header activation): native buttons, so Enter/Space activate sorting with no extra code.
+- A15 (autobuild): planner's open questions resolved by defaults: StatDef.percent accepted as contract (T22 inherits); ShareOfProduction gets optional renderAfter(unit, roster) so one roster load feeds both sections; empty cells include hidden 'not applicable' text now (as in the compare table); non-finite values treated as missing everywhere.
 
 ## Open questions
 
 None blocking. Non-blocking, for the human to confirm later:
-1. Is a new required `DataProvider` method for roster units plus an optional `StatDef` share marker
-   (A1) acceptable as the contract that T17 and T22 inherit?
-2. Should every segment be a tab stop (A8), or would one focusable bar per row with a text list of
-   all players' shares be preferred to reduce tab stops (revisit in T18)?
-3. Largest-remainder rounding (A2) means a segment's percent can differ by 1 from the design's
-   `Math.round`; acceptable?
-- A15 (autobuild): planner's open questions resolved by defaults: new required `DataProvider.getRosterUnits` + optional `StatDef.shareLabel` accepted as the contract T17/T22 inherit; every segment is a Tab stop (revisit in T18); largest-remainder rounding may differ by 1 from the design's Math.round; mobile breakpoint 480px; unknown unit skips the getRoster call.
+1. Is a new optional `StatDef` percentage marker (A3) acceptable as part of the contract T22
+   inherits, or should the percentage format be expressed differently (e.g. a generic `suffix`
+   field)?
+2. Should the sort be reset to the default when the team changes as well (A2 keeps it, as the design
+   does)?
+3. Is visually hidden "team leader" text (A7) wanted now, or deferred entirely to T18?

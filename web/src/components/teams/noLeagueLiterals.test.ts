@@ -11,6 +11,9 @@ import {
 import { RAW_T, ROSTERS } from '../../data/nfl/raw'
 import shares from '../../lib/shares.ts?raw'
 import index from './index.ts?raw'
+import rosterModel from './rosterModel.ts?raw'
+import rosterSection from './RosterSection.tsx?raw'
+import rosterTable from './RosterTable.tsx?raw'
 import shareLegend from './ShareLegend.tsx?raw'
 import shareModel from './shareModel.ts?raw'
 import shareOfProduction from './ShareOfProduction.tsx?raw'
@@ -39,6 +42,9 @@ const sources: Record<string, string> = {
   'ShareLegend.tsx': shareLegend,
   'ShareOfProduction.tsx': shareOfProduction,
   'lib/shares.ts': shares,
+  'rosterModel.ts': rosterModel,
+  'RosterTable.tsx': rosterTable,
+  'RosterSection.tsx': rosterSection,
 }
 
 const rosterNames = (): string[] =>
@@ -132,6 +138,17 @@ describe('AC20: team breakdown source files hold no league literals', () => {
         'Saquon Barkley',
       ]),
     )
+  })
+  it('AC24: the literal list covers the roster table stat keys and labels', () => {
+    expect(leagueValues()).toEqual(
+      expect.arrayContaining(['snap', 'Snap %', 'ypt', 'Yds / Touch', 'INT']),
+    )
+  })
+  it('AC24: the scan would catch planted roster table literals', () => {
+    expect(findHits(`${rosterTable}\nconst a = 'snap'`)).toContain('snap')
+    expect(findHits(`${rosterTable}\nconst b = "Snap %"`)).toContain('Snap %')
+    expect(findHits(`${rosterModel}\nconst c = 'ypt'`)).toContain('ypt')
+    expect(findHits(`${rosterSection}\nconst d = "Offense"`)).toContain('Offense')
   })
   it.each(Object.keys(sources))('AC20: %s has no quoted league value', (name) => {
     expect(findHits(sources[name] as string)).toEqual([])

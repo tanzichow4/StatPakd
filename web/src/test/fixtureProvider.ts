@@ -218,7 +218,7 @@ export function fixtureRosterUnits(): RosterUnitDef[] {
       key: 'zunit',
       label: 'Zunit One',
       stats: [
-        { key: 'zsnap', label: 'Zsnap', group: 'zroster' },
+        { key: 'zsnap', label: 'Zsnap', group: 'zroster', percent: true },
         { key: 'zalpha', label: 'Zalpha', group: 'zroster', shareLabel: 'Zalpha share' },
         { key: 'zbeta', label: 'Zbeta', group: 'zroster', shareLabel: '' },
         { key: 'zgamma', label: 'Zgamma', group: 'zroster', shareLabel: 'Zgamma tally' },
@@ -230,7 +230,7 @@ export function fixtureRosterUnits(): RosterUnitDef[] {
       key: 'zalt',
       label: 'Zunit Two',
       stats: [
-        { key: 'zsnap', label: 'Zsnap', group: 'zroster' },
+        { key: 'zsnap', label: 'Zsnap', group: 'zroster', percent: true },
         { key: 'zomega', label: 'Zomega', group: 'zroster', shareLabel: 'Zomega' },
         { key: 'zsigma', label: 'Zsigma', group: 'zroster', shareLabel: 'Zsigma' },
       ],

@@ -32,6 +32,7 @@ function Probe({ always }: { always: boolean }) {
           season: state.season,
           addStatOpen: state.addStatOpen,
           unit: state.unit,
+          tSort: state.tSort,
         })}
       </output>
       <button type="button" onClick={send({ type: 'setKind', kind: 'teams' })}>
@@ -92,7 +93,10 @@ const pressed = () =>
     .map((b) => b.textContent)
 const SHARE_TITLE = 'Share of team production'
 // The team header card: the one region that is not the share section.
-const card = () => screen.queryAllByRole('region', { name: (n) => n !== SHARE_TITLE })[0] ?? null
+const card = () =>
+  screen.queryAllByRole('region', {
+    name: (n) => n !== SHARE_TITLE && n !== 'Roster' && n !== 'Roster table',
+  })[0] ?? null
 const shareSection = () => screen.queryByRole('region', { name: SHARE_TITLE })
 const terms = () => screen.getAllByRole('term').map((t) => t.textContent)
 const values = () => screen.getAllByRole('definition').map((d) => d.textContent)
@@ -108,17 +112,20 @@ describe('AC7/AC11/AC12/AC15: chips then the card', () => {
     await screen.findByRole('group', { name: 'Teams' })
     expect(pressed()).toEqual(['ZQA'])
   })
-  it('AC7: the chips come first, then the card, then only the share section', async () => {
+  it('AC7: the chips come first, then the card, the share section and the Roster section', async () => {
     const { container } = setup({ provider: rosterProvider() })
     const group = await screen.findByRole('group', { name: 'Teams' })
     const section = await screen.findByRole('region', { name: 'Zephyr Flarns' })
     expect(group.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     const share = await screen.findByRole('region', { name: SHARE_TITLE })
     expect(section.nextElementSibling).toBe(share)
-    expect(share.nextElementSibling).toBeNull()
-    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    const roster = await screen.findByRole('region', { name: 'Roster' })
+    expect(share.nextElementSibling).toBe(roster)
+    expect(roster.nextElementSibling).toBeNull()
+    expect(screen.getAllByRole('table')).toHaveLength(1)
+    expect(screen.getByRole('table')).toHaveAccessibleName('Roster')
     expect(screen.queryByText(/coming soon/i)).not.toBeInTheDocument()
-    expect(container.querySelectorAll('section')).toHaveLength(2)
+    expect(container.querySelectorAll('section')).toHaveLength(3)
   })
   it('AC15: the card shows the name and "meta · season" for the chosen team', async () => {
     setup()
@@ -421,5 +428,159 @@ describe('AC9/AC12/AC26: the share section below the card', () => {
     await screen.findByRole('group', { name: 'Zalpha share share' })
     await user.click(probe('unit zalt'))
     expect(await screen.findByRole('group', { name: 'Zomega share' })).toBeInTheDocument()
+  })
+})
+
+describe('T4: the Roster section below the share section', () => {
+  const rosterDefaults = (): LeagueUiDefaults => ({ ...fixtureUiDefaults(), sortKey: 'zsnap' })
+  const rosterRegion = () => screen.queryByRole('region', { name: 'Roster' })
+  const rosterTable = () => screen.getByRole('table', { name: 'Roster' })
+  const headerNames = () =>
+    within(rosterTable())
+      .getAllByRole('columnheader')
+      .map((h) => h.textContent?.replace(/[↓↑]/g, '').trim())
+  const headerBtn = (name: string) => within(rosterTable()).getByRole('button', { name })
+  const unitBtn = (name: string) =>
+    within(screen.getByRole('group', { name: 'Unit' })).getByRole('button', { name })
+
+  async function ready() {
+    const view = setup({ provider: rosterProvider(), defaults: rosterDefaults() })
+    await screen.findByRole('table', { name: 'Roster' })
+    return view
+  }
+
+  it('AC8/AC25: one getRoster call serves both sections', async () => {
+    const { provider } = await ready()
+    await act(async () => {})
+    expect(provider.getRoster).toHaveBeenCalledTimes(1)
+    expect(provider.getRoster).toHaveBeenCalledWith('zorb', 'zt1', 'zunit', '3031')
+    expect(screen.getByRole('region', { name: SHARE_TITLE })).toBeInTheDocument()
+  })
+  it('AC7: the Roster region follows the share section and there is one unit toggle', async () => {
+    await ready()
+    const share = screen.getByRole('region', { name: SHARE_TITLE })
+    expect(
+      share.compareDocumentPosition(screen.getByRole('region', { name: 'Roster' })) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    expect(screen.getAllByRole('group', { name: 'Unit' })).toHaveLength(1)
+  })
+  it('AC10: the table columns are the non-extra stats of the unit', async () => {
+    await ready()
+    expect(headerNames()).toEqual(['Player', 'Zsnap', 'Zalpha', 'Zbeta', 'Zgamma', 'Zepsilon'])
+  })
+  it('AC16: the toggle switches the table and resets the sort to the default descending', async () => {
+    const { user } = await ready()
+    await user.click(headerBtn('Zalpha'))
+    await user.click(headerBtn('Zalpha'))
+    expect(readState().tSort).toEqual({ k: 'zalpha', d: 1 })
+    await user.click(unitBtn('Zunit Two'))
+    await waitFor(() => expect(headerNames()).toEqual(['Player', 'Zsnap', 'Zomega', 'Zsigma']))
+    expect(readState().tSort).toEqual({ k: 'zsnap', d: -1 })
+    expect(within(rosterTable()).getByRole('columnheader', { name: /Zsnap/ })).toHaveAttribute(
+      'aria-sort',
+      'descending',
+    )
+    expect(within(rosterTable()).getByText('Kip Zorrell')).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Zomega share' })).toBeInTheDocument()
+  })
+  it('AC16: clicking the already-active unit keeps the sort', async () => {
+    const { user } = await ready()
+    await user.click(headerBtn('Zbeta'))
+    await user.click(headerBtn('Zbeta'))
+    await user.click(unitBtn('Zunit One'))
+    expect(readState().tSort).toEqual({ k: 'zbeta', d: 1 })
+    expect(within(rosterTable()).getByRole('columnheader', { name: /Zbeta/ })).toHaveAttribute(
+      'aria-sort',
+      'ascending',
+    )
+  })
+  it('AC16: a chip change keeps the sort and shows the new rows', async () => {
+    const { user } = await ready()
+    await user.click(headerBtn('Zalpha'))
+    expect(within(rosterTable()).getByText('331')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'ZQB' }))
+    await waitFor(() => expect(within(rosterTable()).getByText('338')).toBeInTheDocument())
+    expect(readState().tSort).toEqual({ k: 'zalpha', d: -1 })
+    expect(within(rosterTable()).getByRole('columnheader', { name: /Zalpha/ })).toHaveAttribute(
+      'aria-sort',
+      'descending',
+    )
+  })
+  it('AC16: a season change keeps the sort and shows the new rows', async () => {
+    const { user } = await ready()
+    await user.click(headerBtn('Zalpha'))
+    await user.click(headerBtn('Zalpha'))
+    await user.click(probe('season 3030'))
+    await waitFor(() => expect(within(rosterTable()).getByText('330')).toBeInTheDocument())
+    expect(readState().tSort).toEqual({ k: 'zalpha', d: 1 })
+  })
+  it('AC8: no Roster region in compare mode or Players mode', async () => {
+    const { user } = setup({
+      provider: rosterProvider(),
+      defaults: rosterDefaults(),
+      always: false,
+    })
+    expect(rosterRegion()).toBeNull()
+    await user.click(probe('teams'))
+    await user.click(probe('inside'))
+    await screen.findByRole('table', { name: 'Roster' })
+    await user.click(probe('compare'))
+    expect(rosterRegion()).toBeNull()
+    expect(screen.queryByRole('table', { name: 'Roster' })).toBeNull()
+    await user.click(probe('inside'))
+    await screen.findByRole('table', { name: 'Roster' })
+    await user.click(probe('players'))
+    expect(rosterRegion()).toBeNull()
+  })
+  it('AC8: teams pending renders no Roster region', async () => {
+    const pending = deferred<Entity[]>()
+    setup({ provider: rosterProvider({ getEntities: vi.fn(() => pending.promise) }) })
+    await act(async () => {})
+    expect(rosterRegion()).toBeNull()
+  })
+  it('AC8: an unknown team renders no Roster region', async () => {
+    setup({ provider: rosterProvider(), defaults: { ...rosterDefaults(), teamId: 'nobody' } })
+    await screen.findByRole('group', { name: 'Teams' })
+    await act(async () => {})
+    expect(rosterRegion()).toBeNull()
+    expect(screen.queryByRole('table')).toBeNull()
+  })
+  it('AC8: pending units render no Roster region', async () => {
+    const pending = deferred<never[]>()
+    setup({ provider: rosterProvider({ getRosterUnits: vi.fn(() => pending.promise) }) })
+    await screen.findByRole('region', { name: 'Zephyr Flarns' })
+    await act(async () => {})
+    expect(rosterRegion()).toBeNull()
+  })
+  it('AC8: rejected units render no Roster region and do not throw', async () => {
+    const getRosterUnits = vi.fn(() => Promise.reject(new Error('boom')))
+    setup({ provider: rosterProvider({ getRosterUnits }) })
+    await waitFor(() => expect(getRosterUnits).toHaveBeenCalled())
+    await act(async () => {})
+    expect(rosterRegion()).toBeNull()
+  })
+  it('AC8: a pending roster renders no Roster region', async () => {
+    const pending = deferred<never[]>()
+    setup({ provider: rosterProvider({ getRoster: vi.fn(() => pending.promise) }) })
+    await screen.findByRole('region', { name: SHARE_TITLE })
+    await act(async () => {})
+    expect(rosterRegion()).toBeNull()
+  })
+  it('AC8: a rejected roster renders no Roster region and does not throw', async () => {
+    const getRoster = vi.fn(() => Promise.reject(new Error('boom')))
+    setup({ provider: rosterProvider({ getRoster }) })
+    await waitFor(() => expect(getRoster).toHaveBeenCalled())
+    await act(async () => {})
+    expect(rosterRegion()).toBeNull()
+    expect(screen.getByRole('region', { name: 'Zephyr Flarns' })).toBeInTheDocument()
+  })
+  it('AC8: an unknown unit renders no Roster region and requests no roster', async () => {
+    const provider = rosterProvider()
+    setup({ provider, defaults: { ...rosterDefaults(), unit: 'nope' } })
+    await screen.findByRole('region', { name: SHARE_TITLE })
+    await act(async () => {})
+    expect(rosterRegion()).toBeNull()
+    expect(provider.getRoster).not.toHaveBeenCalled()
   })
 })

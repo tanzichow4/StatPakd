@@ -10,7 +10,7 @@ const ROSTER_UNIT_DEFS: readonly RosterUnitDef[] = [
     key: 'off',
     label: 'Offense',
     stats: [
-      { key: 'snap', label: 'Snap %', group: 'Offense' },
+      { key: 'snap', label: 'Snap %', group: 'Offense', percent: true },
       { key: 'touch', label: 'Touches', group: 'Offense', shareLabel: 'Touches' },
       { key: 'tgt', label: 'Targets', group: 'Offense', shareLabel: 'Targets' },
       { key: 'scrim', label: 'Scrim Yds', group: 'Offense', shareLabel: 'Scrimmage Yds' },
@@ -22,7 +22,7 @@ const ROSTER_UNIT_DEFS: readonly RosterUnitDef[] = [
     key: 'def',
     label: 'Defense',
     stats: [
-      { key: 'snap', label: 'Snap %', group: 'Defense' },
+      { key: 'snap', label: 'Snap %', group: 'Defense', percent: true },
       { key: 'tkl', label: 'Tackles', group: 'Defense', shareLabel: 'Tackles' },
       { key: 'sk', label: 'Sacks', group: 'Defense', shareLabel: 'Sacks' },
       { key: 'take', label: 'Takeaways', group: 'Defense', extra: true, shareLabel: 'Takeaways' },

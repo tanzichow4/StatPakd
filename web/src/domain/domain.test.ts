@@ -243,4 +243,16 @@ describe('domain types and DataProvider contract', () => {
     expect(ok.shareLabel).toBe('')
     expect(without.shareLabel).toBeUndefined()
   })
+
+  it('AC6: StatDef.percent is optional and must be a boolean', () => {
+    // @ts-expect-error AC6: percent must be a boolean
+    const bad: StatDef = { key: 'k', label: 'K', group: 'G', percent: 'yes' }
+    const on: StatDef = { key: 'k', label: 'K', group: 'G', percent: true }
+    const off: StatDef = { key: 'k', label: 'K', group: 'G', percent: false }
+    const without: StatDef = { key: 'k', label: 'K', group: 'G' }
+    expect(bad).toBeDefined()
+    expect(on.percent).toBe(true)
+    expect(off.percent).toBe(false)
+    expect(without.percent).toBeUndefined()
+  })
 })
