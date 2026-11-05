@@ -21,7 +21,7 @@ Range T01-T20. Integration branch: `autobuild`. Baseline before run: web lint/ty
 | T15 | done | ticket/T15-team-breakdown-header | Merged 6a47b82. Browser QA PASS first time (docs/qa/T15-report.md). 1826 web tests pass. |
 | T16 | done | ticket/T16-share-of-production | Merged 2920571. 1 fix round (a11y lint warnings). Browser QA PASS (docs/qa/T16-report.md). 2065 web tests pass. |
 | T17 | done | ticket/T17-roster-table | Merged 8e79427. Run was cut off after QA; resumed, leftovers committed as WIP: T17. Browser QA PASS first time (docs/qa/T17-report.md). 2234 web tests pass. |
-| T18 | todo | ticket/T18-responsive-and-a11y | |
+| T18 | in-progress | ticket/T18-responsive-and-a11y | |
 | T19 | todo | ticket/T19-e2e-tests | |
 | T20 | todo | ticket/T20-visual-fidelity-pass | |
 
