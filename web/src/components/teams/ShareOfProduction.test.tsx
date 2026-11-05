@@ -266,14 +266,14 @@ describe('AC24/AC25: legend', () => {
 })
 
 describe('AC22: keyboard', () => {
-  it("AC22: Tab goes through the toggle, then each row's segments top to bottom", async () => {
+  it("AC22/AC11: Tab goes through the toggle, then the first segment of each row", async () => {
     const user = userEvent.setup()
     setup()
     await ready()
     const order = [
       ...unitButtons(),
-      ...segmentsOf('Zalpha share share'),
-      ...segmentsOf('Zgamma tally share'),
+      segmentsOf('Zalpha share share')[0] as HTMLElement,
+      segmentsOf('Zgamma tally share')[0] as HTMLElement,
     ]
     // The probe buttons come first in the page, so start from the first toggle button.
     act(() => (order[0] as HTMLElement).focus())

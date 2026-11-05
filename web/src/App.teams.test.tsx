@@ -440,6 +440,16 @@ describe('AC7/AC9-AC12/AC17-AC21: share of team production with the mock data', 
       expect(sum).toBe(100)
     }
   })
+  it('AC11: each share row is a single Tab stop (at most one tabindex 0 per row)', async () => {
+    await open()
+    for (const name of barNames()) {
+      const bar = within(share()).getByRole('group', { name: name as string })
+      const stops = within(bar)
+        .getAllByRole('img')
+        .filter((s) => s.getAttribute('tabindex') === '0')
+      expect(stops.length).toBeLessThanOrEqual(1)
+    }
+  })
   it('AC24: the legend lists the offense roster including Saquon Barkley', async () => {
     await open()
     const names = legendNames()

@@ -106,15 +106,11 @@ describe('AC21/AC23: names and hover text', () => {
 })
 
 describe('AC22: keyboard focus', () => {
-  it('AC22: Tab walks the segments in order and nothing else', async () => {
+  it('AC22: Tab reaches only the first segment, the next Tab leaves the row', async () => {
     const user = userEvent.setup()
     render(<ShareRow row={model()} />)
     await user.tab()
     expect(segments()[0]).toHaveFocus()
-    await user.tab()
-    expect(segments()[1]).toHaveFocus()
-    await user.tab()
-    expect(segments()[2]).toHaveFocus()
     await user.tab()
     expect(document.body).toHaveFocus()
   })
@@ -122,23 +118,23 @@ describe('AC22: keyboard focus', () => {
     render(<ShareRow row={model()} />)
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
   })
-  it('AC22: focusing a segment shows its tooltip text on screen', async () => {
+  it('AC22: Tab then ArrowRight shows the next segment tooltip text on screen', async () => {
     const user = userEvent.setup()
     render(<ShareRow row={model()} />)
     await user.tab()
-    await user.tab()
+    await user.keyboard('{ArrowRight}')
+    expect(segments()[1]).toHaveFocus()
     expect(screen.getByRole('tooltip')).toHaveTextContent(`Name1 Surname1 ${DOT} 5 (5%)`)
     expect(screen.getByRole('tooltip')).toBeVisible()
   })
-  it('AC22: the tooltip follows focus to the next segment and goes on blur', async () => {
+  it('AC22: the tooltip follows arrow focus and goes on blur', async () => {
     const user = userEvent.setup()
     render(<ShareRow row={model()} />)
     await user.tab()
     expect(screen.getByRole('tooltip')).toHaveTextContent('Name0 Surname0')
-    await user.tab()
+    await user.keyboard('{ArrowRight}')
     expect(screen.getAllByRole('tooltip')).toHaveLength(1)
     expect(screen.getByRole('tooltip')).toHaveTextContent('Name1 Surname1')
-    await user.tab()
     await user.tab()
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
   })
@@ -148,14 +144,51 @@ describe('AC22: keyboard focus', () => {
     await user.tab()
     expect(bar()).not.toContainElement(screen.getByRole('tooltip'))
   })
-  it('AC22: shift-tab goes back through the segments', async () => {
+  it('AC22: ArrowLeft goes back, and Shift+Tab leaves the row backwards', async () => {
+    const user = userEvent.setup()
+    render(
+      <>
+        <button type="button">before</button>
+        <ShareRow row={model()} />
+      </>,
+    )
+    await user.tab()
+    await user.tab()
+    await user.keyboard('{ArrowRight}')
+    await user.keyboard('{ArrowLeft}')
+    expect(segments()[0]).toHaveFocus()
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Name0 Surname0')
+    await user.tab({ shift: true })
+    expect(screen.getByRole('button', { name: 'before' })).toHaveFocus()
+  })
+  it('AC11: Home and End jump to the first and last segment', async () => {
     const user = userEvent.setup()
     render(<ShareRow row={model()} />)
     await user.tab()
-    await user.tab()
-    await user.tab({ shift: true })
+    await user.keyboard('{End}')
+    expect(segments()[2]).toHaveFocus()
+    await user.keyboard('{Home}')
     expect(segments()[0]).toHaveFocus()
-    expect(screen.getByRole('tooltip')).toHaveTextContent('Name0 Surname0')
+  })
+  it('AC11: arrows stop at the ends', async () => {
+    const user = userEvent.setup()
+    render(<ShareRow row={model()} />)
+    await user.tab()
+    await user.keyboard('{ArrowLeft}')
+    expect(segments()[0]).toHaveFocus()
+    await user.keyboard('{End}{ArrowRight}')
+    expect(segments()[2]).toHaveFocus()
+  })
+  it('AC11: only the active segment has tabindex 0 and names are unchanged', async () => {
+    const user = userEvent.setup()
+    render(<ShareRow row={model()} />)
+    expect(segments().map((s) => s.getAttribute('tabindex'))).toEqual(['0', '-1', '-1'])
+    await user.tab()
+    await user.keyboard('{ArrowRight}')
+    expect(segments().map((s) => s.getAttribute('tabindex'))).toEqual(['-1', '0', '-1'])
+    expect(segments().map((s) => s.getAttribute('aria-label'))).toEqual(
+      model().segments.map((s) => s.tooltip),
+    )
   })
 })
 
