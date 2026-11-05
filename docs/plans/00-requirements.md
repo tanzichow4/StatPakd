@@ -453,3 +453,206 @@ None blocking. Non-blocking, for the human/design to confirm later:
    recorded in `docs/a11y.md` (B1).
 2. Should controls also meet 40px at 1280px, changing the desktop design (B5)?
 3. Adopt a visual non-colour series encoding (dash patterns or marker shapes) for radar and 3D (B9)?
+
+---
+
+# T19 requirements: Playwright e2e tests in CI
+
+Source ticket: `docs/tickets/T19-e2e-tests.md` (its two acceptance criteria are the contract; the
+ACs below make them testable). Plan reference: `docs/plan.md` "Tests: Vitest + Testing Library
+(unit/component), Playwright (e2e)".
+
+Context found while reading the repo (informs the ACs; not a design):
+- CI is `.github/workflows/ci.yml` with two jobs: `test` (Python matrix 3.10-3.13) and `web`
+  (`ubuntu-latest`, `working-directory: web`, `actions/setup-node@v4` with `node-version: lts/*` and
+  npm cache on `web/package-lock.json`, then `npm ci`, lint, format:check, typecheck, test, build).
+  It triggers on push to `main` and on pull requests.
+- `web/package.json` has no Playwright dependency; `@playwright/test` is not installed. Scripts:
+  `build` = `tsc -b && vite build`, `preview` = `vite preview`, `test` = `vitest run`, `lint` =
+  `oxlint`, `typecheck` = `tsc -b --noEmit`. The root `package.json` forwards scripts to `web/`.
+- Vitest uses its default `include` (`**/*.{test,spec}.?(c|m)[jt]s?(x)`) with no `exclude`, so a
+  `*.spec.ts` file under `web/e2e/` would be collected by `npm test` unless excluded.
+- `tsc -b` only covers `tsconfig.app.json` (`include: ["src"]`) and `tsconfig.node.json`
+  (`include: ["vite.config.ts"]`); a new `web/e2e/` folder and `web/playwright.config.ts` are not
+  type-checked today. oxlint runs over the whole `web/` folder with the `vitest` plugin enabled.
+- `web/.gitignore` and `web/.prettierignore` do not list Playwright output folders.
+- Earlier browser QA (T07-T18) drove a cached Playwright Chromium (revision 1248) through
+  `playwright-core` scratch scripts, because the Playwright MCP could not find Chrome. The app runs
+  fully in the browser on mock data (no Python backend needed).
+- Relevant observable behaviour: at 8 selected the Add card is not rendered and unselected popover
+  options are disabled; the Add card text shows "N of 8 slots open"; `setKind` (Players/Teams switch)
+  clears the search query and resets the position filter to all and closes the popover; the season
+  select is labelled "Season"; the 3D chart is a region labelled "3D chart" with a "Reset view"
+  button; roster headers carry `aria-sort`.
+
+## Goal
+
+Add a committed Playwright end-to-end suite that exercises the main StatPakd user flows against the
+production build at a phone width (375px) and a desktop width (1280px). Run it in GitHub Actions as
+its own CI job that installs the browser and uploads traces when a test fails.
+
+## Acceptance criteria
+
+Tooling and configuration
+
+- AC1: `@playwright/test` is a `devDependency` in `web/package.json` (lockfile updated); no runtime
+  dependency is added. `playwright-core` is not added separately.
+- AC2: `web/playwright.config.ts` exists and defines: `testDir` `./e2e`; a `webServer` that serves
+  the production build with `vite preview` (building first) on a fixed host and port
+  (`127.0.0.1:4173`, `--strictPort`), with `baseURL` pointing at it and `reuseExistingServer` only
+  when not in CI; two projects named for their widths (e.g. `mobile-375` with viewport 375x667 and
+  `desktop-1280` with viewport 1280x800), both Chromium; `trace: 'retain-on-failure'`; test output
+  under `web/test-results/`; `forbidOnly` in CI.
+- AC3: `npm run test:e2e` in `web/` runs `playwright test` and, from a clean checkout with the
+  browser installed, builds and serves the app and runs every e2e test in both projects. The root
+  `package.json` gains a forwarding `test:e2e` script like the existing ones.
+- AC4: `npm test` (Vitest) does not collect any file under `web/e2e/`; its test count is unchanged
+  from before T19 apart from any tests deliberately added for T19.
+- AC5: `web/e2e/**/*.ts` and `web/playwright.config.ts` are type-checked by `npm run typecheck`
+  (and therefore by `npm run build`), linted by `npm run lint` with zero errors, and formatted by
+  `npm run format:check`. Lint rules for `web/src` are not weakened to achieve this.
+- AC6: Playwright output folders (`test-results/`, `playwright-report/`, `blob-report/`,
+  `playwright/.cache/`) are ignored in `web/.gitignore` and `web/.prettierignore`; after a run
+  `git status` shows no new untracked output files.
+
+Test quality
+
+- AC7: Each test title states a user-visible behaviour (e.g. "adding entities stops at 8 and
+  removing one reopens a slot"), not an implementation detail or a ticket/AC number only.
+- AC8: No fixed sleeps: `web/e2e/` contains no `waitForTimeout`, `setTimeout`, or `sleep` calls.
+  Waiting is done with Playwright's auto-waiting locators and web-first assertions (`expect(locator)`
+  matchers), and elements are located by role, label or text (accessible locators), with test ids or
+  CSS selectors only where no accessible locator exists (each such case commented).
+- AC9: Reliability: `npx playwright test --repeat-each=3 --retries=0` passes with zero failures and
+  zero flaky results locally across both projects. The config uses `retries: 0` locally and at most
+  1 in CI. Tests are independent (each starts from a fresh page at `/`) and can run in parallel.
+
+Flows covered (each runs in both the 375px and 1280px projects)
+
+- AC10 (entities up to 8): on Players, starting from the default selection, the user adds entities
+  through the Add popover until 8 are selected; then the Add card is gone (or the popover shows the
+  remaining options disabled), the card list shows 8 entity cards, and an unselected option cannot be
+  added. Removing one entity with its card remove button leaves 7 cards and the Add card returns
+  showing "1 of 8 slots open". Removing an entity from inside the popover also reduces the count.
+- AC11 (change stats): unchecking a selected stat in the sidebar removes that stat's row from the
+  compare table; adding a stat through an "Add stat" menu adds its row; re-checking restores it.
+  The last remaining stat in a group cannot be removed is not required to be covered here.
+- AC12 (chart tabs): switching tabs Table, Bars, Radar and 3D each shows that view (the compare table;
+  the bars with each selected entity's name; the radar chart; the 3D chart region) and hides the
+  previous one; the selected tab has `aria-selected="true"`.
+- AC13 (3D drag): on the 3D tab, dragging with the mouse across the "3D chart" region (pointer down,
+  move, up) changes the projected position of at least one plotted point (its rendered coordinates
+  or bounding box differ from before), and clicking "Reset view" returns the points to their initial
+  positions.
+- AC14 (Teams breakdown and sorting): switching to Teams and to Team breakdown shows the team chips,
+  header card, share of production and roster table; picking a different team chip updates the header
+  card's team name; toggling Offense/Defense changes the roster columns; clicking a roster column
+  header sets its `aria-sort` to "descending" and the rows are in descending order of that column's
+  values, clicking again sets "ascending" with rows in ascending order (null/"—" values last in both).
+- AC15 (season switch): changing the "Season" select to the other season updates its selected value
+  and changes at least one displayed stat value in the compare table (mock data differs by season);
+  switching back restores the original value.
+- AC16 (Players/Teams switch resets filter): on Players, open the Add popover, type a search query
+  and pick a position chip so the result list is filtered; switch to Teams and back to Players; on
+  reopening the popover the search box is empty, the "all positions" chip is the selected one, and
+  the unfiltered results are shown. Also, the popover is closed after the switch.
+- AC17 (no horizontal page scroll): in the `mobile-375` project, at the end of the AC12 and AC14
+  flows, `document.documentElement.scrollWidth <= clientWidth`.
+
+CI
+
+- AC18: `.github/workflows/ci.yml` gains a separate job `e2e` (existing `test` and `web` jobs
+  unchanged) on `ubuntu-latest` with `working-directory: web`, `actions/checkout@v4`,
+  `actions/setup-node@v4` (`lts/*`, npm cache on `web/package-lock.json`), `npm ci`,
+  `npx playwright install --with-deps chromium`, then `npm run test:e2e`. It runs on the same
+  triggers as the other jobs.
+- AC19: On failure the job uploads traces with `actions/upload-artifact@v4` under
+  `if: ${{ failure() }}` (or `!cancelled()` restricted to failure output), uploading
+  `web/test-results/` (which contains `trace.zip` files) and the HTML report if generated, with a
+  bounded `retention-days` (e.g. 7). The CI reporter includes `github` so failures annotate the run.
+- AC20: CI cannot be run from this environment, so "CI job green" is satisfied by: (a) running the
+  same commands as the job locally in `web/` (`npm ci`, browser install or the cached Chromium,
+  `npm run test:e2e`) with all tests passing; (b) the workflow file parsing as valid YAML with a
+  YAML parser, and its `e2e` job containing every step listed in AC18/AC19 (checked by reading the
+  file; `actionlint` if available); and (c) a deliberately failing temporary test producing a
+  `trace.zip` under `web/test-results/` with the configured trace setting, after which the temporary
+  test is removed. Results of (a)-(c) are recorded in the QA report for T19.
+
+Regressions and checks
+
+- AC21: `npm run lint`, `npm run format:check`, `npm run typecheck`, `npm test` and `npm run build`
+  pass in `web/`; no existing test is deleted or weakened; no component or source file under
+  `web/src/` changes behaviour (any `web/src` change needed for testability is limited to accessible
+  names or attributes and is listed in the plan).
+- AC22: Python checks (`ruff check .`, `pytest`) are unaffected and still pass.
+
+## Out of scope
+
+- Firefox and WebKit projects, mobile device emulation beyond viewport size (`isMobile`, touch
+  events), and a 768px project.
+- Visual regression / screenshot comparison tests and axe checks in e2e (T18 covers axe in Vitest
+  and QA; T20 covers visual fidelity).
+- Keyboard-only flows in e2e (covered by T18 component tests), 3D keyboard rotation, axis select
+  changes, share-segment tooltips.
+- Testing against the Vite dev server, against the Python API, or with real data (T22/T23).
+- Changing app behaviour or UI to suit tests, beyond adding missing accessible names (AC21).
+- Running CI on the `autobuild` or ticket branches (triggers stay as they are), caching Playwright
+  browsers in CI, sharding, and merge/blob reports.
+- Editing `CLAUDE.md` to list the new command (see open question 1).
+
+## Assumptions
+
+No human input was requested (unattended autobuild). Numbering below is local to T19. Each default
+follows CLAUDE.md, `docs/plan.md`, the existing CI and how earlier QA ran Playwright.
+
+- B1 (runner): `@playwright/test` is the standard Playwright runner and matches `docs/plan.md`;
+  earlier QA used `playwright-core` only because the MCP could not find Chrome, which does not
+  affect a committed suite. Only Chromium is used (the only browser QA has had, and the cheapest CI
+  install).
+- B2 (local browser): the `@playwright/test` version is chosen so its Chromium revision matches the
+  cached Chromium 1248 if such a version is within the current major range, so local runs need no
+  download; otherwise `npx playwright install chromium` is run once locally. The planner records
+  which applies. No system Chrome channel is used.
+- B3 (built app): "against the built app" means `vite build` then `vite preview`, not the dev
+  server. The webServer command builds before previewing so `npm run test:e2e` works on its own;
+  the CI `e2e` job therefore builds once inside the webServer step and does not depend on the `web`
+  job's build.
+- B4 (host and port): `127.0.0.1:4173` (Vite preview's default port) with `--strictPort`, avoiding
+  `localhost` IPv6 resolution issues on Windows and Node 18+.
+- B5 (widths): projects at 375x667 and 1280x800, the same sizes as T18's checked widths.
+- B6 (test location and naming): tests live in `web/e2e/` as `*.spec.ts`; Vitest excludes
+  `e2e/**` explicitly (rather than relying on a different suffix), so the folder is the boundary.
+  A dedicated tsconfig for e2e and the Playwright config (referenced from `web/tsconfig.json`) is
+  the expected way to type-check them; the planner may choose another way that meets AC5.
+- B7 (lint): oxlint's `vitest` plugin may misfire on Playwright's `test`/`expect`; if so, an
+  override scoped to `e2e/**` (and `playwright.config.ts`) adjusts only those rules for those files.
+- B8 (league names in e2e): the CLAUDE.md rule "no league-specific names in components" applies to
+  components; e2e tests drive the real app with mock NFL data and may use visible labels such as
+  stat names, team or player names. They should prefer roles and structural assertions and read
+  names from the page where possible, so they survive mock data changes. `noLeagueLiterals` tests do
+  not scan `web/e2e/`.
+- B9 (flows): all ticket flows are covered (AC10-AC16), each in both projects. "Players/Teams switch
+  resets filter" is read as the reducer's `setKind` behaviour (search query cleared, position filter
+  reset to all, popover closed). "Change stats" means sidebar checkboxes and the Add stat menu.
+- B10 (CI shape): a separate `e2e` job in the existing `ci.yml` (not a new workflow file) so all
+  checks stay in one workflow with the same triggers and concurrency group; it runs in parallel with
+  the `web` job. Browsers are installed with `--with-deps chromium` on every run (no cache), which is
+  Playwright's recommended approach.
+- B11 (traces): `trace: 'retain-on-failure'` gives a trace for every failing test whether or not it
+  is retried; CI `retries: 1` lets a one-off infrastructure blip pass while the local
+  `--repeat-each=3 --retries=0` check (AC9) guards against real flakiness. Reporter: `list` locally;
+  `github` plus `html` (`open: 'never'`) in CI.
+- B12 (verification without CI): per the caller, AC20 replaces an actual green CI run. The T19 QA
+  report goes in `docs/qa/T19-report.md` like earlier tickets.
+- B13 (3D drag observable): the drag is verified through plotted point positions (rendered SVG
+  coordinates or bounding boxes), the only user-visible effect of rotation; no camera values are
+  read from app internals.
+
+## Open questions
+
+None blocking. Non-blocking, for the human to confirm later:
+1. Should `CLAUDE.md` "Web commands" list `npm run test:e2e` (and the one-time
+   `npx playwright install chromium`)? Agents may not edit `CLAUDE.md`, so this is left to the human.
+2. Should CI also run on the `autobuild` branch (push), so unattended runs get CI feedback (B10 keeps
+   the current triggers)?
+3. Add Firefox/WebKit or a 768px project later, or keep e2e Chromium-only at two widths (B1/B5)?
