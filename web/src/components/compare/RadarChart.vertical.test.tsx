@@ -35,13 +35,11 @@ describe('T18 QA F1: compact radar labels clear the ring', () => {
   it('centred labels grow away from the ring (above/below classes)', () => {
     vi.stubGlobal(
       'matchMedia',
-      vi
-        .fn()
-        .mockReturnValue({
-          matches: true,
-          addEventListener: vi.fn(),
-          removeEventListener: vi.fn(),
-        }),
+      vi.fn().mockReturnValue({
+        matches: true,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      }),
     )
     const { getAllByTestId } = render(
       <RadarChart
