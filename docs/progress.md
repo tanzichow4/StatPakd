@@ -21,7 +21,7 @@ Range T01-T20. Integration branch: `autobuild`. Baseline before run: web lint/ty
 | T15 | done | ticket/T15-team-breakdown-header | Merged 6a47b82. Browser QA PASS first time (docs/qa/T15-report.md). 1826 web tests pass. |
 | T16 | done | ticket/T16-share-of-production | Merged 2920571. 1 fix round (a11y lint warnings). Browser QA PASS (docs/qa/T16-report.md). 2065 web tests pass. |
 | T17 | done | ticket/T17-roster-table | Merged 8e79427. Run was cut off after QA; resumed, leftovers committed as WIP: T17. Browser QA PASS first time (docs/qa/T17-report.md). 2234 web tests pass. |
-| T18 | in-progress | ticket/T18-responsive-and-a11y | |
+| T18 | done | ticket/T18-responsive-and-a11y | Merged 5081fdb. 1 fix round (QA R1: radar label on ring vertex and 3D label/tag/hint overlaps at 375px); round 2 PASS (docs/qa/T18-report.md, T18-report-2.md). axe (all rules) 0 violations on 16 views at 375/1280. Contrast tokens darkened, decisions pending design sign-off in docs/a11y.md. 2571 web tests pass. |
 | T19 | todo | ticket/T19-e2e-tests | |
 | T20 | todo | ticket/T20-visual-fidelity-pass | |
 
@@ -55,6 +55,8 @@ Range T01-T20. Integration branch: `autobuild`. Baseline before run: web lint/ty
 
 - T16: CONTRACT CHANGE for T17/T22: new REQUIRED DataProvider.getRosterUnits(leagueId) returning RosterUnitDef{key,label,stats:StatDef[]} plus optional StatDef.shareLabel marking share stats (disabled league -> [], unknown league rejects); the NFL unit defs carry the design column and share labels and take is marked extra; shares() uses largest-remainder rounding (ties to the earlier entry; null/negative/non-finite as 0; zero total -> all 0), so a percent can differ by 1 from the design's Math.round; unit toggle uses the existing state.unit/setUnit; every segment is a Tab stop (27 on mock offense, revisit in T18); rows stack below 480px; unknown unit skips getRoster; T15 tests that pinned 'nothing after the card' / 'getRoster not called' were rewritten for the new behaviour, not deleted.
 
+- T18: DECISIONS PENDING DESIGN SIGN-OFF (docs/a11y.md): muted #6f6f6a; label/faint/na #73736e; share-segment text colour is ink on 5 of 8 series colours (white on the rest); axe-core dev dependency; live region is an <output aria-live=polite>; share rows are one Tab stop with arrow keys; Add popover is a bottom sheet below 480px; 40px touch targets only at <=1023px (desktop controls under 40px documented); non-colour series encoding only proposed.
+
 ## Out-of-scope ideas
 
 - T08: at 375px the open popover is ~450px tall and extends past the viewport bottom, making the page scroll; revisit in T18 (responsive). Many-chip wrapping not stressed with mock data.
@@ -68,3 +70,5 @@ Range T01-T20. Integration branch: `autobuild`. Baseline before run: web lint/ty
 - T15: chip border is #DEDEDA vs design #DADAD6 and chips are pills (design: radius 8, padding 7px 12px); check in T20.
 
 - T16: keyboard-focus tooltip is anchored at the bar's left edge rather than above the focused segment (cosmetic); 27 Tab stops per offense row set. Revisit in T18/T20.
+
+- T18: 3D name-tag collisions with 8 selected and non-default axes (all widths) remain (T14 deferral); Teams radar with 4 axes at 481-1024px has 'Pts Allowed / G' 1-12px outside the chart box (still in viewport, unclipped); clicking outside the Add popover does not close it; no state persistence across reload. Dev server on port 5173 may still be running from QA (could not be killed by the agent; please stop it).
