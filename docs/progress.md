@@ -22,7 +22,7 @@ Range T01-T20. Integration branch: `autobuild`. Baseline before run: web lint/ty
 | T16 | done | ticket/T16-share-of-production | Merged 2920571. 1 fix round (a11y lint warnings). Browser QA PASS (docs/qa/T16-report.md). 2065 web tests pass. |
 | T17 | done | ticket/T17-roster-table | Merged 8e79427. Run was cut off after QA; resumed, leftovers committed as WIP: T17. Browser QA PASS first time (docs/qa/T17-report.md). 2234 web tests pass. |
 | T18 | done | ticket/T18-responsive-and-a11y | Merged 5081fdb. 1 fix round (QA R1: radar label on ring vertex and 3D label/tag/hint overlaps at 375px); round 2 PASS (docs/qa/T18-report.md, T18-report-2.md). axe (all rules) 0 violations on 16 views at 375/1280. Contrast tokens darkened, decisions pending design sign-off in docs/a11y.md. 2571 web tests pass. |
-| T19 | todo | ticket/T19-e2e-tests | |
+| T19 | in-progress | ticket/T19-e2e-tests | |
 | T20 | todo | ticket/T20-visual-fidelity-pass | |
 
 ## Assumptions
