@@ -1,4 +1,5 @@
 import styles from './App.module.css'
+import { AnnouncerProvider } from './components/a11y'
 import { ComparePanel } from './components/compare'
 import { GlobalNav } from './components/nav'
 import { EntityPicker } from './components/picker'
@@ -41,8 +42,10 @@ export default function App() {
   return (
     <DataSource provider={provider}>
       <AppStateProvider defaults={nflUiDefaults()} statDefs={nflStatDefsByKind()}>
-        <GlobalNav />
-        <AppMain />
+        <AnnouncerProvider>
+          <GlobalNav />
+          <AppMain />
+        </AnnouncerProvider>
       </AppStateProvider>
     </DataSource>
   )
