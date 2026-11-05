@@ -61,3 +61,13 @@
   background: var(--color-white);
   box-shadow: var(--shadow-segmented);
 }
+
+@media (max-width: 1023px) {
+  .item,
+  .light .item,
+  .dark .item,
+  .sm .item {
+    min-height: 40px;
+    min-width: 40px;
+  }
+}

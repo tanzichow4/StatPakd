@@ -185,3 +185,13 @@
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+@media (max-width: 1023px) {
+  .sortButton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    min-height: 40px;
+    min-width: 40px;
+  }
+}

@@ -45,17 +45,26 @@ export interface AxisLabel {
   side: 'before' | 'after'
 }
 
-/** Overlay position of the three axis labels. */
+/** Labels are capped at 40% of the card width, so they need that much room on their open side. */
+const LABEL_MAX_PCT = 40
+
+/** Overlay position of the three axis labels. Labels near an edge flip to open inwards. */
 export function axisLabelLayout(camera: Camera, defs3: AxisDefs): AxisLabel[] {
   const a = axisLabelAnchors(camera)
   const anchors = [a.x, a.y, a.z]
-  return LETTERS.map((letter, i) => ({
-    letter,
-    text: `${letter} · ${defs3[i]?.label ?? ''}`,
-    left: pct(anchors[i].x, CHART3D.width),
-    top: pct(Math.max(LABEL_MIN_Y, anchors[i].y), CHART3D.height),
-    side: anchors[i].x < CENTER_X ? 'before' : 'after',
-  }))
+  return LETTERS.map((letter, i) => {
+    const left = pct(anchors[i].x, CHART3D.width)
+    let side: AxisLabel['side'] = anchors[i].x < CENTER_X ? 'before' : 'after'
+    if (side === 'before' && left < LABEL_MAX_PCT) side = 'after'
+    else if (side === 'after' && left > 100 - LABEL_MAX_PCT) side = 'before'
+    return {
+      letter,
+      text: `${letter} · ${defs3[i]?.label ?? ''}`,
+      left,
+      top: pct(Math.max(LABEL_MIN_Y, anchors[i].y), CHART3D.height),
+      side,
+    }
+  })
 }
 
 /** Overlay position of a selected point's name tag. */

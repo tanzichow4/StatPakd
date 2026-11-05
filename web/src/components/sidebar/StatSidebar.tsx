@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef } from 'react'
 import { useAppState } from '../../state'
+import { useAnnounce } from '../a11y'
 import { groupStats } from './groupStats'
 import { StatGroup } from './StatGroup'
 import styles from './StatSidebar.module.css'
@@ -12,6 +13,7 @@ export function StatSidebar() {
   const { state, dispatch } = useAppState()
   const { kind } = state
   const baseId = useId()
+  const announce = useAnnounce()
   const defs = useStatDefs(kind)
   const selectedKeys = state.stats[kind]
   const groups = useMemo(() => groupStats(defs, selectedKeys), [defs, selectedKeys])
@@ -62,11 +64,15 @@ export function StatSidebar() {
           onDeselect={(key, rowIndex) => {
             if (locked) return
             pendingFocus.current = { to: 'afterRemove', groupIndex: index, rowIndex }
+            const label = defs.find((d) => d.key === key)?.label
+            if (label) announce(`${label} removed`)
             dispatch({ type: 'toggleStat', key })
           }}
           onToggleMenu={() => dispatch({ type: 'toggleAddStatMenu', group: group.name })}
           onPick={(key) => {
             pendingFocus.current = { to: 'stat', key }
+            const label = defs.find((d) => d.key === key)?.label
+            if (label) announce(`${label} added`)
             dispatch({ type: 'addStat', key })
           }}
           onClose={(reason) => {

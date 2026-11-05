@@ -2,7 +2,8 @@
 import { useMemo, type CSSProperties } from 'react'
 import type { Entity, StatDef } from '../../domain/types'
 import { seriesColor } from '../../styles/series'
-import { RADAR, radarModel } from './radarModel'
+import { useMediaQuery } from '../../lib/useMediaQuery'
+import { RADAR, RADAR_COMPACT, RADAR_DEFAULT, radarModel } from './radarModel'
 import type { CompareColumn } from './tableModel'
 import styles from './RadarChart.module.css'
 
@@ -16,8 +17,18 @@ function seriesStyle(colorIndex: number): CSSProperties {
   return { '--series': seriesColor(colorIndex) } as CSSProperties
 }
 
+/** Centred labels above or below the ring grow away from it, so a wrapped label never covers its vertex. */
+function verticalClass(label: { y: number; align: string }): string {
+  if (label.align !== 'middle') return ''
+  return label.y < RADAR.cy ? styles.above : styles.below
+}
+
 export function RadarChart({ columns, rows, pool }: Props) {
-  const model = useMemo(() => radarModel(rows, columns, pool), [rows, columns, pool])
+  const compact = useMediaQuery('(max-width: 480px)')
+  const model = useMemo(
+    () => radarModel(rows, columns, pool, compact ? RADAR_COMPACT : RADAR_DEFAULT),
+    [rows, columns, pool, compact],
+  )
 
   return (
     <div className={styles.root} data-testid="radar">
@@ -62,7 +73,7 @@ export function RadarChart({ columns, rows, pool }: Props) {
             {model.axes.map(({ def, label }) => (
               <span
                 key={def.key}
-                className={`${styles.axisLabel} ${styles[label.align]}`}
+                className={`${styles.axisLabel} ${styles[label.align]} ${verticalClass(label)}`.trim()}
                 data-testid="radar-label"
                 style={{
                   left: `${label.left}%`,

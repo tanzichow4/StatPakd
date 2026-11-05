@@ -89,3 +89,11 @@
 .bar :focus-visible {
   outline-color: var(--color-white);
 }
+
+@media (max-width: 1023px) {
+  .league {
+    min-height: 40px;
+    min-width: 40px;
+    justify-content: center;
+  }
+}

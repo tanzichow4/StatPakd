@@ -8,6 +8,7 @@ import { MAX_SELECTED, useAppState } from '../../state'
 import { AppStateProvider } from '../../state/AppStateProvider'
 import { seriesColor } from '../../styles/series'
 import { entitiesProvider, fixtureStatDefs, fixtureUiDefaults } from '../../test/fixtureProvider'
+import { AnnouncerProvider } from '../a11y'
 import { EntityPicker } from './EntityPicker'
 
 function StateProbe() {
@@ -44,8 +45,10 @@ function setup({ provider = entitiesProvider(), players, teams }: Options = {}) 
   const view = render(
     <DataSource provider={provider}>
       <AppStateProvider defaults={defaults} statDefs={fixtureStatDefs()}>
-        <EntityPicker />
-        <StateProbe />
+        <AnnouncerProvider>
+          <EntityPicker />
+          <StateProbe />
+        </AnnouncerProvider>
       </AppStateProvider>
     </DataSource>,
   )
@@ -690,5 +693,42 @@ describe('AC28: native controls', () => {
       ...within(root).getAllByRole('searchbox'),
     ]
     expect(controls.every((c) => ['BUTTON', 'INPUT'].includes(c.tagName))).toBe(true)
+  })
+})
+
+describe('T18 AC15/AC9: entity announcements', () => {
+  const live = () => document.querySelector('[aria-live="polite"]')?.textContent?.trim()
+
+  it('AC15: adding from the popover announces "<name> added"', async () => {
+    const user = userEvent.setup()
+    setup({ players: ['zp1', 'zp2'] })
+    await ready()
+    await openPopover(user)
+    await user.click(within(dialog()).getByRole('button', { name: 'Add Quill Dorvane' }))
+    expect(live()).toBe('Quill Dorvane added')
+  })
+  it('AC15: removing from the popover announces "<name> removed"', async () => {
+    const user = userEvent.setup()
+    setup({ players: ['zp1', 'zp2'] })
+    await ready()
+    await openPopover(user)
+    await user.click(within(dialog()).getByRole('button', { name: 'Remove Ola Quenby' }))
+    expect(live()).toBe('Ola Quenby removed')
+  })
+  it('AC15: removing by the card x announces "<name> removed"', async () => {
+    const user = userEvent.setup()
+    setup({ players: ['zp1', 'zp2'] })
+    await ready()
+    await user.click(cardRemove('Pim Rastow'))
+    expect(live()).toBe('Pim Rastow removed')
+  })
+  it('AC9: removing from inside the popover keeps focus inside the dialog', async () => {
+    const user = userEvent.setup()
+    setup({ players: ['zp1', 'zp2'] })
+    await ready()
+    await openPopover(user)
+    await user.click(within(dialog()).getByRole('button', { name: 'Remove Ola Quenby' }))
+    expect(dialog().contains(document.activeElement)).toBe(true)
+    expect(document.activeElement).not.toBe(document.body)
   })
 })

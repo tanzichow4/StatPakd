@@ -72,3 +72,11 @@
   font-size: 12px;
   line-height: 1;
 }
+
+@media (max-width: 1023px) {
+  .row,
+  .add {
+    min-height: 40px;
+    box-sizing: border-box;
+  }
+}

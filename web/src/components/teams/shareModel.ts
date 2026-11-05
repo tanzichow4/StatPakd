@@ -1,7 +1,7 @@
 import type { RosterEntry, RosterUnit, RosterUnitDef, StatDef } from '../../domain/types'
 import { shares } from '../../lib/shares'
 import { formatStat } from '../../lib/stats'
-import { seriesColor } from '../../styles/series'
+import { seriesColor, seriesTextColor } from '../../styles/series'
 
 /** Segments with at least this percentage show their percent text. */
 export const PCT_TEXT_MIN = 9
@@ -10,6 +10,8 @@ export interface ShareSegment {
   id: string
   value: number
   color: string
+  /** Text colour for the percent text, chosen to meet 4.5:1 on `color`. */
+  textColor: string
   pct: number
   /** Percent text inside the segment, or `null` when the segment is too small. */
   text: string | null
@@ -30,6 +32,15 @@ export interface LegendItem {
   id: string
   name: string
   color: string
+}
+
+/**
+ * Left edge (px) for a tooltip so its centre sits on `centre`, clamped to stay inside a wrapper of
+ * `wrapWidth`. A tooltip wider than the wrapper starts at 0.
+ */
+export function tooltipLeft(centre: number, tipWidth: number, wrapWidth: number): number {
+  const max = Math.max(0, wrapWidth - tipWidth)
+  return Math.min(Math.max(centre - tipWidth / 2, 0), max)
 }
 
 export function findUnit(
@@ -69,6 +80,7 @@ export function buildShareRow(def: StatDef, roster: readonly RosterEntry[]): Sha
       id: roster[i].id,
       value,
       color: seriesColor(i),
+      textColor: seriesTextColor(i),
       pct,
       text: pct >= PCT_TEXT_MIN ? `${pct}%` : null,
       tooltip: `${roster[i].name} · ${formatStat(value, def)} (${pct}%)`,

@@ -42,3 +42,11 @@
 .reset:hover {
   background: var(--color-hover);
 }
+
+@media (max-width: 1023px) {
+  .select,
+  .reset {
+    min-height: 40px;
+    min-width: 40px;
+  }
+}

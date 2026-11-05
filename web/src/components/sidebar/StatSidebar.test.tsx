@@ -13,6 +13,7 @@ import {
   fixtureSidebarStatDefs,
   fixtureSidebarUiDefaults,
 } from '../../test/fixtureProvider'
+import { AnnouncerProvider } from '../a11y'
 import { StatSidebar } from './StatSidebar'
 
 function Probe() {
@@ -51,8 +52,10 @@ function setup({ defaults = fixtureSidebarUiDefaults(), getStatDefs }: Options =
   const view = render(
     <DataSource provider={provider}>
       <AppStateProvider defaults={defaults} statDefs={defs}>
-        <StatSidebar />
-        <Probe />
+        <AnnouncerProvider>
+          <StatSidebar />
+          <Probe />
+        </AnnouncerProvider>
       </AppStateProvider>
     </DataSource>,
   )
@@ -720,5 +723,40 @@ describe('F1 regression: pressing another Add button keeps the layout stable', (
     fireEvent.click(addBtn('zalpha'))
     expect(menus()).toHaveLength(0)
     expect(readState().addStatOpen).toBeNull()
+  })
+})
+
+describe('T18 AC15: stat announcements', () => {
+  async function toTeams(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByRole('button', { name: 'probe to teams' }))
+    expect(await screen.findByRole('checkbox', { name: 'Ztpts' })).toBeInTheDocument()
+  }
+  const live = () => document.querySelector('[aria-live="polite"]')?.textContent?.trim()
+
+  it('AC15: starts empty', async () => {
+    setup()
+    await ready()
+    expect(live()).toBe('')
+  })
+  it('AC15: unchecking a stat announces "<label> removed"', async () => {
+    const { user } = setup()
+    await ready()
+    await user.click(box('Zgrit'))
+    expect(live()).toBe('Zgrit removed')
+  })
+  it('AC15: picking from the Add menu announces "<label> added"', async () => {
+    const { user } = setup()
+    await ready()
+    await toTeams(user)
+    await user.click(addBtn('ztdef'))
+    await user.click(screen.getByRole('button', { name: 'Ztblk' }))
+    expect(live()).toBe('Ztblk added')
+  })
+  it('AC15: the locked last stat announces nothing', async () => {
+    const { user } = setup()
+    await ready()
+    await toTeams(user)
+    await user.click(box('Ztpts'))
+    expect(live()).toBe('')
   })
 })

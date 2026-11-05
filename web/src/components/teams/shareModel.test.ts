@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { RosterEntry, RosterUnitDef, StatDef } from '../../domain/types'
-import { seriesColor } from '../../styles/series'
+import { seriesColor, seriesTextColor } from '../../styles/series'
 import {
   PCT_TEXT_MIN,
   buildShareRow,
@@ -8,6 +8,7 @@ import {
   legendItems,
   leaderName,
   shareStats,
+  tooltipLeft,
 } from './shareModel'
 
 const DOT = '·'
@@ -131,6 +132,14 @@ describe('AC15/AC25: segments', () => {
       seriesColor(4),
     ])
     expect(seriesColor(0)).toBe('var(--series-1)')
+  })
+  it('AC24: text colour follows the roster index like the segment colour', () => {
+    const row = buildShareRow(def, roster(5, 0, 5, null, 5))
+    expect(row.segments.map((s) => s.textColor)).toEqual([
+      seriesTextColor(0),
+      seriesTextColor(2),
+      seriesTextColor(4),
+    ])
   })
   it('AC25: colours wrap after 8 players', () => {
     const row = buildShareRow(def, roster(...Array.from({ length: 10 }, () => 1)))
@@ -282,5 +291,20 @@ describe('AC24/AC25: legendItems', () => {
   })
   it('AC20: an empty roster gives an empty legend', () => {
     expect(legendItems([])).toEqual([])
+  })
+})
+
+describe('AC12: tooltipLeft', () => {
+  it('AC12: centres the tooltip on the segment centre', () => {
+    expect(tooltipLeft(200, 100, 400)).toBe(150)
+  })
+  it('AC12: clamps to the left edge', () => {
+    expect(tooltipLeft(20, 100, 400)).toBe(0)
+  })
+  it('AC12: clamps to the right edge', () => {
+    expect(tooltipLeft(390, 100, 400)).toBe(300)
+  })
+  it('AC12: a tooltip wider than the wrapper starts at 0', () => {
+    expect(tooltipLeft(100, 500, 400)).toBe(0)
   })
 })
