@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import type { Entity, StatDef } from '../../domain/types'
 import { comparePlayers, compareStatDefs } from '../../test/compareFixtures'
-import { RADAR, pointsAttr, radarModel, radarPoint, vertexT } from './radarModel'
+import {
+  RADAR,
+  RADAR_COMPACT,
+  RADAR_DEFAULT,
+  pointsAttr,
+  radarModel,
+  radarPoint,
+  vertexT,
+} from './radarModel'
 import { resolveColumns, resolveRows } from './tableModel'
 
 const defs = compareStatDefs()
@@ -373,5 +381,26 @@ describe('radarModel robustness', () => {
     const b = radarModel(rows, columns, pool)
     expect(a).toEqual(b)
     expect({ rows, columns, pool }).toEqual(snapshot)
+  })
+})
+
+describe('radarModel compact geometry', () => {
+  const rows = rowsFor(['zhigh', 'zbig', 'zlow', 'zsign'])
+  const columns = cols([pool[0].id])
+
+  it('default output is unchanged when geometry is omitted', () => {
+    expect(radarModel(rows, columns, pool, RADAR_DEFAULT)).toEqual(radarModel(rows, columns, pool))
+  })
+
+  it('compact labels lie further out relative to a smaller ring', () => {
+    const d = radarModel(rows, columns, pool)
+    const c = radarModel(rows, columns, pool, RADAR_COMPACT)
+    expect(c.axes.length).toBeGreaterThan(0)
+    c.axes.forEach((a, i) => {
+      const ringR = dist(a.end)
+      expect(ringR).toBeCloseTo(RADAR_COMPACT.r, 0)
+      expect(dist(a.label) / ringR).toBeGreaterThan(dist(d.axes[i].label) / dist(d.axes[i].end))
+      expect(dist(a.label) / ringR).toBeCloseTo(RADAR_COMPACT.labelT, 1)
+    })
   })
 })

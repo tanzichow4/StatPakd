@@ -15,6 +15,15 @@ export const RADAR = {
   minAxes: 3,
 } as const
 
+export interface RadarGeometry {
+  r: number
+  labelT: number
+}
+
+export const RADAR_DEFAULT: RadarGeometry = { r: RADAR.r, labelT: RADAR.labelT }
+/** Smaller ring and labels further out, for narrow viewports where labels wrap. */
+export const RADAR_COMPACT: RadarGeometry = { r: 120, labelT: 1.2 }
+
 export interface Point {
   x: number
   y: number
@@ -57,11 +66,11 @@ function r1(v: number): number {
 }
 
 /** Point for axis `i` of `n` at fraction `t` of the radius. Axis 0 points up, clockwise. */
-export function radarPoint(i: number, n: number, t: number): Point {
+export function radarPoint(i: number, n: number, t: number, r: number = RADAR.r): Point {
   const a = -Math.PI / 2 + (i * 2 * Math.PI) / n
   return {
-    x: r1(RADAR.cx + Math.cos(a) * RADAR.r * t),
-    y: r1(RADAR.cy + Math.sin(a) * RADAR.r * t),
+    x: r1(RADAR.cx + Math.cos(a) * r * t),
+    y: r1(RADAR.cy + Math.sin(a) * r * t),
   }
 }
 
@@ -85,6 +94,7 @@ export function radarModel(
   rows: StatDef[],
   columns: CompareColumn[],
   pool: readonly Entity[],
+  geometry: RadarGeometry = RADAR_DEFAULT,
 ): RadarModel {
   const n = rows.length
   const ok = n >= RADAR.minAxes
@@ -92,12 +102,12 @@ export function radarModel(
 
   const axes: RadarAxis[] = ok
     ? rows.map((def, i) => {
-        const p = radarPoint(i, n, RADAR.labelT)
+        const p = radarPoint(i, n, geometry.labelT, geometry.r)
         const align: LabelAlign =
           Math.abs(p.x - RADAR.cx) < RADAR.centreBand ? 'middle' : p.x > RADAR.cx ? 'start' : 'end'
         return {
           def,
-          end: radarPoint(i, n, 1),
+          end: radarPoint(i, n, 1, geometry.r),
           label: {
             x: p.x,
             y: p.y,
@@ -110,7 +120,7 @@ export function radarModel(
     : []
 
   const rings = ok
-    ? RADAR.rings.map((t) => pointsAttr(rows.map((_, i) => radarPoint(i, n, t))))
+    ? RADAR.rings.map((t) => pointsAttr(rows.map((_, i) => radarPoint(i, n, t, geometry.r))))
     : []
 
   const series = columns.map(({ entity, colorIndex }): RadarSeries => {
@@ -119,7 +129,9 @@ export function radarModel(
       return { def, value, text: formatStat(value, def), na: value == null }
     })
     const points = ok
-      ? rows.map((def, i) => radarPoint(i, n, vertexT(entity.stats[def.key], ranges[i], def)))
+      ? rows.map((def, i) =>
+          radarPoint(i, n, vertexT(entity.stats[def.key], ranges[i], def), geometry.r),
+        )
       : []
     return {
       entity,
