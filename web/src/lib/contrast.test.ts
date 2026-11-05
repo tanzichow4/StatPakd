@@ -8,7 +8,7 @@ describe('contrast helpers', () => {
   })
 
   it('rejects invalid input', () => {
-    expect(() => parseHex('red')).toThrow()
+    expect(() => parseHex('red')).toThrow('Invalid hex colour')
   })
 
   it('computes luminance extremes', () => {

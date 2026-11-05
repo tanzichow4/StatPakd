@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { contrastRatio } from '../lib/contrast'
+import { SERIES_COUNT, seriesTextColor } from './series'
 import tokensCss from './tokens.css?raw'
 
 function token(name: string): string {
@@ -41,7 +42,17 @@ for (const bg of ['color-ink', 'color-nav-surface']) {
   pairs.push({ fg: 'color-white', bg, use: 'focus ring in dark nav', min: 3 })
 }
 
-/** Documented exemptions: disabled controls are not required to meet 4.5:1 (WCAG 1.4.3).\s*/
+// AC24: percent text inside each share segment against its series colour.
+for (let i = 0; i < SERIES_COUNT; i++) {
+  pairs.push({
+    fg: /^var\(--([\w-]+)\)$/.exec(seriesTextColor(i))![1],
+    bg: `series-${i + 1}`,
+    use: 'share segment percent text',
+    min: 4.5,
+  })
+}
+
+/** Documented exemptions: disabled controls are not required to meet 4.5:1 (WCAG 1.4.3). */
 const exemptions = [
   { fg: 'color-nav-soon', bg: 'color-ink', reason: 'disabled "Soon" league buttons' },
   { fg: 'color-checkbox-off', bg: 'color-white', reason: 'locked last-stat checkbox box' },

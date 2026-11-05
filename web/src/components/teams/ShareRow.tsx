@@ -33,7 +33,7 @@ export function ShareRow({ row }: Props) {
               aria-label={s.tooltip}
               title={s.tooltip}
               className={styles.segment}
-              style={{ flexGrow: s.value, background: s.color }}
+              style={{ flexGrow: s.value, background: s.color, color: s.textColor }}
               onFocus={() => setFocusedId(s.id)}
               onBlur={() => setFocusedId((cur) => (cur === s.id ? null : cur))}
             >

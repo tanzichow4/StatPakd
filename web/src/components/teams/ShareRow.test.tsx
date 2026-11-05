@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
-import { seriesColor } from '../../styles/series'
+import { seriesColor, seriesTextColor } from '../../styles/series'
 import { ShareRow } from './ShareRow'
 import type { ShareRowModel } from './shareModel'
 
@@ -12,6 +12,7 @@ function seg(i: number, value: number, pct: number, name = `Name${i} Surname${i}
     id: `zr${i}`,
     value,
     color: seriesColor(i),
+    textColor: seriesTextColor(i),
     pct,
     text: pct >= 9 ? `${pct}%` : null,
     tooltip: `${name} ${DOT} ${value} (${pct}%)`,
