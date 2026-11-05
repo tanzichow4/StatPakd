@@ -193,3 +193,14 @@
     max-height: none;
   }
 }
+
+@media (max-width: 1023px) {
+  .search,
+  .done,
+  .chip,
+  .ctaAdd,
+  .ctaRemove {
+    min-height: 40px;
+    min-width: 40px;
+  }
+}
