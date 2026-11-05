@@ -22,7 +22,7 @@ export interface RadarGeometry {
 
 export const RADAR_DEFAULT: RadarGeometry = { r: RADAR.r, labelT: RADAR.labelT }
 /** Smaller ring and labels further out, for narrow viewports where labels wrap. */
-export const RADAR_COMPACT: RadarGeometry = { r: 120, labelT: 1.2 }
+export const RADAR_COMPACT: RadarGeometry = { r: 120, labelT: 1.14 }
 
 export interface Point {
   x: number

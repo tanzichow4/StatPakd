@@ -17,6 +17,12 @@ function seriesStyle(colorIndex: number): CSSProperties {
   return { '--series': seriesColor(colorIndex) } as CSSProperties
 }
 
+/** Centred labels above or below the ring grow away from it, so a wrapped label never covers its vertex. */
+function verticalClass(label: { y: number; align: string }): string {
+  if (label.align !== 'middle') return ''
+  return label.y < RADAR.cy ? styles.above : styles.below
+}
+
 export function RadarChart({ columns, rows, pool }: Props) {
   const compact = useMediaQuery('(max-width: 480px)')
   const model = useMemo(
@@ -67,7 +73,7 @@ export function RadarChart({ columns, rows, pool }: Props) {
             {model.axes.map(({ def, label }) => (
               <span
                 key={def.key}
-                className={`${styles.axisLabel} ${styles[label.align]}`}
+                className={`${styles.axisLabel} ${styles[label.align]} ${verticalClass(label)}`.trim()}
                 data-testid="radar-label"
                 style={{
                   left: `${label.left}%`,

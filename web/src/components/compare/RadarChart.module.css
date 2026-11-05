@@ -136,6 +136,15 @@
 }
 
 @media (max-width: 480px) {
+  /* Wrapped labels above or below the ring grow away from it, never over a vertex. */
+  .middle.above {
+    transform: translate(-50%, -100%);
+  }
+
+  .middle.below {
+    transform: translate(-50%, 0);
+  }
+
   .axisLabel {
     white-space: normal;
     max-width: 15vw;

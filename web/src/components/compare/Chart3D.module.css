@@ -157,10 +157,30 @@
 }
 
 @media (max-width: 480px) {
+  /* The hint gets its own strip under the plot so it never overlaps labels or tags. */
+  .card {
+    padding-bottom: 28px;
+  }
+
+  .overlay {
+    bottom: 28px;
+  }
+
+  .hint {
+    bottom: var(--space-6);
+  }
+
   .axisLabel {
+    width: max-content;
     max-width: 40%;
     font-size: 10px;
     white-space: normal;
     overflow-wrap: anywhere;
+    /* Sit just below the axis end, clear of name tags that open to the right of points. */
+    transform: translate(0, 40%);
+  }
+
+  .axisLabel.before {
+    transform: translate(-100%, 40%);
   }
 }
