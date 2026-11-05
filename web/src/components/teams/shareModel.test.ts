@@ -8,6 +8,7 @@ import {
   legendItems,
   leaderName,
   shareStats,
+  tooltipLeft,
 } from './shareModel'
 
 const DOT = '·'
@@ -290,5 +291,20 @@ describe('AC24/AC25: legendItems', () => {
   })
   it('AC20: an empty roster gives an empty legend', () => {
     expect(legendItems([])).toEqual([])
+  })
+})
+
+describe('AC12: tooltipLeft', () => {
+  it('AC12: centres the tooltip on the segment centre', () => {
+    expect(tooltipLeft(200, 100, 400)).toBe(150)
+  })
+  it('AC12: clamps to the left edge', () => {
+    expect(tooltipLeft(20, 100, 400)).toBe(0)
+  })
+  it('AC12: clamps to the right edge', () => {
+    expect(tooltipLeft(390, 100, 400)).toBe(300)
+  })
+  it('AC12: a tooltip wider than the wrapper starts at 0', () => {
+    expect(tooltipLeft(100, 500, 400)).toBe(0)
   })
 })

@@ -266,7 +266,7 @@ describe('AC24/AC25: legend', () => {
 })
 
 describe('AC22: keyboard', () => {
-  it("AC22/AC11: Tab goes through the toggle, then the first segment of each row", async () => {
+  it('AC22/AC11: Tab goes through the toggle, then the first segment of each row', async () => {
     const user = userEvent.setup()
     setup()
     await ready()

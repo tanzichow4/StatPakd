@@ -34,6 +34,15 @@ export interface LegendItem {
   color: string
 }
 
+/**
+ * Left edge (px) for a tooltip so its centre sits on `centre`, clamped to stay inside a wrapper of
+ * `wrapWidth`. A tooltip wider than the wrapper starts at 0.
+ */
+export function tooltipLeft(centre: number, tipWidth: number, wrapWidth: number): number {
+  const max = Math.max(0, wrapWidth - tipWidth)
+  return Math.min(Math.max(centre - tipWidth / 2, 0), max)
+}
+
 export function findUnit(
   units: readonly RosterUnitDef[],
   key: RosterUnit,

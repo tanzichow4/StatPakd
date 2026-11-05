@@ -192,6 +192,17 @@ describe('AC22: keyboard focus', () => {
   })
 })
 
+describe('AC12: tooltip anchor', () => {
+  it('AC12: the tooltip text matches the focused segment after arrow moves', async () => {
+    const user = userEvent.setup()
+    render(<ShareRow row={model()} />)
+    await user.tab()
+    await user.keyboard('{ArrowRight}{ArrowRight}')
+    expect(screen.getByRole('tooltip')).toHaveTextContent(`Name2 Surname2 ${DOT} 35 (35%)`)
+    expect(screen.getByRole('tooltip').style.left).toMatch(/px$/)
+  })
+})
+
 describe('AC17: right cell', () => {
   it('AC17: shows the leader text', () => {
     render(<ShareRow row={model()} />)
