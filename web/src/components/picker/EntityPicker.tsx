@@ -1,6 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { Entity, EntityId } from '../../domain/types'
 import { MAX_SELECTED, useAppState } from '../../state'
+import { useAnnounce } from '../a11y'
 import { AddCard } from './AddCard'
 import { AddPopover } from './AddPopover'
 import { EntityCard } from './EntityCard'
@@ -22,6 +23,7 @@ export function EntityPicker() {
   const { state, dispatch } = useAppState()
   const { kind, season, q, pos, addOpen, teamMode } = state
   const entities = useEntities(kind, season)
+  const announce = useAnnounce()
   const popoverId = useId()
   const selectedIds = state.sel[kind]
   const full = selectedIds.length >= MAX_SELECTED
@@ -93,11 +95,15 @@ export function EntityPicker() {
     if (!selectedIds.includes(id) && selectedIds.length === MAX_SELECTED - 1) {
       pendingFocus.current = { to: 'lastCard' }
     }
+    const name = entities.find((e) => e.id === id)?.name
+    if (name) announce(`${name} ${selectedIds.includes(id) ? 'removed' : 'added'}`)
     dispatch({ type: 'toggleEntity', id })
   }
 
   const removeCard = (id: EntityId, position: number) => {
     pendingFocus.current = { to: 'removeAt', position }
+    const name = entities.find((e) => e.id === id)?.name
+    if (name) announce(`${name} removed`)
     dispatch({ type: 'toggleEntity', id })
   }
 
