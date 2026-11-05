@@ -19,3 +19,10 @@
   color: var(--color-ink);
   border-bottom-color: var(--color-ink);
 }
+
+@media (max-width: 1023px) {
+  .tab {
+    min-height: 40px;
+    min-width: 40px;
+  }
+}
