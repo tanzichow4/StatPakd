@@ -354,14 +354,17 @@ describe('AC17/AC18: axis labels and hint', () => {
     expect(top).toBe(`${Math.round((Math.max(10, a.y.y) / 460) * 1000) / 10}%`)
     expect(parseFloat(top)).toBeGreaterThanOrEqual(Math.round((10 / 460) * 1000) / 10)
   })
-  it('AC17: labels left of centre are shifted fully left, the others are not', () => {
+  it('AC17/T18 AC5: labels left of centre are shifted fully left unless near the left edge, where they open inwards', () => {
     setup()
     const a = axisLabelAnchors(DEFAULT_CAMERA)
     const anchors = [a.x, a.y, a.z]
     expect(anchors.some((p) => p.x < 300)).toBe(true)
     screen.getAllByTestId('axis-label').forEach((el, i) => {
       const flipped = /before/.test(el.className)
-      expect(flipped).toBe(anchors[i].x < 300)
+      const leftPct = (anchors[i].x / 600) * 100
+      // Same rule as before, except that a label whose open side would leave the card flips inwards.
+      const expected = anchors[i].x < 300 ? leftPct >= 40 : leftPct > 60
+      expect(flipped).toBe(expected)
     })
     expect(rule('.axisLabel.before')).toMatch(/translate\(-100%,\s*-50%\)/)
     expect(rule('.axisLabel')).toMatch(/translate\(0,\s*-50%\)/)

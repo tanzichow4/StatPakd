@@ -5,6 +5,7 @@ import { CANONICAL_PLAYER_KEYS, compareStatDefs, comparePlayers } from '../../te
 import {
   axesComplete,
   axisDefs,
+  axisLabelLayout,
   axisOptions,
   cameraForKey,
   chart3dModel,
@@ -398,5 +399,29 @@ describe('chart3dModel', () => {
     const frozenPool = Object.freeze(pool.map((e) => Object.freeze({ ...e })))
     const sel = Object.freeze(['zp1'])
     expect(chart3dModel(frozenPool, axes, sel, DEFAULT_CAMERA, d3).ok).toBe(true)
+  })
+})
+
+describe('axisLabelLayout edge flipping', () => {
+  const side = (yaw: number, letter: string) =>
+    axisLabelLayout({ yaw, pitch: 0.3 }, defs3).find((l) => l.letter === letter)
+
+  test('a label near the left edge opens rightwards', () => {
+    const z = side(-1, 'Z')
+    expect(z?.left).toBeLessThan(40)
+    expect(z?.side).toBe('after')
+  })
+
+  test('a label near the right edge opens leftwards', () => {
+    const x = side(-1, 'X')
+    expect(x?.left).toBeGreaterThan(60)
+    expect(x?.side).toBe('before')
+  })
+
+  test('a centred label keeps its natural side', () => {
+    const z = side(0.5, 'Z')
+    expect(z?.left).toBeGreaterThanOrEqual(40)
+    expect(z?.left).toBeLessThanOrEqual(60)
+    expect(z?.side).toBe('before')
   })
 })
