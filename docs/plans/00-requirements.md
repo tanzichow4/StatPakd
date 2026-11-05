@@ -226,3 +226,230 @@ None blocking. Non-blocking, for the human to confirm later:
 2. Should the sort be reset to the default when the team changes as well (A2 keeps it, as the design
    does)?
 3. Is visually hidden "team leader" text (A7) wanted now, or deferred entirely to T18?
+
+---
+
+# T18 requirements: Responsive and accessibility pass
+
+Source ticket: `docs/tickets/T18-responsive-and-a11y.md` (its four acceptance criteria are the
+contract; the ACs below make them testable). Design reference: `design_handoff_statpakd/README.md`
+line 59 ("body rows wrap (sidebar above main on narrow), tables scroll horizontally").
+Carried-over items: `docs/progress.md` "Out-of-scope ideas" for T08, T12, T14, T16.
+
+Context found while reading the code (informs the ACs; not a design):
+- Views: Players compare and Teams compare (picker, sidebar, tabs Table / Bars / Radar / 3D, empty
+  state), Add popover open, add-stat menu open, Teams breakdown (chips, header card, share of
+  production, roster table) for each unit. `/dev` (DevPage) is a developer page, not a product view.
+- Text colour tokens in `web/src/styles/tokens.css` and their approximate contrast on white:
+  `--color-text-muted #7A7A75` ~4.3:1, `--color-text-label #8A8A85` ~3.5:1, `--color-text-faint
+  #9A9A95` ~2.8:1, `--color-text-na #B5B5B0` ~2.1:1 (all below the 4.5:1 AA threshold for their
+  11-15px sizes, and lower again on `#FAFAF8` header rows). So not only the two colours the ticket
+  names fail: the most widely used muted colour fails too. `TeamModeSwitch.module.css` also
+  hard-codes `#7a7a75`. `--color-nav-soon #6A6A66` on the dark nav is ~3.5:1 (used for the
+  disabled "Soon" leagues).
+- No live regions exist (`aria-live` / `role="status"` appear nowhere in `web/src`).
+- Controls smaller than 40px: `IconButton` 26x26 (entity remove ×), `EntityCard` 26px elements,
+  share segments 30px tall; others (checkbox rows, chips, segmented controls, tabs, selects) are not
+  yet measured.
+- Each share segment is its own Tab stop (`tabIndex={0}`), giving 27 Tab stops on mock offense.
+- Global `:focus-visible` outline is `2px solid #2F5FD0`; no rule removes outlines.
+- No axe tooling is installed; Vitest runs in jsdom, where axe's `color-contrast` rule cannot
+  compute rendered colours.
+
+## Goal
+
+Make every StatPakd view usable at 375px, 768px and 1280px widths and operable with keyboard and
+assistive technology, with no serious or critical axe issues. Contrast problems are fixed only where
+needed to pass, and every contrast decision is recorded in a docs file for later design sign-off.
+
+## Acceptance criteria
+
+Views and widths. Unless stated otherwise, "every view" means: (V1) Players compare with the
+default selection, on each tab Table, Bars, Radar and 3D; (V2) Teams compare, same four tabs;
+(V3) the empty state (no entities selected); (V4) Add popover open (Players, with position chips);
+(V5) add-stat menu open; (V6) Teams breakdown, Offense and Defense. "Checked widths" means 375x667,
+768x1024 and 1280x800 CSS px viewports.
+
+Responsive layout
+
+- AC1: For every view at every checked width, the page has no horizontal scroll
+  (`document.documentElement.scrollWidth <= clientWidth`). The compare table and roster table scroll
+  horizontally inside their own bordered containers, which stay keyboard focusable with an
+  accessible name.
+- AC2: At every checked width no text or control is clipped or overlaps another (verified in browser
+  QA by bounding boxes of headings, labels, buttons, chips, tabs and table containers), and the
+  sidebar sits above the main area at 375px as today.
+- AC3 (T08 carry-over): At 375x667 with the page scrolled to the top, opening the Add popover gives
+  a popover whose bounding box lies entirely inside the viewport; its results list scrolls inside the
+  popover and opening it does not increase the document height. At 1280x800 the popover keeps its
+  design size (360px wide, results max-height 340px).
+- AC4 (T12 carry-over): At 375px on the Teams radar with the default team stats, no two axis labels'
+  bounding boxes intersect, no axis label's bounding box contains an outer-ring vertex, and every
+  label is fully inside the chart box (no clipping).
+- AC5 (T14 carry-over): At 375px on the 3D tab (Players and Teams, default camera), every axis
+  label's bounding box is fully inside the chart card (none clipped by the card edge).
+
+Touch targets
+
+- AC6: At 375px and 768px, every interactive control (buttons including the entity remove ×, the
+  Add card, popover Add/Remove/Done, position chips, team chips, tabs, segmented controls, selects,
+  the search input, stat checkboxes via their clickable label, add-stat buttons and menu items,
+  roster sort buttons, nav controls) has an activating element whose border box is at least 40px
+  tall and at least 40px wide. Verified in browser QA by `getBoundingClientRect` on each control.
+  Exemptions (listed in the a11y doc with reasons): share-of-production segments (their width
+  encodes data) and the focusable scroll/chart regions (larger than 40px anyway).
+- AC7: At 1280px the visual sizes match the current design-sized controls (no regression for
+  desktop); any desktop control under 40px is listed in the a11y doc as a desktop exception.
+
+Keyboard
+
+- AC8: The full flow is operable with keyboard only, at 1280px and 375px: switch Players/Teams;
+  change season; open the Add popover, type a search, filter by a position chip, add an entity,
+  remove one from the popover, close with Done and with Escape; remove an entity with its card ×;
+  open the add-stat menu, add a stat, close with Escape; uncheck/check a stat; switch each chart
+  tab (arrow keys within the tablist); rotate the 3D chart with arrow keys and change an axis select;
+  switch to Team breakdown; pick a team chip; toggle Offense/Defense; inspect share segments; sort a
+  roster column both ways. Each step is covered by a component or App-level test using
+  `@testing-library/user-event` keyboard interactions only (no clicks), or by an existing test that
+  already does so (referenced in the plan).
+- AC9: Focus is never lost to `<body>` during that flow: closing the popover (Done or Escape)
+  returns focus to the Add card; closing the add-stat menu with Escape returns focus to its Add stat
+  button; removing an entity with its card × moves focus to the next card's remove button, else the
+  previous card's, else the Add card; removing an entity from inside the popover keeps focus in the
+  popover. Tests assert `document.activeElement` after each of these.
+- AC10: Tab order follows visual order at every checked width (DOM order matches visual order; no
+  positive `tabindex`; no CSS `order`/reverse that changes visible order of focusable items). No
+  focusable element is inside an `aria-hidden` subtree.
+- AC11 (T16 carry-over): Each share-of-production row is a single Tab stop. Within a focused row,
+  Left/Right arrows move between segments and Home/End go to the first/last segment; each segment
+  keeps its current accessible name. With mock offense data the share section contributes at most one
+  Tab stop per row (not 27 in total). Tests cover Tab count and arrow movement.
+- AC12 (T16 carry-over): When a share segment has keyboard focus, its tooltip is visible and its
+  horizontal centre lies within the focused segment's horizontal extent (clamped so the tooltip stays
+  inside the share card). Verified in browser QA; a component test asserts the tooltip belongs to
+  the focused segment.
+- AC13: Every focusable element shows a visible focus indicator on keyboard focus, and that indicator
+  has at least 3:1 contrast against the background it is drawn on (including the dark global nav).
+  Verified by browser QA screenshots of each control type and by the contrast test (AC18) for the
+  focus colour against the backgrounds it sits on.
+
+Labels, names and live regions
+
+- AC14: Every form control, button, tablist, region and table has an accessible name; icon-only
+  buttons are named by action and target (e.g. "Remove <entity name>"). Covered by the axe tests
+  (AC17).
+- AC15: A single polite live region (`role="status"` / `aria-live="polite"`) is present in the DOM
+  from first render (empty). Adding or removing an entity (from the popover or a card) and adding or
+  removing a stat (menu or checkbox) sets its text to a message containing the verb ("added" or
+  "removed", any capitalisation) and the entity name or stat label. Nothing is announced on initial
+  load, on season change or on kind switch. Component/App tests cover each of the four cases and the
+  no-announce cases. Messages use data-provided names only (no league literals in components).
+
+Series encoding (non-colour)
+
+- AC16: In every view where colour identifies a series (compare table header dots, bars, radar
+  polygons, 3D points, share segments, roster colour squares), the same series and its values are
+  available as text without relying on colour: a visible text label tied to the mark (entity name
+  in the table headers, bars, 3D readout/name tags, share legend and roster rows) and an accessible
+  text equivalent (existing radar sr-only list, share segment names, tables). A test per view asserts
+  that each selected entity's name appears in the accessible content of that view. Visual
+  non-colour encodings (dash patterns, marker shapes) are not implemented; they are written up as a
+  proposal in the a11y doc (AC19).
+
+Automated axe and contrast checks
+
+- AC17: An automated Vitest test runs axe-core against the rendered App for every view V1-V6 (at the
+  default jsdom size) and fails if any violation has impact "serious" or "critical". The
+  `color-contrast` rule is disabled in that test only because jsdom cannot compute it (stated in a
+  comment), and is covered by AC18 instead. The test lives with the other App tests and runs under
+  `npm test`.
+- AC18: A unit test computes WCAG contrast ratios for every text colour token (and hard-coded text
+  colour) actually used for text, against each background it is used on (at least white and
+  `--color-surface-subtle #FAFAF8`; dark nav surfaces for nav text), and asserts at least 4.5:1;
+  and the focus colour against its backgrounds at least 3:1. Disabled-control text (nav "Soon"
+  leagues, the locked last stat) is listed as an explicit, documented exemption in the test. The
+  test reads the real values (e.g. parses `tokens.css`) so it fails if a token regresses.
+- AC19: Browser QA (playwright-core scripts, as earlier tickets) runs axe-core with all rules,
+  including `color-contrast`, on every view at 375px and 1280px against the dev or preview build and
+  reports zero serious or critical violations; results are recorded in `docs/qa/T18-report.md`.
+
+Contrast decisions document
+
+- AC20: A file `docs/a11y.md` exists with (a) a contrast table: each text colour token or hard-coded
+  colour, where it is used, its measured ratio on each background before and after, and the
+  decision (changed to value X, or kept with reason), each marked "pending design sign-off"; (b) the
+  touch-target and other exemptions (AC6/AC7); (c) the non-colour series encoding proposal (AC16);
+  (d) the carried-over items from `docs/progress.md` and whether T18 fixed or deferred each.
+- AC21: Colours are changed only where needed to pass AC18/AC19. Each changed colour is the closest
+  value to the original (same hue, darkened only) that passes 4.5:1 on all its backgrounds; token
+  names stay the same; no other visual change is made for contrast reasons.
+
+Regressions and checks
+
+- AC22: No component gains league-specific names; `noLeagueLiterals` tests still pass. Existing
+  tests are not deleted or weakened; tests that pin a changed colour value or the old per-segment
+  Tab behaviour are updated to the new documented behaviour, each noted in the plan.
+- AC23: `npm run lint`, `npm run typecheck`, `npm test` and `npm run build` pass in `web/`. Python
+  checks (`ruff check .`, `pytest`) are unaffected and still pass.
+
+## Out of scope
+
+- Playwright test suite and CI job (T19); T18 browser checks are QA scripts, not committed e2e tests.
+- Visual fidelity against the design (T20), including chip shape/border (T15 carry-over) and the
+  T07 placeholder h1 note. T20 must treat the AC21 contrast changes as documented deviations.
+- 3D name-tag collision avoidance with 8 selected (T14 carry-over) and real-device drag performance;
+  deferred to T20 or a later ticket.
+- Implementing visual non-colour series encodings (dash patterns, shapes); proposal only (AC16).
+- Widths below 375px, 400% zoom reflow, `prefers-reduced-motion`, high-contrast/forced-colours modes,
+  and manual screen-reader testing on real devices.
+- The `/dev` page (developer-only).
+- Getting design sign-off on contrast changes (recorded as pending in `docs/a11y.md`).
+- League switching, new features, Python API changes.
+
+## Assumptions
+
+No human input was requested (unattended autobuild). Each default follows CLAUDE.md, `docs/plan.md`,
+`docs/progress.md` and the design handoff.
+
+- B1 (contrast without sign-off): the ticket asks for alternates plus design sign-off; sign-off is
+  unavailable, so colours are changed only where needed to pass axe serious/critical (WCAG AA 4.5:1
+  for text, all sizes here are under 18px), using the minimal darkening of the same hue, and every
+  decision is logged in `docs/a11y.md` as "pending design sign-off". This includes
+  `--color-text-muted #7A7A75` (~4.3:1), which the ticket did not name but which fails and would be
+  flagged by axe; the hard-coded `#7a7a75` in `TeamModeSwitch` follows the token.
+- B2 (N/A dash): the "—" N/A glyph is visible text conveying meaning, so `--color-text-na` must pass
+  4.5:1 like other text even though it is `aria-hidden` (the hidden "not applicable" text stays).
+- B3 (exemptions): text on disabled/inactive controls (nav "Soon" leagues, locked last stat) is
+  exempt per WCAG 1.4.3 and axe; unselected 3D points (`--color-chart-muted`) are de-emphasised
+  context marks, not text, and are documented rather than changed.
+- B4 (axe tooling): add `axe-core` (single package, no runtime deps) as a dev dependency, optionally
+  with a thin matcher such as `vitest-axe`; the planner chooses. If axe-core cannot run under the
+  repo's jsdom/Vitest versions, the fallback is AC19 browser axe only plus AC18, and the plan must
+  say so. Playwright itself is not added (T19 owns it); QA keeps using playwright-core scripts.
+- B5 (touch targets): the 40px rule applies at 375px and 768px (touch-likely widths); at 1280px the
+  design's sizes stay and under-40px controls are documented exceptions. Width media queries are used
+  because headless QA does not report a coarse pointer. Share segments are exempt (data marks).
+- B6 (carry-overs in scope): T08 popover height at 375px (AC3), T12 radar label overlap at 375px
+  (AC4), T14 3D axis labels clipped at 375px (AC5), T16 27 Tab stops (AC11, via one Tab stop per row
+  with arrow keys) and T16 keyboard tooltip anchor (AC12). Deferred: T14 name-tag collision with 8
+  selected and device performance (feature work, not a fix); T15 chip styling and T07 h1 (T20).
+- B7 (live region): one shared polite region for the app rather than one per component, so
+  announcements do not compete; message wording is the planner's choice within AC15. Entity
+  "full" (8 of 8) announcements are not required.
+- B8 (focus after card removal): next card, else previous card, else the Add card (common
+  list-removal pattern); the ticket does not specify.
+- B9 (non-colour encoding): text labels and accessible text equivalents satisfy WCAG 1.4.1 for
+  identification in these views; adding dash patterns or marker shapes is a design change needing
+  sign-off, so it is only proposed.
+- B10 (docs location): contrast and exemption decisions go in `docs/a11y.md`; the QA run goes in
+  `docs/qa/T18-report.md` like earlier tickets.
+- B11 (views for axe in jsdom): the App is rendered with the mock provider, as existing App tests do;
+  views are reached by dispatching user interactions, not by mocking components.
+
+## Open questions
+
+None blocking. Non-blocking, for the human/design to confirm later:
+1. Approve or replace the darkened values for `#7A7A75`, `#8A8A85`, `#9A9A95` and `#B5B5B0`
+   recorded in `docs/a11y.md` (B1).
+2. Should controls also meet 40px at 1280px, changing the desktop design (B5)?
+3. Adopt a visual non-colour series encoding (dash patterns or marker shapes) for radar and 3D (B9)?

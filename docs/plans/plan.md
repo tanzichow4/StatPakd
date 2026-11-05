@@ -1,481 +1,492 @@
-# Plan: T17 Sortable roster table
+# Plan: T18 Responsive and accessibility pass
 
-Source: `docs/tickets/T17-roster-table.md`. The contract is `docs/plans/00-requirements.md`:
-AC1 to AC27 and assumptions A1 to A14. This plan runs without stopping for approval. The defaults
-for the three non-blocking questions apply: the optional `StatDef` percentage field is accepted,
-changing team keeps the sort, and visually hidden "team leader" text is included.
+Source: `docs/tickets/T18-responsive-and-a11y.md`. The contract is the T18 section of
+`docs/plans/00-requirements.md`: AC1 to AC23 and assumptions B1 to B11. This is an unattended
+autobuild run, so the plan does not wait for approval. The B-assumptions are the defaults for the
+non-blocking questions. This plan adds one AC (AC24, marked below), because the contrast audit
+found a real gap.
 
 ## 1. Goal and out of scope
 
-Goal: in Team breakdown mode, below the share-of-production section, show a "Roster" table of the
-selected team's players for the selected unit. It has one column per non-extra roster stat, sorts by
-column header (descending first, then ascending), shows a mini bar in percentage columns and a black
-pill on each column's team leader. The single Offense/Defense toggle drives both sections, and
-columns, labels and formatting come from the DataProvider's roster unit definitions, so components
-stay league-agnostic.
+Goal: make every StatPakd view usable at 375px, 768px and 1280px widths and operable with keyboard
+and assistive technology, with no serious or critical axe issues. Change colours only where that is
+needed to pass, and record every contrast decision in `docs/a11y.md` for later design sign-off.
 
-Out of scope (from the requirements):
-- Changes to the share-of-production section, the unit toggle look, team chips or the header card.
-- Changes to the reducer semantics of `sortRoster`/`setUnit`, and keeping a separate sort per unit.
-- Sorting by Player, multi-column sort, and `lowerIsBetter`-aware leaders.
-- Sticky header or first column, row hover or selection, opening a player by clicking a row.
-- `extra` stats as columns, and a column picker.
-- Responsive and a11y polish beyond AC20/AC23 (T18), e2e (T19), pixel fidelity (T20), the "Sample
-  data" footer, and the Python API serving the new `StatDef` field (T22).
-- Animations of sorting or bars.
+Out of scope (carried over from the requirements):
+- A Playwright test suite and CI job (T19). T18 browser checks are playwright-core QA scripts kept
+  in the scratchpad, not committed e2e tests. Playwright is not added.
+- Visual fidelity against the design (T20), including T15 chip shape/border and the T07 h1 note.
+- 3D name-tag collision with 8 selected, and real-device drag performance (T14 carry-over).
+- Implementing visual non-colour series encodings (dash patterns, shapes). These are a proposal only.
+- Widths below 375px, 400% zoom reflow, `prefers-reduced-motion`, forced-colours modes, and manual
+  screen-reader testing on real devices.
+- The `/dev` page, getting design sign-off, league switching, new features, Python API changes.
 
 ## 2. Acceptance criteria (copied from 00-requirements.md, same numbers)
 
-Sort function (pure)
-- AC1: A pure, exported sort function takes a roster (`RosterEntry[]`), a stat key and a direction
-  (`-1` descending, `1` ascending) and returns a new array; the input array and entries are not
-  mutated.
-- AC2: Entries with a numeric value for the key are ordered by value in the given direction.
-- AC3: Entries whose value is `null`, missing (key absent) or not finite (`NaN`, `Infinity`) are
-  placed after all numeric entries in both directions, keeping their original relative order.
-- AC4: Ties (equal values) keep their original roster order in both directions (ascending is not a
-  reversal of descending for tied entries).
-- AC5: An empty roster returns `[]`; a key that no entry has returns the roster in original order.
-  Unit tests cover AC1-AC5, including a mixed case such as values `[3, null, 5, 3, undefined, 5]`
-  -> desc order by index `[2, 5, 0, 3, 1, 4]`, asc `[0, 3, 2, 5, 1, 4]`.
+Views and widths. Unless stated otherwise, "every view" means: (V1) Players compare with the
+default selection, on each tab Table, Bars, Radar and 3D; (V2) Teams compare, same four tabs;
+(V3) the empty state (no entities selected); (V4) Add popover open (Players, with position chips);
+(V5) add-stat menu open; (V6) Teams breakdown, Offense and Defense. "Checked widths" means 375x667,
+768x1024 and 1280x800 CSS px viewports.
 
-Data contract (percentage marker)
-- AC6: A stat definition can be marked as a 0-100 percentage through one new optional `StatDef`
-  field (see A3). For a percentage stat, cells show the formatted value followed by `%` (e.g.
-  "87%") and include the mini bar (AC17). For the mock NFL league, `snap` is marked as a percentage
-  in both units and no other roster stat is; a data-layer test asserts this. No other provider
-  method or type changes; existing provider/contract tests still pass.
+Responsive layout
+- AC1: For every view at every checked width, the page has no horizontal scroll
+  (`document.documentElement.scrollWidth <= clientWidth`). The compare table and roster table scroll
+  horizontally inside their own bordered containers, which stay keyboard focusable with an
+  accessible name.
+- AC2: At every checked width no text or control is clipped or overlaps another (verified in browser
+  QA by bounding boxes of headings, labels, buttons, chips, tabs and table containers), and the
+  sidebar sits above the main area at 375px as today.
+- AC3 (T08 carry-over): At 375x667 with the page scrolled to the top, opening the Add popover gives
+  a popover whose bounding box lies entirely inside the viewport; its results list scrolls inside the
+  popover and opening it does not increase the document height. At 1280x800 the popover keeps its
+  design size (360px wide, results max-height 340px).
+- AC4 (T12 carry-over): At 375px on the Teams radar with the default team stats, no two axis labels'
+  bounding boxes intersect, no axis label's bounding box contains an outer-ring vertex, and every
+  label is fully inside the chart box (no clipping).
+- AC5 (T14 carry-over): At 375px on the 3D tab (Players and Teams, default camera), every axis
+  label's bounding box is fully inside the chart card (none clipped by the card edge).
 
-Placement and structure
-- AC7: In Teams + breakdown mode, below the share-of-production legend, a roster section renders
-  with an `h2` "Roster" (18px/600), the table, and below the table the caption text
-  "Click a column to sort · Black = team leader" (12px, `#7A7A75`; `·` is U+00B7). Vertical gap
-  between heading, table and caption is 8px.
-- AC8: The roster section is not rendered in compare mode or Players mode, nor when the header card
-  is not rendered (T15 cases), nor while the unit definitions or roster are loading, nor if either
-  load fails, nor when `state.unit` matches no unit (same rules as T16 AC27/AC28). Nothing throws and
-  no error text is required.
-- AC9: The table is a semantic table (table / column headers / row headers / cells exposed with the
-  matching ARIA roles, as T10's compare table) with an accessible name that identifies it as the
-  roster (e.g. "Roster"), and the caption text is associated with it as its description.
-- AC10: Columns are, in order: a "Player" column, then one column per stat definition of the selected
-  unit that is not `extra`, in definition order, headed by the definition's `label`. For the mock
-  data: Offense "Snap %", "Touches", "Targets", "Scrim Yds", "TD", "Yds / Touch"; Defense "Snap %",
-  "Tackles", "Sacks", "INT", "Pass Def", "Forced Fum" (Takeaways is not a column).
-- AC11: One body row per roster entry of the selected unit, ordered by the sort function (AC1-AC5)
-  using `state.tSort.k` and `state.tSort.d`. If `state.tSort.k` is not one of the visible stat
-  columns, rows are in roster order and no column is marked sorted.
+Touch targets
+- AC6: At 375px and 768px, every interactive control (buttons including the entity remove ×, the
+  Add card, popover Add/Remove/Done, position chips, team chips, tabs, segmented controls, selects,
+  the search input, stat checkboxes via their clickable label, add-stat buttons and menu items,
+  roster sort buttons, nav controls) has an activating element whose border box is at least 40px
+  tall and at least 40px wide. Verified in browser QA by `getBoundingClientRect` on each control.
+  Exemptions (listed in the a11y doc with reasons): share-of-production segments (their width
+  encodes data) and the focusable scroll/chart regions (larger than 40px anyway).
+- AC7: At 1280px the visual sizes match the current design-sized controls (no regression for
+  desktop); any desktop control under 40px is listed in the a11y doc as a desktop exception.
 
-Headers and sorting
-- AC12: Each stat column header contains a button whose accessible name is the column label (the
-  arrow glyph is hidden from assistive technology). The "Player" header is not a button and is not
-  sortable.
-- AC13: The column header (`columnheader`) of the sorted column has `aria-sort="descending"` when
-  `tSort.d` is `-1` and `aria-sort="ascending"` when it is `1`; every other stat column header has
-  `aria-sort="none"`. The Player header has no `aria-sort`.
-- AC14: Visually, the sorted column's header shows its label followed by `↓` (descending) or `↑`
-  (ascending) in `#111`; unsorted headers show no arrow in `#7A7A75`.
-- AC15: Clicking (or activating with Enter/Space) an unsorted column's header sorts by that column
-  descending; clicking the sorted column's header flips the direction (desc -> asc -> desc ...). This
-  uses the existing `sortRoster` action.
-- AC16: Switching the unit with the shared Offense/Defense toggle (the one in the share section; there
-  is only one toggle on the page) switches the table's columns and rows to that unit and resets the
-  sort to the league's default sort key, descending (mock data: "Snap %" desc), even if another
-  column or ascending order was active. Clicking the already-active unit changes nothing (sort is
-  kept). Changing the team chip or season keeps the current sort and reloads the rows.
+Keyboard
+- AC8: The full flow is operable with keyboard only, at 1280px and 375px: switch Players/Teams;
+  change season; open the Add popover, type a search, filter by a position chip, add an entity,
+  remove one from the popover, close with Done and with Escape; remove an entity with its card ×;
+  open the add-stat menu, add a stat, close with Escape; uncheck/check a stat; switch each chart
+  tab (arrow keys within the tablist); rotate the 3D chart with arrow keys and change an axis select;
+  switch to Team breakdown; pick a team chip; toggle Offense/Defense; inspect share segments; sort a
+  roster column both ways. Each step is covered by a component or App-level test using
+  `@testing-library/user-event` keyboard interactions only (no clicks), or by an existing test that
+  already does so (referenced in the plan).
+- AC9: Focus is never lost to `<body>` during that flow: closing the popover (Done or Escape)
+  returns focus to the Add card; closing the add-stat menu with Escape returns focus to its Add stat
+  button; removing an entity with its card × moves focus to the next card's remove button, else the
+  previous card's, else the Add card; removing an entity from inside the popover keeps focus in the
+  popover. Tests assert `document.activeElement` after each of these.
+- AC10: Tab order follows visual order at every checked width (DOM order matches visual order; no
+  positive `tabindex`; no CSS `order`/reverse that changes visible order of focusable items). No
+  focusable element is inside an `aria-hidden` subtree.
+- AC11 (T16 carry-over): Each share-of-production row is a single Tab stop. Within a focused row,
+  Left/Right arrows move between segments and Home/End go to the first/last segment; each segment
+  keeps its current accessible name. With mock offense data the share section contributes at most one
+  Tab stop per row (not 27 in total). Tests cover Tab count and arrow movement.
+- AC12 (T16 carry-over): When a share segment has keyboard focus, its tooltip is visible and its
+  horizontal centre lies within the focused segment's horizontal extent (clamped so the tooltip stays
+  inside the share card). Verified in browser QA; a component test asserts the tooltip belongs to
+  the focused segment.
+- AC13: Every focusable element shows a visible focus indicator on keyboard focus, and that indicator
+  has at least 3:1 contrast against the background it is drawn on (including the dark global nav).
+  Verified by browser QA screenshots of each control type and by the contrast test (AC18) for the
+  focus colour against the backgrounds it sits on.
 
-Cells
-- AC17: Stat cells are right aligned. The value text uses `formatStat` with the column's definition
-  (en-US grouping, `decimals` honoured, e.g. Yds / Touch "4.8"), with `%` appended for percentage
-  stats (AC6). `null` or missing values show "—" and are never shown as "0", "NaN", "null" or
-  "undefined".
-- AC18: Percentage-stat cells show, below the value, a 72x4 mini bar (radius 2, track `#EDEDE9`,
-  fill `#111`) whose fill width is the value as a percentage, clamped to 0-100. A `null`/missing
-  value shows an empty track. The bar is decorative (hidden from assistive technology). Non-percentage
-  cells have no bar.
-- AC19: Team leader: in each stat column, every entry whose value equals the column's maximum
-  value among the unit's roster, and is greater than 0, shows its value in a black pill (background
-  `#111`, white text, padding 2px 8px, radius 5); all tied leaders get the pill. A column whose values
-  are all `null`/missing/0 or negative has no pill. A one-player roster with a positive value gets
-  the pill. Leaders do not depend on the sort order.
-- AC20: Each leader cell also exposes that it is the team leader to assistive technology (for example
-  visually hidden text "team leader"), so the meaning is not conveyed by colour alone.
-- AC21: The Player cell (a row header) shows a 10x10 colour square (radius 2) in the player's legend
-  colour (`seriesColor` of the player's index in the unsorted roster, so it matches the share legend
-  regardless of sort), the full name (14px/600, no wrapping) and below it the meta line
-  `` `${position} · #${number}` `` (12px, `#7A7A75`); when `number` is absent the meta line is just
-  the position.
+Labels, names and live regions
+- AC14: Every form control, button, tablist, region and table has an accessible name; icon-only
+  buttons are named by action and target (e.g. "Remove <entity name>"). Covered by the axe tests
+  (AC17).
+- AC15: A single polite live region (`role="status"` / `aria-live="polite"`) is present in the DOM
+  from first render (empty). Adding or removing an entity (from the popover or a card) and adding or
+  removing a stat (menu or checkbox) sets its text to a message containing the verb ("added" or
+  "removed", any capitalisation) and the entity name or stat label. Nothing is announced on initial
+  load, on season change or on kind switch. Component/App tests cover each of the four cases and the
+  no-announce cases. Messages use data-provided names only (no league literals in components).
 
-Layout and styling
-- AC22: The table sits in a container with a 1px `#E6E6E3` border and radius 12. At desktop widths
-  each row is a grid of `minmax(220px, 1.6fr)` followed by one `minmax(96px, 1fr)` per stat column,
-  with a table minimum width of 820px. Header row: background `#FAFAF8`, bottom border `#E6E6E3`,
-  header cells padding `12px 18px`, 11px/600 uppercase, letter-spacing .08em. Body rows: bottom border
-  `#F0F0ED`, player cell padding `10px 18px`, stat cell padding `8px 18px`, value Geist Mono 15/500.
-- AC23: At a 375px viewport the page has no horizontal scroll: the table scrolls horizontally inside
-  its bordered container (keyboard focusable scroll region with an accessible name, as T10), and the
-  heading and caption stay within the viewport.
+Series encoding (non-colour)
+- AC16: In every view where colour identifies a series (compare table header dots, bars, radar
+  polygons, 3D points, share segments, roster colour squares), the same series and its values are
+  available as text without relying on colour: a visible text label tied to the mark (entity name
+  in the table headers, bars, 3D readout/name tags, share legend and roster rows) and an accessible
+  text equivalent (existing radar sr-only list, share segment names, tables). A test per view asserts
+  that each selected entity's name appears in the accessible content of that view. Visual
+  non-colour encodings (dash patterns, marker shapes) are not implemented; they are written up as a
+  proposal in the a11y doc (AC19).
 
-League-agnosticism and regressions
-- AC24: No component, hook or model added or changed by T17 contains league-specific names or stat
-  keys (`snap`, `off`, `def`, "Snap %", "Offense", player names, "NFL", etc.); the `noLeagueLiterals`
-  tests still pass. The percentage behaviour, column set and labels come only from the stat
-  definitions.
-- AC25: T16 behaviour (share rows, legend, toggle) is unchanged; existing tests are not deleted or
-  weakened.
+Automated axe and contrast checks
+- AC17: An automated Vitest test runs axe-core against the rendered App for every view V1-V6 (at the
+  default jsdom size) and fails if any violation has impact "serious" or "critical". The
+  `color-contrast` rule is disabled in that test only because jsdom cannot compute it (stated in a
+  comment), and is covered by AC18 instead. The test lives with the other App tests and runs under
+  `npm test`.
+- AC18: A unit test computes WCAG contrast ratios for every text colour token (and hard-coded text
+  colour) actually used for text, against each background it is used on (at least white and
+  `--color-surface-subtle #FAFAF8`; dark nav surfaces for nav text), and asserts at least 4.5:1;
+  and the focus colour against its backgrounds at least 3:1. Disabled-control text (nav "Soon"
+  leagues, the locked last stat) is listed as an explicit, documented exemption in the test. The
+  test reads the real values (e.g. parses `tokens.css`) so it fails if a token regresses.
+- AC19: Browser QA (playwright-core scripts, as earlier tickets) runs axe-core with all rules,
+  including `color-contrast`, on every view at 375px and 1280px against the dev or preview build and
+  reports zero serious or critical violations; results are recorded in `docs/qa/T18-report.md`.
 
-Tests
-- AC26: Unit tests for the sort function cover AC1-AC5. A data-layer test covers AC6 (and that the
-  non-extra NFL defs give the AC10 column sets). Component tests (Vitest + Testing Library, invented
-  fixture units, stats and roster including `null` values, a tie and a percentage stat) cover:
-  column set and order with an `extra` stat excluded (AC10), sort toggle desc -> asc -> desc on one
-  column and switching column back to desc (AC13-AC15), arrows (AC14), `aria-sort` values (AC13),
-  nulls last in both directions and stable ties in the rendered rows (AC3/AC4/AC11), unit switch
-  resetting the sort (AC16), leader pill including tied leaders and an all-null/zero column (AC19,
-  AC20), "—" for null (AC17), mini bar presence and width (AC18), player colour independent of sort
-  (AC21), unknown sort key (AC11), and loading/failure/unknown unit rendering nothing (AC8).
-- AC27: `npm run lint`, `npm run typecheck`, `npm test` and `npm run build` pass in `web/`.
+Contrast decisions document
+- AC20: A file `docs/a11y.md` exists with (a) a contrast table: each text colour token or hard-coded
+  colour, where it is used, its measured ratio on each background before and after, and the
+  decision (changed to value X, or kept with reason), each marked "pending design sign-off"; (b) the
+  touch-target and other exemptions (AC6/AC7); (c) the non-colour series encoding proposal (AC16);
+  (d) the carried-over items from `docs/progress.md` and whether T18 fixed or deferred each.
+- AC21: Colours are changed only where needed to pass AC18/AC19. Each changed colour is the closest
+  value to the original (same hue, darkened only) that passes 4.5:1 on all its backgrounds; token
+  names stay the same; no other visual change is made for contrast reasons.
 
-Added: none. One near-gap is handled as a rule inside the existing ACs, not as a new behaviour:
-`formatStat(NaN)` returns "NaN" and `formatStat(Infinity)` returns "∞". The model therefore treats
-any non-finite value as missing for display, bar and leader as well as for sorting (consistent with
-AC3 and AC17). Tested in T2.
+Regressions and checks
+- AC22: No component gains league-specific names; `noLeagueLiterals` tests still pass. Existing
+  tests are not deleted or weakened; tests that pin a changed colour value or the old per-segment
+  Tab behaviour are updated to the new documented behaviour, each noted in the plan.
+- AC23: `npm run lint`, `npm run typecheck`, `npm test` and `npm run build` pass in `web/`. Python
+  checks (`ruff check .`, `pytest`) are unaffected and still pass.
+
+Added by the planner
+- AC24 (ADDED, gap found while re-measuring contrast): The percentage text drawn inside a
+  share-of-production segment (`ShareRow`, white 11px text on `var(--series-N)`) meets 4.5:1 against
+  its segment colour. Today, white text fails on 5 of the 8 series colours (2.60 to 4.19:1, see
+  section 5). The fix chooses the text colour per series index: white where white passes, otherwise
+  `--color-ink`. Series colours do not change. The AC18 test covers all 8 pairs. Reason: AC19 runs
+  `color-contrast` in the browser and would fail on these segments. The aria-hidden text is still
+  visible text (the same reasoning as B2). This is a deliberate exception to AC21's "darken the same
+  hue" rule, because white text cannot be darkened while staying white. It is logged in
+  `docs/a11y.md` as "pending design sign-off" and listed as open question 1.
 
 ## 3. Architecture
 
-Approach: same pattern as T15/T16, with a pure model and thin components. There is one additive
-optional `StatDef` field and no reducer, provider-method or hook change. All new UI lives in
-`web/src/components/teams/`, which is already scanned for league literals. The sort state is the
-global `state.tSort`, changed through the existing `sortRoster`/`setUnit` actions (A2).
+Approach: a CSS and component pass, with no state-shape or DataProvider changes. Most fixes are
+local CSS (tokens, touch-target media rules), plus four small behaviours: the announcer, roving
+focus in the share row, the tooltip anchor, and the compact radar/3D label geometry.
 
-Domain, `web/src/domain/types.ts`
-- `StatDef.percent?: boolean`, doc comment: "True when the value is a 0-100 percentage: the roster
-  table appends `%` and shows a mini bar." Name chosen per A3 (short, boolean, mirrors `extra`).
+Components and where they live:
+- `web/src/lib/contrast.ts` (new): pure `parseHex`, `relativeLuminance`, `contrastRatio`, with
+  unit tests in `contrast.test.ts`.
+- `web/src/styles/contrast.test.ts` (new): reads `tokens.css?raw` and module CSS files with `?raw`
+  (the existing pattern used by `App.nav.test.tsx` and `CompareTable.test.tsx`). It holds a declared
+  table of {foreground, background, use, min ratio} and an explicit exemption list (AC18, AC24).
+- `web/src/styles/series.ts`: add `seriesTextColor(index)` returning `var(--color-white)` for series
+  1, 3 and 6 and `var(--color-ink)` for 2, 4, 5, 7 and 8. It wraps like `seriesColor` (AC24).
+- `web/src/components/a11y/` (new folder): `Announcer.tsx` (`AnnouncerProvider`, which renders one
+  visually hidden `<div role="status" aria-live="polite">`), `useAnnounce.ts` (returns `announce(msg)`,
+  or a no-op outside the provider so existing component tests are unaffected), `index.ts`,
+  `Announcer.test.tsx`, and `noLeagueLiterals.test.ts`. If a message repeats the previous one, a
+  zero-width space is appended so screen readers announce it again. The provider is mounted in
+  `App.tsx` inside `AppStateProvider`, around `GlobalNav` and `AppMain`.
+- Announcement call sites, so that only user actions announce (never effects on state): in
+  `EntityPicker.tsx`, `toggleFromPopover` and `removeCard` announce `${entity.name} added` or
+  `${entity.name} removed`. In the sidebar (`StatSidebar.tsx` / `StatGroup.tsx`), the menu pick and
+  the checkbox change announce `${def.label} added` or `${def.label} removed`. Season change and kind
+  switch have no call site, so they announce nothing.
+- `web/src/lib/useMediaQuery.ts` (new): `useMediaQuery(query)` built on `matchMedia`. It returns
+  false when `window.matchMedia` is missing (jsdom), so existing tests keep the desktop geometry.
+- `radarModel.ts`: optional geometry override `{ r, labelT }`. `RadarChart.tsx` passes the compact
+  geometry when `useMediaQuery('(max-width: 480px)')` is true (AC4).
+- `chart3dModel.ts`: `axisLabelLayout` gains edge handling. A label anchored near the left edge
+  never extends leftwards and one near the right edge never extends rightwards (it flips
+  before/after). `Chart3D.module.css` gets a narrow rule for label size and wrapping (AC5).
+- `ShareRow.tsx`: roving tabindex (only the active segment has `tabIndex=0`) and an `onKeyDown` on
+  the group for ArrowLeft, ArrowRight, Home and End. The tooltip `left` is computed from the focused
+  segment's `offsetLeft + offsetWidth/2` and clamped by a pure `tooltipLeft(centre, tipWidth,
+  wrapWidth)` in `shareModel.ts` (AC11, AC12). The segment text colour comes from
+  `seriesTextColor(i)`, added to the `ShareSegment` model next to `color`.
+- `AddPopover.module.css`: a narrow rule `@media (max-width: 479px)` makes the popover a fixed sheet
+  (`position: fixed; top/left/right: 8px; width: auto; max-height: calc(100dvh - 16px)`). It is a
+  flex column, so `.results` is `flex: 1 1 auto; min-height: 0` and scrolls. Above 479px nothing
+  changes (360px wide, results max-height 340px). The inline `left: -shiftLeft` (pinned by the
+  existing AC35 test) is overridden in the narrow rule only, with `left: 8px !important` and a
+  comment explaining why (AC3).
+- Touch targets: each control's module CSS gets a `@media (max-width: 1023px)` block, placed after
+  its base rules, setting `min-height: 40px; min-width: 40px` (and inline-flex centring where
+  needed). Placing these blocks after the base rules matters, because `App.nav.test.tsx` and
+  `CompareTable.test.tsx` regex-match the first `.dark {` / `.scroll {` block. `tokens.css` gets a
+  comment documenting the 40px / 1023px convention. CSS variables cannot be used in media
+  conditions, so the value is repeated.
 
-NFL data, `web/src/data/nfl/rosterUnits.ts`
-- `snap` gains `percent: true` in `off` and `def`. Nothing else changes.
+Data and API changes: none. No env vars, no Python changes.
 
-Single roster load (A8): one load is shared with the share section, and `ShareOfProduction`'s
-existing props and T16 output stay the same.
-- `ShareOfProduction` gains one optional prop
-  `renderAfter?: (unit: RosterUnitDef, roster: RosterEntry[]) => ReactNode`. Inside the existing
-  `unit && roster` condition it renders `renderAfter(unit, roster)` as a sibling after its
-  `<section>`, wrapped in a fragment. If the prop is absent the output is identical to T16, so all
-  `ShareOfProduction.test.tsx` cases stay untouched.
-- `TeamBreakdown` passes
-  `renderAfter={(unit, roster) => <RosterSection unit={unit} roster={roster} />}`.
-- Result: `getRoster` is still called once per team/unit/season. Both sections always show the same
-  roster and appear on the same render. AC8's loading, failure and unknown-unit rules come for free
-  from the existing `unit && roster` gate, and compare, Players and no-card cases come from
-  `TeamBreakdown`.
-- Rejected alternative: a second `useRoster` call inside `RosterSection`. It is simpler, but it
-  doubles provider calls, lets the two sections briefly show different loads, and would force a
-  rewrite of the T16 "called once" assertion.
-
-Pure model, `web/src/components/teams/rosterModel.ts` (no React)
-- `finiteValue(v: StatValue | undefined): number | null` returns `v` when it is a finite number,
-  otherwise `null`.
-- `sortRosterEntries(roster: readonly RosterEntry[], key: string, dir: SortDir): RosterEntry[]`
-  (AC1-AC5). It splits the entries into numeric and non-numeric while keeping their order. The
-  numeric entries are sorted on a copy of `{ entry, i, v }` with the comparator
-  `dir * (a.v - b.v) || a.i - b.i`, and the non-numeric entries are appended in original order.
-  Entries are returned by reference and never cloned or mutated. `SortDir` is imported from
-  `state/appState` (type only) or redeclared as `-1 | 1`.
-- `tableColumns(unit: RosterUnitDef): StatDef[]` returns the non-`extra` defs in definition order
-  (AC10).
-- `columnLeaders(roster, def): Set<EntityId>`. It takes the max of the finite values; when the
-  max is above 0, every id whose value equals the max is a leader, otherwise the set is empty
-  (AC19, A6).
-- `cellText(v, def)` returns `NULL_PLACEHOLDER` when the value is not finite, otherwise
-  `formatStat(v, def)` plus `%` if `def.percent` (AC17).
-- `barPercent(v)` returns 0 when the value is not finite, otherwise the value clamped to 0..100
-  (AC18).
-- `playerMeta(entry)` returns `` `${position} · #${number}` ``, or just `position` when `number` is
-  `undefined` (AC21).
-- `buildRosterTable(unit, roster, sort: { k, d })` returns `{ columns, rows }`.
-  - `columns: { key, label, percent, ariaSort: 'descending' | 'ascending' | 'none', arrow: '↓' |
-    '↑' | null }[]`. Only the column with `key === sort.k` is sorted. If no column matches, every
-    column is `none` with no arrow (AC11, AC13, AC14).
-  - `rows: { id, name, meta, color, cells: { key, text, leader: boolean, bar: number | null }[] }[]`.
-    The colour is `seriesColor(indexInUnsortedRoster)` (AC21) and leaders come from the unsorted
-    roster (AC19). `bar` is `null` for non-percent columns. Rows are sorted with
-    `sortRosterEntries` only when `sort.k` is a visible column, otherwise they keep roster order
-    (AC11).
-
-Components, `web/src/components/teams/`
-- `RosterTable.tsx` + `RosterTable.module.css` (presentational). Props: `columns`, `rows`,
-  `labelledBy`, `describedBy`, `onSort(key)`.
-  - Outer `div.frame` (border, radius 12, `overflow-x: auto`, `max-width: 100%`). It is also the
-    scroll region: `role="region"`, `aria-label="Roster table"`, `tabIndex={0}`, with the same oxlint
-    disable comment as CompareTable. It is a `div`, not a `section`, so it adds no `<section>`
-    element.
-  - `<table role="table" aria-labelledby={labelledBy} aria-describedby={describedBy}
-    style={{ minWidth: 820 }}>`. Explicit row, rowgroup, columnheader, rowheader and cell roles are
-    set, as in CompareTable, because grid display strips the native roles. Grid template is
-    `minmax(220px, 1.6fr) repeat(n, minmax(96px, 1fr))` via inline style.
-  - Player header: `<th role="columnheader" scope="col">Player</th>`, with no button and no
-    `aria-sort` (AC12, AC13).
-  - Stat header: `<th role="columnheader" scope="col" aria-sort={col.ariaSort}>` containing
-    `<button type="button" onClick={() => onSort(col.key)}>{label}<span aria-hidden="true">
-    {arrow}</span></button>`. The arrow span renders only when `arrow` is set. The sorted state
-    gets a `.sorted` class (`#111`), the unsorted state uses `#7A7A75`. The button is a reset
-    button inheriting the header font and gets a `:focus-visible` ring (AC12-AC15, A5, A14).
-  - Row header cell: a swatch `span` (`aria-hidden`, 10x10, radius 2, background colour), the name
-    (14px/600, `white-space: nowrap`) and the meta line (12px, `#7A7A75`) (AC21).
-  - Stat cell, right aligned:
-    - The value is a mono span. A leader value goes inside a `.leader` pill span (`#111`, white,
-      `2px 8px`, radius 5) followed by `<span className={srOnly}> team leader</span>` (AC19,
-      AC20).
-    - When `bar !== null`, a `.bar` track (72x4, radius 2, `#EDEDE9`, `aria-hidden="true"`) with a
-      `.fill` child (`#111`, `width: ${bar}%`) follows (AC18).
-    - `srOnly` uses the CompareTable visually hidden rule.
-  - The ui `Pill` is not reused: its padding and radius (3px 9px, 6) differ from AC19.
-- `RosterSection.tsx` + `RosterSection.module.css` (container). Props: `unit`, `roster`. It reads
-  `state.tSort` and `dispatch` via `useAppState`.
-  - Builds the model with `useMemo(buildRosterTable(unit, roster, state.tSort))`. `onSort`
-    dispatches `{ type: 'sortRoster', key }` (AC15).
-  - Renders `<section aria-labelledby={headingId}>` containing the `h2` "Roster", the
-    `RosterTable`, and `<p id={captionId}>Click a column to sort · Black = team leader</p>`. It uses
-    a flex column with an 8px gap and `min-width: 0`, so the section never widens the page (AC7,
-    AC23).
-- `index.ts`: export `RosterSection` if the folder's index exports siblings.
-
-Dependencies, config and env: none new, and `.env` is not touched. The only contract change is the
-optional `StatDef.percent`, which T22 inherits.
+Dependencies: add `axe-core` as a web dev dependency (single package, no runtime dependencies,
+MPL-2.0). It serves both the jsdom test (AC17) and the browser QA injection
+(`page.addScriptTag({ path: require.resolve('axe-core/axe.min.js') })`, AC19). No matcher package:
+a 15-line helper filters by impact, which avoids version coupling with Vitest 5. B4 fallback: if
+`axe.run` cannot complete under jsdom 29 / Vitest 5 (it throws, hangs past 30s, or reports
+jsdom-only false positives that cannot be fixed by configuration), AC17 is replaced by AC19 (browser
+axe, all rules) plus AC18. The helper and smoke test are removed, `axe-core` stays for QA, and the
+decision is recorded in `docs/a11y.md` and `docs/progress.md`.
 
 ## 4. Design
 
-User flow: in Teams + breakdown the page shows the chips, the card and "Share of team production"
-with its legend, then "Roster". The table lists the offense roster sorted by "Snap % ↓". Each Snap
-% cell shows "87%" over a thin bar, and the top value in each column sits in a black pill. Clicking
-"Touches" sorts by Touches descending, and clicking it again sorts ascending with "↑". Players
-without a value stay at the bottom both ways. Clicking Defense in the share toggle swaps both
-sections, and the table resets to "Snap % ↓". Changing the team or season reloads the rows and keeps
-the current sort.
+User flow: unchanged. Users see these changes:
+- At 375 and 768px, controls grow to 40px targets.
+- At 375px, the Add popover opens as a sheet pinned to the top of the viewport.
+- Muted grey text is slightly darker.
+- Some share segments use dark percentage text.
+- Share rows are a single Tab stop, and arrow keys move between segments.
+- The share tooltip sits over the focused segment.
+- Screen readers hear "<name> added/removed".
 
-States
-- Compare mode, Players mode, teams loading or failed, or unknown team: no card, so no share or
-  roster section (AC8).
-- Unit defs loading or failed: no share section, so no roster section (AC8).
-- Roster loading or failed: the share header and toggle only, with no roster section (AC8).
-- Unknown `state.unit`: there is no unit, so no roster section and no `getRoster` call (AC8).
-- Empty roster: the header row shows with no body rows and no pills (A13).
-- Unknown `tSort.k` (for example the fixture default `zscore`): rows stay in roster order, every
-  header is `none` and no arrow shows (AC11).
-- Success: sorted rows, leaders, bars and the caption (AC10-AC21).
-- Superseded loads: the existing `useRoster` stale guard returns `null`, so neither section shows
-  old data.
+States:
+- Loading: the existing loading states keep their text. The live region is empty and announces
+  nothing on load (AC15).
+- Empty: V3 (no entities) must pass axe and AC1/AC6. Empty popover results ("No matches") use the
+  darkened muted colour. A zero-total share row has no segments, so it has no Tab stop (existing
+  AC19 test).
+- Error: no new error states. The announcer never throws: outside the provider it is a no-op.
+- Success: as today, plus announcements.
 
-Desktop (1280px): the full grid fits without scrolling (220 + 6 x 96 = 796 min, 820 min table, wider
-container). Header row background `#FAFAF8`. Cell paddings, borders and fonts follow AC22, using
-existing CSS tokens where they exist (ink, muted, border, mono font).
+Widths:
+- 375px: sidebar above main (unchanged). Popover as a fixed sheet. Compact radar geometry. 3D labels
+  flip and wrap. 40px targets. Tables scroll inside their focusable regions.
+- 768px: 40px targets. Popover anchored as on desktop. Normal radar geometry.
+- 1280px: identical to today apart from the colour token values and the share-row keyboard model.
 
-Mobile (375px): the frame keeps its border and scrolls horizontally inside the page. The table keeps
-`min-width: 820px`. The section and its parent get `min-width: 0` so the grid or flex parent cannot
-blow out. The heading and caption wrap normally. The page itself has no horizontal scroll (AC23),
-which is checked manually in T5.
-
-Accessibility
-- The section is labelled by its `h2`. The table is named "Roster" (via `aria-labelledby` on the
-  heading) and described by the caption.
-- The sortable headers are native buttons inside `columnheader` cells carrying `aria-sort`. The
-  arrow is `aria-hidden`, and Enter and Space work natively.
-- Leader cells add sr-only " team leader". The mini bar is `aria-hidden`. Player cells are row
-  headers, so a screen reader announces the player for each cell.
-- The scroll region is focusable and named "Roster table". There is a visible focus ring on header
-  buttons and on the region.
+Accessibility needs: covered by AC8 to AC18. The focus ring is unchanged: `#2F5FD0` with a 2px
+outline, white inside `.bar` on the dark nav, and ink on the 3D card.
 
 ## 5. Risk and security
 
-- Input validation: values come from the provider and may be `null`, missing, `NaN`, `Infinity`,
-  negative or above 100 (in a percent column). `finiteValue` guards every use (sort, text, bar and
-  leader), so "NaN", "∞", "null" and "undefined" can never render, and the bar width is always
-  0-100%. Safeguard: model tests per bad value, plus a rendered-text scan (T2, T3).
-- Auth and data exposure: none. Provider data renders as React text nodes and the colour goes into
-  inline style. There is no HTML injection path.
-- Failure modes and safeguards:
-  - The roster and share sections could drift, so the roster load is shared through `renderAfter`.
-    A test asserts `getRoster` is called once and that both sections switch together (T4).
-  - Grid display strips table semantics, so explicit roles are set as in CompareTable. A role test
-    covers this (T3).
-  - `aria-sort` on the button would be invalid. It goes on the `th`, which a test asserts (T3).
-  - Tied leaders and a one-player roster are covered by explicit model tests (T2).
-  - Page-level horizontal scroll at 375px. Safeguard: `min-width: 0` on the section, the frame
-    scrolls, and a manual check in T5.
-  - T16 tests that pin "nothing after the share section" become false. They are rewritten to the
-    new contract and never deleted or weakened (T4):
-    - `TeamBreakdown.test.tsx` lines 111-122 (`share.nextElementSibling` is null, no `table`,
-      2 sections) becomes: the share section is followed by the region "Roster", that region has
-      no next sibling, the only table is named "Roster", there are 3 sections, and there is still
-      no "coming soon".
-    - `App.teams.test.tsx` lines 96-98 get the same rewrite.
-    - `App.teams.test.tsx` line 80 (`queryByRole('table')` absent on entering breakdown) asserts
-      that the compare table is gone. It becomes: no table named "Selected teams compared by stat",
-      and after load the only table is the "Roster" table.
-    - `TeamBreakdown.test.tsx` helper `card()` at line 95 (first region not named SHARE_TITLE)
-      also excludes "Roster" and "Roster table", so it cannot pick a roster region if the order
-      ever changes.
-  - Unscoped text queries that might now match roster cells: review
-    `TeamBreakdown.test.tsx:268` (`/3031/`) and `App.teams.test.tsx:332, 489` (`/ · 2023$/`). The
-    fixture and mock values cannot produce these strings (meta lines end in `#n`), so no change is
-    expected. Confirm when running the tests in T4.
-  - League literals: the scan gains the new files and planted `'snap'` / `"Snap %"` checks (T4).
+Contrast re-measurement. I recomputed with the WCAG 2 formula from sRGB hex. The AC18 test
+recomputes everything, so these hand values can be off by at most rounding. The requirements' hand
+values were right for white. What they missed: muted text also sits on `--color-track #F2F2EF`
+(inactive light segmented items, IconButton), the dark-grey family's first passing step on `#FAFAF8`
+is one step darker than on white, and the share-segment text fails.
+
+| Colour | Used on | Before | After value | After ratio |
+|---|---|---|---|---|
+| `--color-text-muted #7A7A75` | white / `#FAFAF8` / track `#F2F2EF` | 4.31 / 4.13 / 3.85 | `#6F6F6A` | 5.05 / 4.83 / 4.50 |
+| `--color-text-label #8A8A85` | white / `#FAFAF8` | 3.47 / 3.32 | `#73736E` | 4.77 / 4.56 |
+| `--color-text-faint #9A9A95` | white / `#FAFAF8` | 2.83 / 2.70 | `#73736E` | 4.77 / 4.56 |
+| `--color-text-na #B5B5B0` | white / `#FAFAF8` | 2.06 / 1.97 | `#73736E` | 4.77 / 4.56 |
+| `TeamModeSwitch` hard-coded `#7a7a75` | white | 4.31 | `var(--color-text-muted)` | 5.05 |
+| `--color-nav-text #A5A5A0` | ink `#111` / nav surface `#2A2A28` | 7.63 / 5.81 | keep | n/a |
+| `--color-nav-soon #6A6A66` | ink | 3.48 | keep, exempt (disabled, B3) | n/a |
+| `#555555` (card ×, share leader), `#444444` (tile on `#F0F0ED`), `#333` (radar labels) | various | all above 6:1 | keep | n/a |
+| focus `#2F5FD0` (needs 3:1) | white / `#FAFAF8` / `#F2F2EF` / `#F3F3F0` | 5.72 / 5.48 / 5.10 / 5.15 | keep | n/a |
+| focus white in nav | ink / `#2A2A28` | 18.9 / 14.4 | keep | n/a |
+| share text white on series 1/3/6 | `#111` / `#2F5FD0` / `#7B4FC9` | 18.9 / 5.72 / 5.52 | keep white | n/a |
+| share text white on series 2/4/5/7/8 | `#E0472B` / `#14946A` / `#D9921A` / `#1A9AA8` / `#D6457F` | 4.11 / 3.84 / 2.60 / 3.37 / 4.19 | ink `#111` (AC24) | 4.59 / 4.92 / 7.26 / 5.60 / 4.51 |
+
+Darkening method (AC21): subtract the same integer from R, G and B, which keeps hue 60° and the
+5-unit blue offset. Pick the smallest step that passes on every background the AC18 test lists for
+that colour. Every text token is tested on white and `#FAFAF8` as AC18 requires, and muted is also
+tested on `#F2F2EF`. `#74746F` fails `#FAFAF8` (4.495), so label, faint and na take `#73736E`.
+`#70706B` fails track (4.44), so muted takes `#6F6F6A` (4.503, marginal but passing). As a result,
+label, faint and na become one value, and muted ends up darker than them. This loss of hierarchy
+goes in `docs/a11y.md` (open question 2). Hover backgrounds are not text resting states, so they are
+recorded in the doc rather than tested. For example, IconButton hover `#E6E6E2` with the × glyph
+gives 4.04, which passes the 3:1 for icon glyphs.
+
+Other risks and safeguards:
+- Input validation and auth: no new inputs, no auth surface. Announcer messages are rendered as text
+  nodes from provider data, not as HTML.
+- Data exposure: none. The live region contains only names already on screen.
+- axe in jsdom may not run, or may report jsdom artefacts. T1 is a smoke test that proves this
+  before anything else depends on it. The B4 fallback is defined in section 3.
+- axe may treat the nav "Soon" text as non-disabled. Safeguard (T2): check that the league buttons
+  carry the `disabled` attribute. If browser axe still flags them, record it in the QA report and
+  open question 3. Do not darken, per B3.
+- Native `<select>` keyboard changes are not implemented by jsdom. The AC8 tests reach selects by
+  Tab and then use `user.selectOptions` (documented in the test as a jsdom limitation). Browser QA
+  confirms ArrowDown/Enter on the real select at 375 and 1280px.
+- The `!important` override in the popover narrow rule is limited to one property and commented.
+- Media-query CSS is invisible to jsdom, so touch targets, the popover sheet and label fits are
+  verified only in browser QA (AC2 to AC7). Pure helpers (`tooltipLeft`, compact radar geometry,
+  3D label flip) get unit tests.
+- Roving tabindex changes the Tab behaviour that T16 tests pin. Those tests are updated, not
+  deleted (listed in T8).
 
 ## 6. Gaps check
 
-- Auth: not applicable (read-only, no user data).
-- Validation: null, missing, NaN, Infinity, negative and >100 values; empty roster; unknown sort
-  key; unknown unit; one-player roster.
-- Error handling: roster or unit load failure renders no roster section and nothing throws (AC8).
-- Mobile: horizontal scroll inside a focusable bordered frame, `min-width: 0` guard, manual
-  375px/1280px check (AC23, T5).
-- Accessibility: semantic table with roles, name and description; `aria-sort` on the headers;
-  button headers; sr-only leader text; decorative bars hidden; focusable scroll region.
-- Config and env vars: none. `.env` is untouched.
-- Tests: sort unit tests, model tests, data test, presentational and container tests, TeamBreakdown
-  and App integration, literal scan, full gate.
+- Auth: not applicable (no auth in the app).
+- Validation: no new user input. The announcer accepts strings only.
+- Error handling: the announcer is a no-op without its provider, and `useMediaQuery` falls back when
+  `matchMedia` is missing.
+- Mobile: 375/768 targets, popover sheet, radar/3D label fits, no page overflow (AC1 to AC6).
+- Accessibility: the core of the ticket (AC8 to AC19, AC24).
+- Config and env vars: none added. `axe-core` is the only new dev dependency.
+- Tests: new contrast, announcer, share keyboard, App axe and App keyboard tests. Updated tests are
+  listed in T8 and T9. Browser QA goes in `docs/qa/T18-report.md`.
 
 ## 7. Tasks
 
-Each task is one commit with its tests. Paths are under `web/src/`.
+Each task is one commit. Run `npm run lint`, `npm run typecheck` and `npm test` in `web/` before
+each commit.
 
-- T1: Percentage marker in the contract and the NFL data.
-  - Add `StatDef.percent?: boolean` with the doc comment to `domain/types.ts`.
-  - Set `percent: true` on `snap` in both units in `data/nfl/rosterUnits.ts`.
-  - Mark fixture `zsnap` `percent: true` in both units in `test/fixtureProvider.ts`. It is not a
-    share stat, so T16 output does not change.
-  - `data/nfl/data.test.ts`: assert that the only percent defs are `snap` in `off` and `def`, and
-    that the non-extra labels per unit equal the AC10 lists exactly.
-  - `domain/domain.test.ts`: `percent` is optional and boolean, following the `shareLabel` case.
-  - Files: `domain/types.ts`, `data/nfl/rosterUnits.ts`, `data/nfl/data.test.ts`,
-    `domain/domain.test.ts`, `test/fixtureProvider.ts`.
-  - ACs: AC6, AC10 (data), AC26.
-- T2: Roster model (pure).
-  - Add `components/teams/rosterModel.ts` and `rosterModel.test.ts`.
-  - `sortRosterEntries` tests:
-    - the AC5 mixed example in both directions;
-    - nulls, missing, `NaN` and `Infinity` all last, in original order, in both directions;
-    - ties stable in both directions (asc is not desc reversed);
-    - `[]`, and an absent key keeping the order;
-    - a new array is returned and the frozen input and entries are unchanged.
-  - `tableColumns` excludes `extra` and keeps definition order.
-  - `columnLeaders` tests:
-    - a single max;
-    - a tie (both ids);
-    - all null, all zero, all negative, and mixed negative and zero (all empty);
-    - a one-player positive roster;
-    - non-finite values ignored;
-    - independent of input order.
-  - `cellText` tests: grouping ("1,234"), decimals ("4.8"), percent ("87%"), and "—" for null,
-    missing, NaN and Infinity, never with `%`.
-  - `barPercent` tests: 87, -5 -> 0, 140 -> 100, null -> 0.
-  - `playerMeta` tests: with and without a number.
-  - `buildRosterTable` tests:
-    - aria-sort and arrow for desc, asc and an unknown key;
-    - row order follows the sort only for visible keys, with an extra stat key giving roster order;
-    - row colour is the unsorted index after sorting;
-    - leader flags are the same under any sort;
-    - `bar` is null for non-percent columns;
-    - no output string contains "NaN", "Infinity", "∞", "null" or "undefined".
-  - Files: `components/teams/rosterModel.ts`, `components/teams/rosterModel.test.ts`.
-  - ACs: AC1, AC2, AC3, AC4, AC5, AC10, AC11, AC13, AC14, AC17, AC18, AC19, AC21, AC26.
-- T3: `RosterTable` and `RosterSection` components.
-  - Add `RosterTable.tsx` + `.module.css` and `RosterSection.tsx` + `.module.css` as in section 3.
-    Export `RosterSection` from `components/teams/index.ts` if that file exports siblings.
-  - `RosterTable.test.tsx` uses an invented unit and roster built in the test. It has a percent
-    column, an extra stat, a null, a missing key, a tie for the max, an all-null/zero column and an
-    entry without `number`. Tests:
-    - roles (table, rowgroup, row, columnheader, rowheader, cell);
-    - the table name "Roster" and the description equal to the caption;
-    - Player first, then labels in order, with the extra stat absent;
-    - the Player header has no button and no `aria-sort`;
-    - each stat header has a button named exactly its label, with the arrow outside the name;
-    - `aria-sort` values on the `th`;
-    - the arrow text, and the sorted/unsorted classes;
-    - `onSort` is called with the key on click and on Enter/Space via `userEvent.keyboard`;
-    - "—" for null and missing;
-    - "%" only in the percent column;
-    - pill and " team leader" on every tied leader, with no pill in the all-null/zero column;
-    - the bar is present only in the percent column, `aria-hidden`, with fill width `87%`, `0%`
-      for null and clamped at 100;
-    - the swatch colour and the meta line with and without a number;
-    - the scroll region is named "Roster table", focusable (`tabIndex` 0) and contains the table;
-    - the table `minWidth` is 820px;
-    - an empty roster renders the header row and no body rows.
-  - `RosterSection.test.tsx` with `AppStateProvider` and a state probe. Tests:
-    - the `h2` "Roster" and the caption text with U+00B7 below the table;
-    - with defaults `sortKey: 'zsnap'`: the initial "Zsnap" is descending;
-    - clicking another header sorts it descending, then ascending, then descending, and switching
-      back to a different column starts at descending (state probe `tSort` and rendered row order);
-    - nulls stay last and ties stay stable in the rendered rows in both directions;
-    - player colours stay with the player after sorting;
-    - the fixture default `sortKey: 'zscore'` gives roster order with no column sorted.
-  - Files: `components/teams/RosterTable.tsx`, `RosterTable.module.css`, `RosterTable.test.tsx`,
-    `RosterSection.tsx`, `RosterSection.module.css`, `RosterSection.test.tsx`,
-    `components/teams/index.ts`.
-  - ACs: AC3, AC4, AC7, AC9, AC10, AC11, AC12, AC13, AC14, AC15, AC17, AC18, AC19, AC20, AC21,
-    AC22, AC26.
-- T4: Wiring below the share section, regressions and literal scan.
-  - `ShareOfProduction.tsx`: add the optional `renderAfter` prop (section 3).
-    `ShareOfProduction.test.tsx` adds cases for it, and the existing cases stay unchanged:
-    - it is called with the current unit def and roster;
-    - its output is the next sibling of the share section;
-    - it is not called while units or roster are pending or rejected, or for an unknown unit;
-    - with the prop absent, the DOM has no extra nodes.
-  - `TeamBreakdown.tsx`: pass `renderAfter` rendering `RosterSection`.
-  - `TeamBreakdown.test.tsx` with `rosterProvider`:
-    - the roster section follows the share section;
-    - `getRoster` is called exactly once;
-    - with defaults `sortKey: 'zsnap'`, sort Zalpha ascending, then click "Zunit Two": the columns
-      switch to that unit and "Zsnap" is descending again; clicking the active unit keeps the sort
-      (AC16);
-    - a team chip change and a season change keep `tSort` and show the new rows;
-    - units pending or rejected, roster pending or rejected, unknown unit, teams pending and
-      unknown team all render no "Roster" region and do not throw (AC8);
-    - rewrite the superseded assertions (section 5).
-  - `App.teams.test.tsx` (mock data):
-    - rewrite lines 80 and 96-98 (section 5);
-    - the default team shows "Roster" after the share section;
-    - offense headers equal the AC10 list, with "Snap %" `aria-sort="descending"` and its arrow;
-    - the first Snap % cell text matches `/^\d+%$/` and the column is non-increasing down the
-      rows;
-    - clicking "Touches" gives descending, then ascending;
-    - clicking "Defense" gives the defense headers (no "Takeaways"), with "Snap %" descending again;
-    - a chip change keeps the active sort;
-    - there is no roster table in compare mode or Players mode;
-    - `Yds / Touch` values have one decimal.
-  - `components/teams/noLeagueLiterals.test.ts`:
-    - add `rosterModel.ts`, `RosterTable.tsx` and `RosterSection.tsx` to `sources`;
-    - extend the AC30 coverage list with `'snap'`, `'Snap %'`, `'ypt'`, `'Yds / Touch'` and
-      `'INT'` (already in `leagueValues` through `rosterUnitDefs`);
-    - add planted checks `'snap'` and `"Snap %"` against `RosterTable`;
-    - the no-`data/` import check covers the new files automatically.
-  - Files: `components/teams/ShareOfProduction.tsx`, `ShareOfProduction.test.tsx`,
-    `TeamBreakdown.tsx`, `TeamBreakdown.test.tsx`, `App.teams.test.tsx`,
-    `components/teams/noLeagueLiterals.test.ts`.
-  - ACs: AC7, AC8, AC10, AC15, AC16, AC24, AC25, AC26.
-- T5: Quality gate and manual checks.
-  - Run `npm run lint`, `npm run typecheck`, `npm test`, `npm run format` and `npm run build` in
-    `web/`. Fix findings without weakening tests.
-  - Dev server at 375px and 1280px:
-    - no page-level horizontal scroll at 375px;
-    - the frame scrolls and is reachable with Tab and visibly focused;
-    - the heading and caption are within the viewport;
-    - the desktop grid, header colours, arrows, pills, mini bars and meta lines match the design;
-    - Enter and Space on a header sort;
-    - the Defense toggle resets to Snap % desc.
-  - Note the results for the PR.
-  - Files: none expected.
-  - ACs: AC22, AC23, AC27.
+- T1. axe tooling (AC17 groundwork, AC23).
+  - In `web/`, run `npm install -D axe-core` (this updates `package.json` and the lockfile).
+  - Add `web/src/test/axe.ts` with `seriousViolations(root)`, which calls `axe.run(root, { rules: {
+    'color-contrast': { enabled: false } } })` with a comment explaining that jsdom cannot compute
+    colour (covered by AC18/AC19) and returns violations with impact serious or critical.
+  - Add `web/src/test/axe.test.ts`. A well-formed snippet returns `[]`, and `<button></button>`
+    returns a `button-name` critical violation, which proves the wiring. Use a timeout of 30s.
+  - If this cannot pass, apply the B4 fallback from section 3 in this same commit: remove the helper
+    and test, keep the dependency, and write a note in `docs/progress.md` Decisions.
+- T2. Contrast helper, test and token changes (AC18, AC21, AC13).
+  - Add `web/src/lib/contrast.ts` and `contrast.test.ts`, checked against reference values: black on
+    white 21, `#777777` on white about 4.48, and equal colours 1.
+  - Add `web/src/styles/contrast.test.ts`, which parses `tokens.css?raw` and asserts the pairs in
+    section 5: text 4.5, focus 3, and the exemption list (nav-soon on ink; locked checkbox box; the
+    disabled `ctaAdd` at opacity 0.4), each with a reason.
+  - Change `tokens.css`: muted `#6f6f6a`; label, faint and na `#73736e`.
+  - In `TeamModeSwitch.module.css`, change `#7a7a75` to `var(--color-text-muted)`.
+  - Confirm that the GlobalNav "Soon" buttons have `disabled`.
+  - Tests pinning old values: none found by search (no test pins `#7a7a75`, `#8a8a85`, `#9a9a95` or
+    `#b5b5b0`).
+- T3. Share segment text colour (AC24, AC18).
+  - Add `seriesTextColor` in `series.ts` with tests in `web/src/styles/series.test.ts`.
+  - Add `textColor` in `shareModel.ts` (with a `shareModel.test.ts` case) and render it in
+    `ShareRow.tsx` as `color` in the segment style.
+  - Add the 8 series/text pairs to `contrast.test.ts`.
+  - `ShareOfProduction.test.tsx` asserts that the style contains `var(--series-N)`. That still
+    holds, so no change is needed.
+- T4. Announcer infrastructure (AC15).
+  - Add `web/src/components/a11y/{Announcer.tsx,useAnnounce.ts,index.ts,Announcer.test.tsx,
+    noLeagueLiterals.test.ts}` and mount the provider in `App.tsx`.
+  - Tests: the region exists and is empty on first render; `announce` sets the text; a repeated
+    message changes the node text; the hook is a no-op outside the provider.
+- T5. Entity announcements (AC15, AC9).
+  - In `EntityPicker.tsx`, call `announce` in `toggleFromPopover` and `removeCard`.
+  - Add tests in `EntityPicker.test.tsx` (inside an `AnnouncerProvider`): add from the popover, remove
+    from the popover, and remove by card × all announce "<name> added/removed".
+  - Add a test that removing from inside the popover keeps `document.activeElement` inside the
+    dialog. If it fails, fix `AddPopover.tsx` so the result CTA keeps the same button element
+    across Add and Remove.
+- T6. Stat announcements (AC15).
+  - In `StatSidebar.tsx` / `StatGroup.tsx`, announce the menu pick (added) and the checkbox change
+    (added or removed).
+  - Add tests in `StatSidebar.test.tsx`.
+  - Add App-level no-announce tests in `App.a11y.test.tsx` (created here): initial load, season
+    change and kind switch leave the region empty.
+- T7. Share row roving focus (AC11).
+  - In `ShareRow.tsx`, add roving tabindex and ArrowLeft/ArrowRight/Home/End handling. Arrows stop at
+    the ends (no wrap). The active index resets to 0 when the segments change.
+  - Remove the `no-noninteractive-tabindex` disable only if lint allows.
+  - Update `ShareRow.test.tsx` AC22 tests to the new behaviour:
+    - "Tab walks the segments" becomes "Tab reaches only the first segment, the next Tab leaves the
+      row".
+    - "focusing a segment shows its tooltip" becomes Tab then ArrowRight.
+    - "tooltip follows focus" becomes ArrowRight.
+    - "shift-tab goes back" becomes ArrowLeft, plus a Shift+Tab-out case.
+  - Add tests: Home/End, end stops, accessible names unchanged, and a zero-total row has no stop.
+  - Update `ShareOfProduction.test.tsx` "Tab goes through the toggle, then each row's segments" to
+    expect the toggle buttons and then the first segment of each row.
+  - Add an App-level test in `App.teams.test.tsx`: with mock offense data, the share section has at
+    most one `tabindex="0"` per row.
+- T8. Tooltip anchor (AC12).
+  - Add `tooltipLeft` in `shareModel.ts` with unit tests: centred, clamped left, clamped right, and
+    tooltip wider than the wrapper.
+  - In `ShareRow.tsx`, measure in a layout effect and set `left` with `transform: translateX(-50%)`
+    adjusted by the clamp.
+  - Test that the tooltip text matches the focused segment after arrow moves.
+- T9. App-level axe and structure tests (AC17, AC14, AC10, AC16).
+  - In `web/src/App.a11y.test.tsx`, render `App` (mock provider, B11) and reach V1 to V6 with
+    `user-event`. On each view, `expect(await seriousViolations(document.body)).toEqual([])`.
+  - AC10 checks: no `[tabindex]` greater than 0, and no focusable element inside `[aria-hidden=
+    "true"]`. A static check uses `import.meta.glob('./**/*.module.css', { query: '?raw', eager: true
+    })` to assert there is no `order:` and no `-reverse` in any module CSS.
+  - AC16: in each view, each selected entity's name is found by role or text in that view's
+    accessible content (table headers, bars text, radar sr-only list, 3D readout, share segment
+    names, roster row headers).
+  - Fix any violations found in the component that owns them. If T1 fell back, this task keeps only
+    the AC10 and AC16 parts.
+- T10. App keyboard flow (AC8, AC9).
+  - Add `web/src/App.keyboard.test.tsx` with keyboard-only steps not already covered. These are: the
+    Players/Teams switch, season (Tab plus `selectOptions`, with the jsdom note), Escape-close of the
+    popover returning focus to the Add card, chart tabs via arrows at App level, 3D arrow rotation
+    and axis select, switching to breakdown, team chip by Enter, Offense/Defense by Enter, share
+    arrows, and roster sort both ways.
+  - Steps already covered, cited in the test file header:
+    - `EntityPicker.test.tsx`: AC22 Done/Escape focus, AC25 card removal focus order, and AC27 open,
+      search, chip, add.
+    - `StatSidebar.test.tsx`: AC14 Escape returns focus to the Add button, and AC21 full keyboard
+      cycle.
+    - `ComparePanel.test.tsx`: tab arrows.
+    - `Chart3D.test.tsx`: keys.
+    - `RosterTable.test.tsx`: AC15 Enter/Space sort.
+    - `TeamChips.test.tsx`: AC13.
+  - Assert `document.activeElement !== document.body` after each AC9 step.
+- T11. Popover at narrow widths (AC3).
+  - Add the `@media (max-width: 479px)` sheet rule and the flex column with a scrolling results list
+    in `AddPopover.module.css`. Desktop values are unchanged.
+  - No jsdom-visible change. The existing AC35 shift test stays as it is. Verify in browser QA.
+- T12. Radar compact geometry (AC4).
+  - Add `web/src/lib/useMediaQuery.ts` and `useMediaQuery.test.tsx` (stubs `matchMedia`, covers
+    missing `matchMedia`, change events).
+  - Add a `radarModel` geometry override with tests: compact labels lie at the larger `labelT`, and
+    the default output is unchanged.
+  - Wire it in `RadarChart.tsx`. Tune the starting values (r 120, labelT 1.2) in browser QA against
+    the Teams default stats, and adjust the narrow `.axisLabel` rule in `RadarChart.module.css` if
+    needed.
+- T13. 3D axis labels at narrow widths (AC5).
+  - Add edge flipping in `axisLabelLayout`, with `chart3dModel.test.ts` cases for a left-edge
+    anchor, a right-edge anchor and the unchanged centre.
+  - Add a narrow rule in `Chart3D.module.css` (10px, `max-width: 40%`, wrap).
+  - Existing `Chart3D.test.tsx` CSS pins (`.grid`, `.edge`, `.dot`, `.unselected .drop`) are
+    unaffected.
+- T14. Touch targets part 1: picker and nav (AC6, AC7). Add `@media (max-width: 1023px)` blocks
+  after the base rules in these files:
+  - `EntityCard.module.css` `.remove`
+  - `IconButton.module.css` `.btn`
+  - `AddCard.module.css`
+  - `AddPopover.module.css` (`.search`, `.done`, `.chip`, `.ctaAdd`, `.ctaRemove`)
+  - `GlobalNav.module.css` `.league`
+  - `Select.module.css` `.select` (the base `.dark` padding stays, so the `App.nav.test.tsx` pin
+    holds)
+  - `SegmentedControl.module.css` `.item` (all variants)
+- T15. Touch targets part 2: sidebar, compare, teams (AC6, AC7). Add the same blocks to:
+  - `Tabs.module.css` `.tab`
+  - `StatGroup.module.css` `.row` (clickable label) and `.add`
+  - `AddStatMenu.module.css` items
+  - `AxisControls.module.css` buttons
+  - `Chip.module.css` (team chips)
+  - `RosterTable.module.css` `.sortButton` (inline-flex with min size; header padding kept so
+    columns do not grow at 1280)
+- T16. Overflow and layout fixes (AC1, AC2).
+  - Run the QA measurement script at 375, 768 and 1280 for V1 to V6: `scrollWidth`, plus
+    clipping/overlap bounding boxes. Fix only what it finds, in the owning module CSS (known
+    candidates: `App.module.css` `.content` padding at 375, `GlobalNav` wrap with the larger
+    targets, `ShareRow` grid at 768, `TeamHeader` wrapping).
+  - The compare and roster scroll regions are already focusable and named (`CompareTable.test.tsx`
+    AC20, `RosterTable.test.tsx` AC23). Keep those tests unchanged.
+- T17. `docs/a11y.md` (AC20). Include:
+  - The contrast table from section 5 with final measured values, each marked "pending design
+    sign-off".
+  - The AC24 note.
+  - Exemptions: share segments, scroll and chart regions, desktop controls under 40px measured in
+    QA, disabled text, and `--color-chart-muted` unselected 3D points.
+  - Hover backgrounds.
+  - The non-colour encoding proposal (radar dash patterns per series index; 3D marker shapes
+    circle, square, triangle and diamond, then repeating).
+  - Carry-overs: T08, T12, T14 axis labels, T16 Tab stops and tooltip are fixed; T14 name tags and
+    performance are deferred; T15 and T07 go to T20.
+- T18. Browser QA and final checks (AC19, AC1 to AC7, AC12, AC13, AC22, AC23).
+  - Run the playwright-core scripts in the scratchpad: axe-core injected with all rules on V1 to V6
+    at 375 and 1280; AC1 to AC7 measurements; AC12 tooltip centre; focus screenshots per control
+    type; keyboard select at both widths. Write `docs/qa/T18-report.md`.
+  - Run `npm run lint`, `typecheck`, `test` and `build` in `web/`, and `ruff check .` and `pytest`
+    at the root.
+  - Update `docs/progress.md`.
 
-## 8. Open questions
+Tests updated (AC22), and nothing else:
+- `ShareRow.test.tsx`: the AC22 keyboard block, which moves from per-segment Tab to one stop with
+  arrows (T7).
+- `ShareOfProduction.test.tsx`: the AC22 "Tab goes through the toggle, then each row's segments"
+  test (T7).
 
-None blocking. Defaults are applied and can be changed at review.
-1. Contract field name (A3): `StatDef.percent?: boolean` means "0-100 percentage" (suffix plus mini
-   bar). Is it acceptable for T22, or should it be a more generic `suffix`/`format` field?
-2. Wiring: the roster section is rendered through an optional `renderAfter` prop on
-   `ShareOfProduction` so that both sections share one roster load. Is this acceptable, or would
-   you rather lift `useRosterUnits`/`useRoster` into `TeamBreakdown`? Lifting is cleaner, but it
-   requires rewriting the T16 `ShareOfProduction` tests.
-3. Null cells show a bare "—" (AC17). CompareTable pairs its dash with sr-only "not applicable".
-   Add the same here now, or leave it to T18?
+No test pins a changed colour value. The `ShareOfProduction.test.tsx` style assertions that check
+for `var(--series-N)` still hold.
+
+## 8. Open questions (none blocking; defaults applied)
+
+1. AC24: is ink percentage text on the five lighter series colours acceptable? The alternative is to
+   darken those series colours (a larger visual change). Default: ink text, pending design
+   sign-off.
+2. Approve `#6F6F6A` for muted and `#73736E` for label, faint and na? Label, faint and na collapse
+   into one value, and muted becomes the darkest grey. Should design pick a different hierarchy
+   that still passes? Default: the minimal darkening values above.
+3. If browser axe flags the disabled nav "Soon" text, should it be treated as an accepted exception
+   (B3) or darkened? Default: exception, documented.
+4. Should controls also meet 40px at 1280px (B5)? Default: no, desktop exceptions documented.
+5. Adopt a visual non-colour series encoding for radar and 3D (B9)? Default: proposal only.
