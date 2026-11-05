@@ -7,5 +7,5 @@
 
 .hint {
   font-size: var(--text-13);
-  color: #7a7a75;
+  color: var(--color-text-muted);
 }
