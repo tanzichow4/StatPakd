@@ -9,7 +9,7 @@ import type {
 } from '../domain/types'
 
 export type ViewMode = 'num' | '2d' | '3d'
-export type Chart2Mode = 'bars' | 'radar'
+export type Chart2Mode = 'bars' | 'dots' | 'radar'
 export type TeamMode = 'compare' | 'inside'
 export type AxisIndex = 0 | 1 | 2
 export type Axes = [string, string, string]

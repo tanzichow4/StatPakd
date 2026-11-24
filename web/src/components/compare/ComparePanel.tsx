@@ -9,6 +9,7 @@ import { RadarChart } from './RadarChart'
 import { resolveColumns, resolveRows } from './tableModel'
 import styles from './ComparePanel.module.css'
 import { CompareTable } from './CompareTable'
+import { DotPlot } from './DotPlot'
 import { EmptyState } from './EmptyState'
 
 const VIEW_OPTIONS: { value: ViewMode; label: string }[] = [
@@ -20,6 +21,7 @@ const VIEW_OPTIONS: { value: ViewMode; label: string }[] = [
 const CHART_OPTIONS: { value: Chart2Mode; label: string }[] = [
   { value: 'bars', label: 'Bars' },
   { value: 'radar', label: 'Radar' },
+  { value: 'dots', label: 'Dot plot' },
 ]
 
 export function ComparePanel() {
@@ -49,6 +51,7 @@ export function ComparePanel() {
     if (!ready || value === '3d') return null
     if (value === 'num') return <CompareTable kind={kind} columns={columns} rows={rows} />
     if (chart2 === 'bars') return <BarsChart columns={columns} rows={rows} pool={entities} />
+    if (chart2 === 'dots') return <DotPlot columns={columns} rows={rows} pool={entities} />
     return <RadarChart columns={columns} rows={rows} pool={entities} />
   }
 

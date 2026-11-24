@@ -257,7 +257,7 @@ describe('AC7: Bars | Radar control', () => {
       within(group)
         .getAllByRole('button')
         .map((b) => b.textContent),
-    ).toEqual(['Bars', 'Radar'])
+    ).toEqual(['Bars', 'Radar', 'Dot plot'])
     const list = screen.getByRole('tablist', { name: 'View' })
     expect(list.compareDocumentPosition(group) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })

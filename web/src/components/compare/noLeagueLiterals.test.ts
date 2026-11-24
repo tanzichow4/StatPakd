@@ -16,6 +16,8 @@ import chartPlaceholder from './ChartPlaceholder.tsx?raw'
 import comparePanel from './ComparePanel.tsx?raw'
 import compareTable from './CompareTable.tsx?raw'
 import compareTableHelpers from './tableModel.ts?raw'
+import dotPlot from './DotPlot.tsx?raw'
+import dotsModel from './dotsModel.ts?raw'
 import emptyState from './EmptyState.tsx?raw'
 import index from './index.ts?raw'
 import radarChart from './RadarChart.tsx?raw'
@@ -27,6 +29,8 @@ const sources: Record<string, string> = {
   'CompareTable.tsx': compareTable,
   'BarsChart.tsx': barsChart,
   'barsModel.ts': barsModel,
+  'DotPlot.tsx': dotPlot,
+  'dotsModel.ts': dotsModel,
   'ChartPlaceholder.tsx': chartPlaceholder,
   'RadarChart.tsx': radarChart,
   'radarModel.ts': radarModel,
