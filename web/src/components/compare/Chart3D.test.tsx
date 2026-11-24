@@ -4,9 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { LeagueUiDefaults } from '../../domain/types'
 import {
   DEFAULT_CAMERA,
-  axisLabelAnchors,
+  axisGuides,
   axisLines,
   cubeEdges,
+  depthScale,
   gridLines,
   plotPoints,
   type Camera,
@@ -25,10 +26,10 @@ import css from './Chart3D.module.css?raw'
 const defs = compareStatDefs()
 const players = comparePlayers()
 const teams = compareTeams()
-const HINT = 'Drag to rotate · gray dots = rest of league'
+const HINT = 'Drag to rotate · tap a dot · gray = league'
 const KEYS_SENTENCE = 'Use arrow keys to rotate, Home to reset.'
 const MESSAGE = 'Pick a stat for each axis.'
-const YAW0 = -0.65
+const YAW0 = 0.65
 const PITCH0 = 0.38
 
 function Probe() {
@@ -80,8 +81,10 @@ const select = (name: string) => screen.getByRole('combobox', { name })
 const resetBtn = () => screen.getByRole('button', { name: 'Reset view' })
 const points = () => screen.queryAllByTestId('point')
 const circles = () => points().map((g) => g.querySelector('circle') as SVGCircleElement)
-const selectedCircles = () => circles().filter((c) => c.getAttribute('r') === '7')
-const unselectedCircles = () => circles().filter((c) => c.getAttribute('r') === '4.5')
+const isSelected = (c: Element) =>
+  (c.closest('[data-testid="point"]') as HTMLElement).style.getPropertyValue('--series') !== ''
+const selectedCircles = () => circles().filter(isSelected)
+const unselectedCircles = () => circles().filter((c) => !isSelected(c))
 const num = (el: Element, attr: string) => Number(el.getAttribute(attr))
 const cardList = () => within(screen.getByRole('complementary'))
 
@@ -125,9 +128,9 @@ describe('AC12/AC13: the SVG drawing', () => {
     expect(svgs).toHaveLength(1)
     expect(svgs[0]).toHaveAttribute('viewBox', '0 0 600 460')
   })
-  it('AC13: there are 20 grid lines, 12 cube edges and 3 axis lines', () => {
+  it('AC13: there are 30 grid lines, 12 cube edges and 3 axis lines', () => {
     setup()
-    expect(screen.getAllByTestId('grid-line')).toHaveLength(20)
+    expect(screen.getAllByTestId('grid-line')).toHaveLength(30)
     expect(screen.getAllByTestId('edge-line')).toHaveLength(12)
     expect(screen.getAllByTestId('axis-line')).toHaveLength(3)
   })
@@ -139,7 +142,7 @@ describe('AC12/AC13: the SVG drawing', () => {
       ),
     ).map((el) => el.getAttribute('data-testid'))
     const expected = [
-      ...Array<string>(20).fill('grid-line'),
+      ...Array<string>(30).fill('grid-line'),
       ...Array<string>(12).fill('edge-line'),
       ...Array<string>(3).fill('axis-line'),
       ...Array<string>(points().length).fill('point'),
@@ -163,11 +166,11 @@ describe('AC12/AC13: the SVG drawing', () => {
     })
   })
   it('AC13: the stroke colours and widths are the design values', () => {
-    expect(rule('.grid').toLowerCase()).toContain('#edede9')
+    expect(rule('.grid').toLowerCase()).toContain('#e2e2de')
     expect(rule('.grid')).toMatch(/stroke-width:\s*1;/)
     expect(rule('.edge').toLowerCase()).toContain('#dadad5')
     expect(rule('.edge')).toMatch(/stroke-width:\s*1;/)
-    expect(rule('.axis')).toMatch(/stroke-width:\s*1\.5;/)
+    expect(rule('.axis')).toMatch(/stroke-width:\s*2;/)
   })
 })
 
@@ -205,10 +208,23 @@ describe('AC14: points', () => {
       expect(num(l, 'y2')).toBeCloseTo(p?.footY ?? NaN, 1)
     }
   })
-  it('AC14: unselected points have radius 4.5 and selected points radius 7', () => {
+  it('AC14: radius is 4.5 or 8 (selected), scaled up for nearer points', () => {
     setup()
     expect(selectedCircles()).toHaveLength(3)
     expect(unselectedCircles()).toHaveLength(4)
+    const expected = plotPoints(
+      players,
+      ['zhigh', 'zlow', 'zbig'],
+      ['zp1', 'zp2', 'zp3'],
+      DEFAULT_CAMERA,
+    )
+    for (const p of expected) {
+      const circle = circles().find(
+        (c) => num(c, 'cx') === p.x && num(c, 'cy') === p.y,
+      ) as SVGCircleElement
+      const base = p.selIndex >= 0 ? 8 : 4.5
+      expect(num(circle, 'r')).toBeCloseTo(base * depthScale(p.depth, DEFAULT_CAMERA), 1)
+    }
   })
   it('AC14: selected points take the series colour of their selection index', () => {
     setup()
@@ -247,10 +263,10 @@ describe('AC15: draw order', () => {
   it('AC15: every selected circle is later in the DOM than every unselected circle', () => {
     setup()
     const all = circles()
-    const firstSel = all.findIndex((c) => c.getAttribute('r') === '7')
+    const firstSel = all.findIndex(isSelected)
     expect(firstSel).toBeGreaterThan(0)
-    all.slice(firstSel).forEach((c) => expect(c.getAttribute('r')).toBe('7'))
-    all.slice(0, firstSel).forEach((c) => expect(c.getAttribute('r')).toBe('4.5'))
+    all.slice(firstSel).forEach((c) => expect(isSelected(c)).toBe(true))
+    all.slice(0, firstSel).forEach((c) => expect(isSelected(c)).toBe(false))
   })
   it('AC15: within each group the order is back to front (descending depth)', () => {
     setup()
@@ -274,8 +290,9 @@ describe('AC15: draw order', () => {
     down(0, 0)
     move(-120, 45)
     const all = circles()
-    const firstSel = all.findIndex((c) => c.getAttribute('r') === '7')
-    all.slice(firstSel).forEach((c) => expect(c.getAttribute('r')).toBe('7'))
+    const firstSel = all.findIndex(isSelected)
+    expect(firstSel).toBeGreaterThan(0)
+    all.slice(firstSel).forEach((c) => expect(isSelected(c)).toBe(true))
     expect(selectedCircles()).toHaveLength(3)
   })
 })
@@ -335,39 +352,40 @@ describe('AC17/AC18: axis labels and hint', () => {
       'Z · Zbig',
     ])
   })
-  it('AC17: labels are placed from the axis anchors, with top never above 10 units', () => {
+  const titles = (camera: Camera) => {
+    const g = axisGuides(camera)
+    return [g.x.title, g.y.title, g.z.title]
+  }
+  const p1 = (v: number, total: number) => `${Math.round((v / total) * 1000) / 10}%`
+
+  it('AC17: labels are placed from the axis titles, with top never above 10 units', () => {
     setup()
-    const a = axisLabelAnchors(DEFAULT_CAMERA)
-    const anchors = [a.x, a.y, a.z]
-    const p1 = (v: number, total: number) => `${Math.round((v / total) * 1000) / 10}%`
+    const anchors = titles(DEFAULT_CAMERA)
     screen.getAllByTestId('axis-label').forEach((el, i) => {
-      expect((el as HTMLElement).style.left).toBe(p1(anchors[i].x, 600))
+      // Centred titles are kept at least 20% from either side.
+      const x = i === 1 ? anchors[i].x : Math.min(480, Math.max(120, anchors[i].x))
+      expect((el as HTMLElement).style.left).toBe(p1(x, 600))
       expect((el as HTMLElement).style.top).toBe(p1(Math.max(10, anchors[i].y), 460))
     })
   })
-  it('AC17: a label whose anchor is above the top edge is clamped to 10 units', () => {
+  it('AC17: the Y label follows the camera and never goes above 10 units', () => {
     setup()
     down(0, 0)
-    move(0, 1000) // pitch clamps to 1.3, which moves the Y label towards the top
-    const a = axisLabelAnchors({ yaw: YAW0, pitch: 1.3 })
+    move(0, 1000) // pitch clamps to 1.3
+    const y = titles({ yaw: YAW0, pitch: 1.3 })[1]
     const top = (screen.getAllByTestId('axis-label')[1] as HTMLElement).style.top
-    expect(top).toBe(`${Math.round((Math.max(10, a.y.y) / 460) * 1000) / 10}%`)
+    expect(top).toBe(p1(Math.max(10, y.y), 460))
     expect(parseFloat(top)).toBeGreaterThanOrEqual(Math.round((10 / 460) * 1000) / 10)
   })
-  it('AC17/T18 AC5: labels left of centre are shifted fully left unless near the left edge, where they open inwards', () => {
+  it('AC17/T18 AC5: X and Z titles are centred and the Y title opens away from the near edge', () => {
     setup()
-    const a = axisLabelAnchors(DEFAULT_CAMERA)
-    const anchors = [a.x, a.y, a.z]
-    expect(anchors.some((p) => p.x < 300)).toBe(true)
-    screen.getAllByTestId('axis-label').forEach((el, i) => {
-      const flipped = /before/.test(el.className)
-      const leftPct = (anchors[i].x / 600) * 100
-      // Same rule as before, except that a label whose open side would leave the card flips inwards.
-      const expected = anchors[i].x < 300 ? leftPct >= 40 : leftPct > 60
-      expect(flipped).toBe(expected)
-    })
+    const [x, y, z] = screen.getAllByTestId('axis-label')
+    expect(x.className).toMatch(/center/)
+    expect(z.className).toMatch(/center/)
+    const leftPct = (titles(DEFAULT_CAMERA)[1].x / 600) * 100
+    expect(/before/.test(y.className)).toBe(leftPct >= 40)
     expect(rule('.axisLabel.before')).toMatch(/translate\(-100%,\s*-50%\)/)
-    expect(rule('.axisLabel')).toMatch(/translate\(0,\s*-50%\)/)
+    expect(rule('.axisLabel.center')).toMatch(/translate\(-50%,\s*-50%\)/)
   })
   it('AC18: the hint is shown with the design text', () => {
     setup()
@@ -880,7 +898,7 @@ describe('AC28: focus indicator', () => {
 })
 
 describe('AC29: tab order', () => {
-  it('AC29: Tab goes X, Y, Z, Reset view, then the plot', async () => {
+  it('AC29: Tab goes X, Y, Z, Reset view, the view buttons, then the plot', async () => {
     const { user } = setup()
     await user.tab()
     expect(select('X axis')).toHaveFocus()
@@ -890,14 +908,18 @@ describe('AC29: tab order', () => {
     expect(select('Z axis')).toHaveFocus()
     await user.tab()
     expect(resetBtn()).toHaveFocus()
+    for (const name of ['3D', 'Front', 'Side', 'Top']) {
+      await user.tab()
+      expect(screen.getByRole('button', { name })).toHaveFocus()
+    }
     await user.tab()
     expect(group()).toHaveFocus()
   })
-  it('AC29: Shift+Tab from the plot goes back to Reset view', async () => {
+  it('AC29: Shift+Tab from the plot goes back to the last view button', async () => {
     const { user } = setup()
     group().focus()
     await user.tab({ shift: true })
-    expect(resetBtn()).toHaveFocus()
+    expect(screen.getByRole('button', { name: 'Top' })).toHaveFocus()
   })
   it('AC29: Tab from the plot leaves the chart (the readout adds no tab stops)', async () => {
     const { user } = setup()
@@ -1083,7 +1105,7 @@ describe('AC10: a missing stat definition', () => {
 })
 
 describe('AC11: Reset view', () => {
-  it('AC11: clicking Reset view restores yaw -0.65 and pitch 0.38', () => {
+  it('AC11: clicking Reset view restores yaw 0.65 and pitch 0.38', () => {
     setup()
     down(0, 0)
     move(80, 90)
@@ -1190,7 +1212,7 @@ describe('AC3/AC30-AC32: readout inside the chart', () => {
   })
   it('AC3: an empty selection draws grey dots only with no tags and no cards', () => {
     setup(compareDefaults({ players: [] }))
-    expect(screen.getAllByTestId('grid-line')).toHaveLength(20)
+    expect(screen.getAllByTestId('grid-line')).toHaveLength(30)
     expect(points()).toHaveLength(7)
     expect(unselectedCircles()).toHaveLength(7)
     expect(selectedCircles()).toHaveLength(0)
@@ -1241,5 +1263,81 @@ describe('AC34-AC36: layout styles', () => {
     expect(rule('.card')).toMatch(/border:/)
     expect(rule('.card')).toMatch(/radius/)
     expect(rule('.svg')).toMatch(/width:\s*100%/)
+  })
+})
+
+describe('T25: flat views, values on demand', () => {
+  const button = (name: string) => screen.getByRole('button', { name })
+  const tooltip = () => screen.queryByTestId('point-tooltip')
+  const key = (k: string) => fireEvent.keyDown(group(), { key: k })
+
+  it('switches to a flat view and back with the view buttons', async () => {
+    const { user } = setup()
+    expect(button('3D')).toHaveAttribute('aria-pressed', 'true')
+    await user.click(button('Top'))
+    expect(button('Top')).toHaveAttribute('aria-pressed', 'true')
+    expect(st().pitch).toBeCloseTo(Math.PI / 2, 10)
+    // The y axis points at the viewer, so only two titles and six numbers remain.
+    expect(screen.getAllByTestId('axis-label')).toHaveLength(2)
+    expect(screen.getAllByTestId('axis-tick')).toHaveLength(6)
+    await user.click(button('3D'))
+    expect(st().yaw).toBe(YAW0)
+    expect(screen.getAllByTestId('axis-tick')).toHaveLength(9)
+  })
+
+  it('returns to the rotating view when dragged', async () => {
+    const { user } = setup()
+    await user.click(button('Front'))
+    down(0, 0)
+    move(20, 0)
+    expect(button('3D')).toHaveAttribute('aria-pressed', 'true')
+    expect(st().yaw).toBeCloseTo(0.2, 5)
+  })
+
+  it('stays in a flat view for a tap with a little jitter', async () => {
+    const { user } = setup()
+    await user.click(button('Front'))
+    down(0, 0)
+    move(1, 1)
+    up()
+    expect(button('Front')).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('steps through dot values with N and P and clears them with Escape', () => {
+    setup()
+    expect(tooltip()).toBeNull()
+    key('n')
+    expect(tooltip()).toHaveTextContent('Ola Quenby')
+    expect(tooltip()).toHaveTextContent('Zhigh10')
+    expect(screen.getByTestId('active-ring')).toBeInTheDocument()
+    key('n')
+    expect(tooltip()).toHaveTextContent('Pim Rastow')
+    key('p')
+    expect(tooltip()).toHaveTextContent('Ola Quenby')
+    key('Escape')
+    expect(tooltip()).toBeNull()
+  })
+
+  it('shows the values of the tapped dot', () => {
+    const { container } = setup()
+    const svg = container.querySelector('svg') as SVGElement
+    svg.getBoundingClientRect = () => ({ left: 0, top: 0, width: 600, height: 460 }) as DOMRect
+    const dot = selectedCircles()[0]
+    const at = { clientX: num(dot, 'cx'), clientY: num(dot, 'cy') }
+    fireEvent.pointerDown(group(), { ...pointer(), ...at })
+    fireEvent.pointerUp(group(), { ...pointer(), ...at })
+    expect(tooltip()).not.toBeNull()
+    fireEvent.pointerDown(group(), { ...pointer(), ...at })
+    fireEvent.pointerUp(group(), { ...pointer(), ...at })
+    expect(tooltip()).toBeNull()
+  })
+
+  it('highlights the dot of the readout card under the pointer', () => {
+    setup()
+    const card = cardList().getAllByRole('listitem')[1]
+    fireEvent.pointerEnter(card)
+    expect(tooltip()).toHaveTextContent('Pim Rastow')
+    fireEvent.pointerLeave(card)
+    expect(tooltip()).toBeNull()
   })
 })

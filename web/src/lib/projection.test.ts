@@ -3,12 +3,15 @@ import { DEFAULT_PITCH, DEFAULT_YAW } from '../state/appState'
 import type { Entity } from '../domain/types'
 import { deepFreeze } from '../state/testUtils'
 import {
-  axisLabelAnchors,
+  axisEdges,
+  axisGuides,
   axisLines,
   clampPitch,
   cubeEdges,
+  cubeFaces,
   DEFAULT_CAMERA,
   dragCamera,
+  farFaces,
   gridLines,
   plotPoints,
   project,
@@ -18,17 +21,17 @@ import {
   type Vec3,
 } from './projection'
 
-const DEFAULT_CAM = { yaw: -0.65, pitch: 0.38 }
+const DEFAULT_CAM = { yaw: 0.65, pitch: 0.38 }
 
 describe('project', () => {
-  it('AC1: origin projects to (300, 242) with depth 0 at the default camera', () => {
+  it('AC1: origin projects to (300, 215) with depth 0 at the default camera', () => {
     const p = project([0, 0, 0], DEFAULT_CAM)
     expect(p.x).toBeCloseTo(300, 10)
-    expect(p.y).toBeCloseTo(242, 10)
+    expect(p.y).toBeCloseTo(215, 10)
     expect(p.depth).toBeCloseTo(0, 10)
   })
 
-  it('AC1: origin projects to (300, 242) with depth 0 at many yaw/pitch values', () => {
+  it('AC1: origin projects to (300, 215) with depth 0 at many yaw/pitch values', () => {
     const cams = [
       { yaw: 0, pitch: 0 },
       { yaw: 3.7, pitch: 1.3 },
@@ -39,30 +42,30 @@ describe('project', () => {
     for (const cam of cams) {
       const p = project([0, 0, 0], cam)
       expect(p.x).toBeCloseTo(300, 10)
-      expect(p.y).toBeCloseTo(242, 10)
+      expect(p.y).toBeCloseTo(215, 10)
       expect(p.depth).toBeCloseTo(0, 10)
     }
   })
 
-  it('AC2: (1, 1, 1) at the default camera -> (317.8, 203.8), depth 1.6722', () => {
+  it('AC2: (1, 1, 1) at the default camera -> (475.7, 89.7), depth -0.1936', () => {
     const p = project([1, 1, 1], DEFAULT_CAM)
-    expect(p.x).toBeCloseTo(317.8, 5)
-    expect(p.y).toBeCloseTo(203.8, 5)
-    expect(p.depth).toBeCloseTo(1.6722, 4)
+    expect(p.x).toBeCloseTo(475.7, 5)
+    expect(p.y).toBeCloseTo(89.7, 5)
+    expect(p.depth).toBeCloseTo(-0.1936, 4)
   })
 
-  it('AC2: (1, -1, -1) at the default camera -> (504.2, 367.0), depth -0.5482', () => {
+  it('AC2: (1, -1, -1) at the default camera -> (328.9, 434.1), depth -0.9304', () => {
     const p = project([1, -1, -1], DEFAULT_CAM)
-    expect(p.x).toBeCloseTo(504.2, 5)
-    expect(p.y).toBeCloseTo(367.0, 5)
-    expect(p.depth).toBeCloseTo(-0.5482, 4)
+    expect(p.x).toBeCloseTo(328.9, 5)
+    expect(p.y).toBeCloseTo(434.1, 5)
+    expect(p.depth).toBeCloseTo(-0.9304, 4)
   })
 
-  it('AC2: (-1, -1, -1) at the default camera -> (261.1, 325.3), depth -1.6722', () => {
+  it('AC2: (-1, -1, -1) at the default camera -> (138.8, 330.0), depth 0.1936', () => {
     const p = project([-1, -1, -1], DEFAULT_CAM)
-    expect(p.x).toBeCloseTo(261.1, 5)
-    expect(p.y).toBeCloseTo(325.3, 5)
-    expect(p.depth).toBeCloseTo(-1.6722, 4)
+    expect(p.x).toBeCloseTo(138.8, 5)
+    expect(p.y).toBeCloseTo(330, 5)
+    expect(p.depth).toBeCloseTo(0.1936, 4)
   })
 
   it('AC2: screen coordinates are rounded to one decimal', () => {
@@ -84,25 +87,25 @@ describe('project', () => {
 
   it('AC3: at yaw 0, pitch 0, (1, 0, 0) projects to (428, 242) with depth 0', () => {
     const p = project([1, 0, 0], { yaw: 0, pitch: 0 })
-    expect(p.x).toBeCloseTo(428, 10)
-    expect(p.y).toBeCloseTo(242, 10)
+    expect(p.x).toBeCloseTo(420, 10)
+    expect(p.y).toBeCloseTo(215, 10)
     expect(p.depth).toBeCloseTo(0, 10)
   })
 
-  it('AC3: at yaw 0, pitch 0, (0, 1, 0) projects to (300, 114) with depth 0 (+y is up)', () => {
+  it('AC3: at yaw 0, pitch 0, (0, 1, 0) projects to (300, 95) with depth 0 (+y is up)', () => {
     const p = project([0, 1, 0], { yaw: 0, pitch: 0 })
     expect(p.x).toBeCloseTo(300, 10)
-    expect(p.y).toBeCloseTo(114, 10)
+    expect(p.y).toBeCloseTo(95, 10)
     expect(p.depth).toBeCloseTo(0, 10)
   })
 
-  it('AC3: negative axes mirror (-1, 0, 0) -> (172, 242) and (0, -1, 0) -> (300, 370)', () => {
+  it('AC3: negative axes mirror (-1, 0, 0) -> (180, 215) and (0, -1, 0) -> (300, 335)', () => {
     const a = project([-1, 0, 0], { yaw: 0, pitch: 0 })
-    expect(a.x).toBeCloseTo(172, 10)
-    expect(a.y).toBeCloseTo(242, 10)
+    expect(a.x).toBeCloseTo(180, 10)
+    expect(a.y).toBeCloseTo(215, 10)
     const b = project([0, -1, 0], { yaw: 0, pitch: 0 })
     expect(b.x).toBeCloseTo(300, 10)
-    expect(b.y).toBeCloseTo(370, 10)
+    expect(b.y).toBeCloseTo(335, 10)
   })
 
   it('AC3: perspective makes farther points (larger z) sit closer to the centre', () => {
@@ -111,9 +114,9 @@ describe('project', () => {
     const near = project([1, 0, -1], cam)
     expect(far.depth).toBeCloseTo(1, 10)
     expect(near.depth).toBeCloseTo(-1, 10)
-    // 300 + 128 * 4.5 / 5.5 = 404.7 ; 300 + 128 * 4.5 / 3.5 = 464.6
-    expect(far.x).toBeCloseTo(404.7, 5)
-    expect(near.x).toBeCloseTo(464.6, 5)
+    // 300 + 120 * 4.5 / 5.5 = 398.2 ; 300 + 120 * 4.5 / 3.5 = 454.3
+    expect(far.x).toBeCloseTo(398.2, 5)
+    expect(near.x).toBeCloseTo(454.3, 5)
     expect(far.x).toBeLessThan(near.x)
   })
 
@@ -124,11 +127,11 @@ describe('project', () => {
     expect(p.x).toBeCloseTo(300, 5)
   })
 
-  it('AC3: pitch of a quarter turn sends +y to the depth axis', () => {
-    // Z = y sin(pitch) so (0,1,0) at pitch pi/2 has depth +1, y about 242
+  it('AC3: pitch of a quarter turn looks straight down, so +y comes towards the eye', () => {
+    // depth = -y sin(pitch) so (0,1,0) at pitch pi/2 has depth -1, y about 215
     const p = project([0, 1, 0], { yaw: 0, pitch: Math.PI / 2 })
-    expect(p.depth).toBeCloseTo(1, 10)
-    expect(p.y).toBeCloseTo(242, 5)
+    expect(p.depth).toBeCloseTo(-1, 10)
+    expect(p.y).toBeCloseTo(215, 5)
   })
 
   it('AC4: uses the camera passed in, so two cameras give different results', () => {
@@ -153,7 +156,7 @@ describe('project', () => {
   it('AC4: DEFAULT_CAMERA comes from DEFAULT_YAW / DEFAULT_PITCH', () => {
     expect(DEFAULT_CAMERA.yaw).toBe(DEFAULT_YAW)
     expect(DEFAULT_CAMERA.pitch).toBe(DEFAULT_PITCH)
-    expect(DEFAULT_CAMERA).toEqual({ yaw: -0.65, pitch: 0.38 })
+    expect(DEFAULT_CAMERA).toEqual({ yaw: 0.65, pitch: 0.38 })
   })
 
   it('AC1: never returns NaN for the cube corners across cameras', () => {
@@ -240,7 +243,7 @@ describe('toCube', () => {
   })
 })
 
-// Expected values below were computed by running the design script's proj / L formulas in node.
+// Expected values below come from an independent implementation of the camera formulas.
 
 function ent(id: string, stats: Record<string, number | null>): Entity {
   return { id, name: id, shortName: id, meta: '', badge: id, stats }
@@ -300,31 +303,31 @@ describe('plotPoints', () => {
     const pts = plotPoints(pool(), AXES, ['mid'], DEFAULT_CAM)
     const lo = pts.find((p) => p.id === 'lo')!
     const hi = pts.find((p) => p.id === 'hi')!
-    expect(lo.x).toBeCloseTo(261.1, 5)
-    expect(lo.y).toBeCloseTo(325.3, 5)
-    expect(lo.depth).toBeCloseTo(-1.6722, 4)
-    expect(hi.x).toBeCloseTo(317.8, 5)
-    expect(hi.y).toBeCloseTo(203.8, 5)
-    expect(hi.depth).toBeCloseTo(1.6722, 4)
+    expect(lo.x).toBeCloseTo(138.8, 5)
+    expect(lo.y).toBeCloseTo(330, 5)
+    expect(lo.depth).toBeCloseTo(0.1936, 4)
+    expect(hi.x).toBeCloseTo(475.7, 5)
+    expect(hi.y).toBeCloseTo(89.7, 5)
+    expect(hi.depth).toBeCloseTo(-0.1936, 4)
     const mid = pts.find((p) => p.id === 'mid')!
     expect(mid.x).toBeCloseTo(300, 5)
-    expect(mid.y).toBeCloseTo(242, 5)
+    expect(mid.y).toBeCloseTo(215, 5)
   })
 
   it('AC10: null values do not affect the range (min and max ignore them)', () => {
     const pts = plotPoints(pool(), AXES, ['nullB'], DEFAULT_CAM)
     // b range is 0..10, so 'hi' is still at +1 on y
     const hi = pts.find((p) => p.id === 'hi')!
-    expect(hi.y).toBeCloseTo(203.8, 5)
+    expect(hi.y).toBeCloseTo(89.7, 5)
   })
 
   it('AC13: each point reports id, selIndex, x, y, depth, footX, footY', () => {
     const pts = plotPoints(pool(), AXES, ['hi', 'lo'], DEFAULT_CAM)
     const hi = pts.find((p) => p.id === 'hi')!
     expect(hi.selIndex).toBe(0)
-    expect(hi.x).toBeCloseTo(317.8, 5)
-    expect(hi.y).toBeCloseTo(203.8, 5)
-    expect(hi.depth).toBeCloseTo(1.6722, 4)
+    expect(hi.x).toBeCloseTo(475.7, 5)
+    expect(hi.y).toBeCloseTo(89.7, 5)
+    expect(hi.depth).toBeCloseTo(-0.1936, 4)
     const foot = project([1, -1, 1], DEFAULT_CAM)
     expect(hi.footX).toBeCloseTo(foot.x, 5)
     expect(hi.footY).toBeCloseTo(foot.y, 5)
@@ -358,7 +361,7 @@ describe('plotPoints', () => {
 
   it('AC14: points are sorted by descending depth (farthest first)', () => {
     const pts = plotPoints(pool(), AXES, [], DEFAULT_CAM)
-    expect(pts.map((p) => p.id)).toEqual(['hi', 'mid', 'twin', 'lo'])
+    expect(pts.map((p) => p.id)).toEqual(['lo', 'mid', 'twin', 'hi'])
     for (let i = 1; i < pts.length; i++) {
       expect(pts[i - 1].depth).toBeGreaterThanOrEqual(pts[i].depth)
     }
@@ -381,7 +384,7 @@ describe('plotPoints', () => {
       ent('hi', { a: 10, b: 10, c: 10 }),
     ]
     const b = plotPoints(reordered, AXES, [], DEFAULT_CAM).map((p) => p.id)
-    expect(b).toEqual(['hi', 'twin', 'mid', 'lo'])
+    expect(b).toEqual(['lo', 'twin', 'mid', 'hi'])
   })
 
   it('AC15: many identical entities keep their pool order', () => {
@@ -434,7 +437,7 @@ describe('plotPoints', () => {
     expect(pts).toHaveLength(2)
     for (const p of pts) {
       expect(p.x).toBeCloseTo(300, 5)
-      expect(p.y).toBeCloseTo(242, 5)
+      expect(p.y).toBeCloseTo(215, 5)
       expect(Number.isNaN(p.depth)).toBe(false)
     }
   })
@@ -451,9 +454,9 @@ describe('plotPoints', () => {
   it('AC11: axis keys decide which stat feeds which axis', () => {
     const skew = [ent('s', { a: 10, b: 0, c: 0 }), ent('t', { a: 0, b: 10, c: 10 })]
     const sPt = plotPoints(skew, ['a', 'b', 'c'], [], DEFAULT_CAM).find((p) => p.id === 's')!
-    // cube coords (1, -1, -1) -> (504.2, 367.0)
-    expect(sPt.x).toBeCloseTo(504.2, 5)
-    expect(sPt.y).toBeCloseTo(367.0, 5)
+    // cube coords (1, -1, -1) -> (328.9, 434.1)
+    expect(sPt.x).toBeCloseTo(328.9, 5)
+    expect(sPt.y).toBeCloseTo(434.1, 5)
     // swapping the x and z keys puts s at cube (-1, -1, 1)
     const swapped = plotPoints(skew, ['c', 'b', 'a'], [], DEFAULT_CAM).find((p) => p.id === 's')!
     const e = project([-1, -1, 1], DEFAULT_CAM)
@@ -553,50 +556,56 @@ const CAM2: Camera = { yaw: 0.35, pitch: 0.78 }
 
 // prettier-ignore
 const GRID_DEFAULT: Seg[] = [
-  [261.1, 325.3, 112.6, 375.7], [261.1, 325.3, 504.2, 367], [261.1, 325.3, 112.6, 375.7],
-  [261.1, 325.3, 269.2, 8.3], [338.4, 338.6, 174, 381.6], [211.1, 342.3, 446.4, 376],
-  [263.5, 231.4, 120.3, 310.6], [211.1, 342.3, 227.8, 51.8], [402.8, 349.6, 228.4, 386.8],
-  [171.5, 355.7, 397.7, 383.6], [265.6, 148.4, 127.4, 250.7], [171.5, 355.7, 193.6, 87.9],
-  [457.4, 359, 276.8, 391.5], [139.2, 366.6, 356.2, 390.1], [267.5, 74.5, 134, 195.4],
-  [139.2, 366.6, 164.7, 118.2], [504.2, 367, 320.2, 395.6], [112.6, 375.7, 320.2, 395.6],
-  [269.2, 8.3, 140.1, 144.1], [112.6, 375.7, 140.1, 144.1],
+  [138.8, 330, 283.3, 250.8], [138.8, 330, 328.9, 434.1], [138.8, 330, 283.3, 250.8],
+  [138.8, 330, 108.5, 97.8], [283.3, 250.8, 449.9, 306.8], [283.3, 250.8, 281, 71],
+  [177.2, 351, 319, 262.8], [182.8, 305.8, 367.6, 393.3], [132.2, 279.1, 282.8, 210],
+  [182.8, 305.8, 162.7, 89.4], [282.8, 210, 455.6, 258.7], [319, 262.8, 321.7, 74.9],
+  [220.9, 375, 358.3, 276], [220.9, 285, 399.8, 359.5], [125, 223.8, 282.2, 166.6],
+  [220.9, 285, 208.4, 82.3], [282.2, 166.6, 461.8, 206.8], [358.3, 276, 367.1, 79.2],
+  [271, 402.4, 401.7, 290.6], [254.1, 266.8, 426.8, 331.1], [117.1, 163.6, 281.6, 120.4],
+  [254.1, 266.8, 247.3, 76.2], [281.6, 120.4, 468.5, 150.7], [401.7, 290.6, 418.1, 84.1],
+  [328.9, 434.1, 449.9, 306.8], [283.3, 250.8, 449.9, 306.8], [108.5, 97.8, 281, 71],
+  [283.3, 250.8, 281, 71], [281, 71, 475.7, 89.7], [449.9, 306.8, 475.7, 89.7],
 ]
 // prettier-ignore
 const GRID_CAM2: Seg[] = [
-  [81, 291.8, 227, 439.3], [81, 291.8, 419.1, 203.9], [81, 291.8, 227, 439.3],
-  [81, 291.8, 145.5, 105.8], [156, 272.3, 284.1, 429.4], [127.4, 338.6, 437.4, 267],
-  [101.7, 232.1, 232.1, 385.1], [127.4, 338.6, 174.9, 151.9], [236.9, 251.3, 344.2, 419],
-  [166.1, 377.7, 452.3, 318.2], [118.8, 182.7, 236.5, 338], [166.1, 377.7, 200.7, 192.3],
-  [324.3, 228.5, 407.8, 407.9], [198.9, 410.9, 464.6, 360.6], [133.2, 141.2, 240.4, 296.6],
-  [198.9, 410.9, 223.5, 228.1], [419.1, 203.9, 475, 396.3], [227, 439.3, 475, 396.3],
-  [145.5, 105.8, 243.8, 260], [227, 439.3, 243.8, 260],
+  [155.1, 342.7, 247.3, 198.1], [155.1, 342.7, 375.1, 417.9], [155.1, 342.7, 247.3, 198.1],
+  [155.1, 342.7, 94.7, 168.3], [247.3, 198.1, 423, 243], [247.3, 198.1, 231.6, 30],
+  [205.8, 360, 288.6, 208.7], [182.7, 299.5, 389.6, 364.7], [143.6, 309.5, 244.1, 163.8],
+  [182.7, 299.5, 138.2, 124.4], [244.1, 163.8, 431.2, 208.4], [288.6, 208.7, 285.1, 39.3],
+  [259.2, 378.3, 331.5, 219.6], [206.9, 261.6, 402.3, 318.7], [130.1, 270.6, 240.5, 125],
+  [206.9, 261.6, 174.5, 87.8], [240.5, 125, 440.6, 169], [331.5, 219.6, 341.5, 49.1],
+  [315.5, 397.6, 376.3, 231], [228.3, 228, 413.3, 278.4], [114.1, 224.3, 236.3, 80.8],
+  [228.3, 228, 205.2, 56.7], [236.3, 80.8, 451.4, 123.5], [376.3, 231, 401, 59.4],
+  [375.1, 417.9, 423, 243], [247.3, 198.1, 423, 243], [94.7, 168.3, 231.6, 30],
+  [247.3, 198.1, 231.6, 30], [231.6, 30, 464.1, 70.4], [423, 243, 464.1, 70.4],
 ]
 // prettier-ignore
 const EDGES_DEFAULT: Seg[] = [
-  [261.1, 325.3, 504.2, 367], [261.1, 325.3, 269.2, 8.3], [261.1, 325.3, 112.6, 375.7],
-  [112.6, 375.7, 320.2, 395.6], [112.6, 375.7, 140.1, 144.1], [269.2, 8.3, 140.1, 144.1],
-  [269.2, 8.3, 472, 119.3], [504.2, 367, 472, 119.3], [504.2, 367, 320.2, 395.6],
-  [140.1, 144.1, 317.8, 203.8], [320.2, 395.6, 317.8, 203.8], [472, 119.3, 317.8, 203.8],
+  [138.8, 330, 328.9, 434.1], [138.8, 330, 108.5, 97.8], [138.8, 330, 283.3, 250.8],
+  [283.3, 250.8, 449.9, 306.8], [283.3, 250.8, 281, 71], [108.5, 97.8, 281, 71],
+  [108.5, 97.8, 336.5, 136.9], [328.9, 434.1, 336.5, 136.9], [328.9, 434.1, 449.9, 306.8],
+  [281, 71, 475.7, 89.7], [449.9, 306.8, 475.7, 89.7], [336.5, 136.9, 475.7, 89.7],
 ]
 // prettier-ignore
 const EDGES_CAM2: Seg[] = [
-  [81, 291.8, 419.1, 203.9], [81, 291.8, 145.5, 105.8], [81, 291.8, 227, 439.3],
-  [227, 439.3, 475, 396.3], [227, 439.3, 243.8, 260], [145.5, 105.8, 243.8, 260],
-  [145.5, 105.8, 380.1, 25.6], [419.1, 203.9, 380.1, 25.6], [419.1, 203.9, 475, 396.3],
-  [243.8, 260, 431.3, 212.2], [475, 396.3, 431.3, 212.2], [380.1, 25.6, 431.3, 212.2],
+  [155.1, 342.7, 375.1, 417.9], [155.1, 342.7, 94.7, 168.3], [155.1, 342.7, 247.3, 198.1],
+  [247.3, 198.1, 423, 243], [247.3, 198.1, 231.6, 30], [94.7, 168.3, 231.6, 30],
+  [94.7, 168.3, 411.6, 250.7], [375.1, 417.9, 411.6, 250.7], [375.1, 417.9, 423, 243],
+  [231.6, 30, 464.1, 70.4], [423, 243, 464.1, 70.4], [411.6, 250.7, 464.1, 70.4],
 ]
 
 describe('gridLines', () => {
-  it('AC20: returns 20 lines', () => {
-    expect(gridLines(DEFAULT_CAM)).toHaveLength(20)
+  it('AC20: returns 30 lines: floor and two back walls', () => {
+    expect(gridLines(DEFAULT_CAM)).toHaveLength(30)
   })
 
-  it('AC20: matches the design grid, in order, at the default camera', () => {
+  it('AC20: matches the expected grid, in order, at the default camera', () => {
     expect(gridLines(DEFAULT_CAM)).toHaveLength(GRID_DEFAULT.length)
     checkSegs(gridLines(DEFAULT_CAM), GRID_DEFAULT)
   })
 
-  it('AC20: matches the design grid, in order, at another camera', () => {
+  it('AC20: matches the expected grid, in order, at another camera', () => {
     expect(gridLines(CAM2)).toHaveLength(GRID_CAM2.length)
     checkSegs(gridLines(CAM2), GRID_CAM2)
   })
@@ -609,16 +618,18 @@ describe('gridLines', () => {
         seg([-1, -1, t], [1, -1, t], CAM2),
         seg([-1, t, -1], [-1, t, 1], CAM2),
         seg([-1, -1, t], [-1, 1, t], CAM2),
+        seg([-1, t, 1], [1, t, 1], CAM2),
+        seg([t, -1, 1], [t, 1, 1], CAM2),
       )
     }
     expect(gridLines(CAM2)).toHaveLength(expected.length)
     checkSegs(gridLines(CAM2), expected)
   })
 
-  it('AC24: the first grid line starts at (261.1, 325.3) at the default camera', () => {
+  it('AC24: the first grid line starts at (138.8, 330) at the default camera', () => {
     const first = gridLines(DEFAULT_CAM)[0]
-    expect(first.x1).toBeCloseTo(261.1, 5)
-    expect(first.y1).toBeCloseTo(325.3, 5)
+    expect(first.x1).toBeCloseTo(138.8, 5)
+    expect(first.y1).toBeCloseTo(330, 5)
   })
 
   it('AC24: every grid endpoint is a one-decimal projection', () => {
@@ -660,58 +671,116 @@ describe('cubeEdges', () => {
 })
 
 describe('axisLines', () => {
-  it('AC22: returns 3 lines from (-1,-1,-1) to +x, +y, +z in that order', () => {
+  it('AC22: returns the x, y and z axis edges in that order at the default camera', () => {
     const lines = axisLines(DEFAULT_CAM)
     expect(lines).toHaveLength(3)
+    // Near bottom edge for x, left upright edge for y, near bottom edge for z.
     checkSegs(lines, [
       seg([-1, -1, -1], [1, -1, -1], DEFAULT_CAM),
       seg([-1, -1, -1], [-1, 1, -1], DEFAULT_CAM),
-      seg([-1, -1, -1], [-1, -1, 1], DEFAULT_CAM),
+      seg([1, -1, -1], [1, -1, 1], DEFAULT_CAM),
     ])
   })
 
-  it('AC22: matches the design axes at both cameras', () => {
+  it('AC22: matches the expected axes at both cameras', () => {
     expect(axisLines(DEFAULT_CAM)).toHaveLength(3)
     checkSegs(axisLines(DEFAULT_CAM), [
-      [261.1, 325.3, 504.2, 367],
-      [261.1, 325.3, 269.2, 8.3],
-      [261.1, 325.3, 112.6, 375.7],
+      [138.8, 330, 328.9, 434.1],
+      [138.8, 330, 108.5, 97.8],
+      [328.9, 434.1, 449.9, 306.8],
     ])
     expect(axisLines(CAM2)).toHaveLength(3)
     checkSegs(axisLines(CAM2), [
-      [81, 291.8, 419.1, 203.9],
-      [81, 291.8, 145.5, 105.8],
-      [81, 291.8, 227, 439.3],
+      [155.1, 342.7, 375.1, 417.9],
+      [155.1, 342.7, 94.7, 168.3],
+      [375.1, 417.9, 423, 243],
     ])
   })
 })
 
-describe('axisLabelAnchors', () => {
-  it('AC23: x, y, z anchors match the design projections at the default camera', () => {
-    const a = axisLabelAnchors(DEFAULT_CAM)
-    expect(a.x.x).toBeCloseTo(516.5, 5)
-    expect(a.x.y).toBeCloseTo(383.4, 5)
-    expect(a.y.x).toBeCloseTo(269.5, 5)
-    expect(a.y.y).toBeCloseTo(-1.7, 5)
-    expect(a.z.x).toBeCloseTo(105.2, 5)
-    expect(a.z.y).toBeCloseTo(391.1, 5)
+describe('viewed from above', () => {
+  const cameras = [DEFAULT_CAM, CAM2, { yaw: 2.4, pitch: 0.6 }, { yaw: -2, pitch: 1.2 }]
+
+  it('draws the far floor edge above the near one', () => {
+    const near = project([0, -1, -1], { yaw: 0, pitch: 0.4 })
+    const far = project([0, -1, 1], { yaw: 0, pitch: 0.4 })
+    expect(far.depth).toBeGreaterThan(near.depth)
+    expect(far.y).toBeLessThan(near.y)
   })
 
-  it('AC23: anchors equal project of the three anchor points at another camera', () => {
-    const a = axisLabelAnchors(CAM2)
-    const ex = project([1.12, -1.1, -1], CAM2)
-    const ey = project([-1, 1.08, -1], CAM2)
-    const ez = project([-1, -1.1, 1.12], CAM2)
-    expect(a.x.x).toBeCloseTo(ex.x, 5)
-    expect(a.x.y).toBeCloseTo(ex.y, 5)
-    expect(a.y.x).toBeCloseTo(ey.x, 5)
-    expect(a.y.y).toBeCloseTo(ey.y, 5)
-    expect(a.z.x).toBeCloseTo(ez.x, 5)
-    expect(a.z.y).toBeCloseTo(ez.y, 5)
-    expect(a.z.y).toBeCloseTo(457.2, 5)
+  it('puts the walls on the faces farthest from the eye for any rotation', () => {
+    for (const cam of cameras) {
+      const far = farFaces(cam)
+      expect(project([far.x, 0, 0], cam).depth).toBeGreaterThan(0)
+      expect(project([0, 0, far.z], cam).depth).toBeGreaterThan(0)
+    }
   })
 
-  it('AC23: anchors are not clamped (the Y anchor may sit above the viewBox)', () => {
-    expect(axisLabelAnchors(DEFAULT_CAM).y.y).toBeLessThan(10)
+  it('runs the x and z axes along the near edges of the floor', () => {
+    for (const cam of cameras) {
+      const far = farFaces(cam)
+      const edges = axisEdges(cam)
+      expect(edges.x.map((p) => p[2])).toEqual([-far.z, -far.z])
+      expect(edges.z.map((p) => p[0])).toEqual([-far.x, -far.x])
+    }
+  })
+
+  it('returns the floor and both walls as four-corner polygons', () => {
+    const faces = cubeFaces(DEFAULT_CAM)
+    for (const polygon of [faces.floor, faces.wallX, faces.wallZ]) {
+      expect(polygon.split(' ')).toHaveLength(4)
+      expect(polygon).not.toContain('NaN')
+    }
+  })
+})
+
+describe('flat views', () => {
+  const front = { yaw: 0, pitch: 0, flat: true }
+  const side = { yaw: Math.PI / 2, pitch: 0, flat: true }
+  const top = { yaw: 0, pitch: Math.PI / 2, flat: true }
+
+  it('has no perspective, so depth does not move a point on screen', () => {
+    expect(project([0.5, 0.5, -1], front)).toMatchObject({ x: 360, y: 155 })
+    expect(project([0.5, 0.5, 1], front)).toMatchObject({ x: 360, y: 155 })
+  })
+
+  it('front shows x rightwards and y upwards', () => {
+    const g = axisGuides(front)
+    expect([g.x.visible, g.y.visible, g.z.visible]).toEqual([true, true, false])
+    expect(axisLines(front)[0]).toEqual({ x1: 180, y1: 335, x2: 420, y2: 335 })
+    expect(axisLines(front)[1]).toEqual({ x1: 180, y1: 335, x2: 180, y2: 95 })
+  })
+
+  it('side shows z rightwards and y upwards', () => {
+    const g = axisGuides(side)
+    expect([g.x.visible, g.y.visible, g.z.visible]).toEqual([false, true, true])
+    expect(axisLines(side)[2]).toEqual({ x1: 180, y1: 335, x2: 420, y2: 335 })
+  })
+
+  it('top shows x rightwards and z upwards, with the z axis on the left', () => {
+    const g = axisGuides(top)
+    expect([g.x.visible, g.y.visible, g.z.visible]).toEqual([true, false, true])
+    expect(axisLines(top)[0]).toEqual({ x1: 180, y1: 335, x2: 420, y2: 335 })
+    expect(axisLines(top)[2]).toEqual({ x1: 180, y1: 335, x2: 180, y2: 95 })
+    expect(g.z.title.y).toBeLessThan(95)
+  })
+})
+
+describe('axisGuides', () => {
+  it('numbers the minimum, middle and maximum of each axis outside the cube centre', () => {
+    const g = axisGuides(DEFAULT_CAM)
+    const lines = axisLines(DEFAULT_CAM)
+    ;[g.x, g.y, g.z].forEach((axis, i) => {
+      expect(axis.ticks).toHaveLength(3)
+      const mx = (lines[i].x1 + lines[i].x2) / 2
+      const my = (lines[i].y1 + lines[i].y2) / 2
+      const tick = axis.ticks[1]
+      expect(Math.hypot(tick.x - 300, tick.y - 215)).toBeGreaterThan(Math.hypot(mx - 300, my - 215))
+    })
+  })
+
+  it('places the y title above the top of the y axis', () => {
+    const y = axisLines(DEFAULT_CAM)[1]
+    expect(axisGuides(DEFAULT_CAM).y.title).toEqual({ x: y.x2, y: y.y2 - 18 })
   })
 })

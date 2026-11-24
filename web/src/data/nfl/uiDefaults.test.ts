@@ -23,8 +23,9 @@ describe('AC1: NFL defaults match the design', () => {
       teamId: 'phi',
       unit: 'off',
       tSort: { k: 'snap', d: -1 },
-      yaw: -0.65,
+      yaw: 0.65,
       pitch: 0.38,
+      flat: false,
     })
   })
   it('AC1: the data-layer defaults carry the league values', () => {

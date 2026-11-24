@@ -4,9 +4,14 @@ import { NULL_PLACEHOLDER } from '../../lib/stats'
 import { CANONICAL_PLAYER_KEYS, compareStatDefs, comparePlayers } from '../../test/compareFixtures'
 import {
   axesComplete,
+  TAG_HEIGHT,
   axisDefs,
   axisLabelLayout,
   axisOptions,
+  axisTicks,
+  nearestPoint,
+  placeTags,
+  stepPoint,
   cameraForKey,
   chart3dModel,
   readoutModel,
@@ -30,7 +35,7 @@ function expectNoNaN(value: unknown) {
 }
 
 describe('cameraForKey', () => {
-  const cam = DEFAULT_CAMERA // yaw -0.65, pitch 0.38
+  const cam = DEFAULT_CAMERA // yaw 0.65, pitch 0.38
 
   function setCam(action: ReturnType<typeof cameraForKey>) {
     expect(action).not.toBeNull()
@@ -40,29 +45,29 @@ describe('cameraForKey', () => {
 
   test('AC26: ArrowRight adds 0.1 to yaw and ArrowLeft subtracts 0.1', () => {
     const right = setCam(cameraForKey(key('ArrowRight'), cam))
-    expect(right.yaw).toBeCloseTo(-0.55, 10)
+    expect(right.yaw).toBeCloseTo(0.75, 10)
     expect(right.pitch).toBeCloseTo(0.38, 10)
     const left = setCam(cameraForKey(key('ArrowLeft'), cam))
-    expect(left.yaw).toBeCloseTo(-0.75, 10)
+    expect(left.yaw).toBeCloseTo(0.55, 10)
     expect(left.pitch).toBeCloseTo(0.38, 10)
   })
 
   test('AC26: ArrowDown adds 0.08 to pitch and ArrowUp subtracts 0.08', () => {
     const down = setCam(cameraForKey(key('ArrowDown'), cam))
     expect(down.pitch).toBeCloseTo(0.46, 10)
-    expect(down.yaw).toBeCloseTo(-0.65, 10)
+    expect(down.yaw).toBeCloseTo(0.65, 10)
     const up = setCam(cameraForKey(key('ArrowUp'), cam))
     expect(up.pitch).toBeCloseTo(0.3, 10)
-    expect(up.yaw).toBeCloseTo(-0.65, 10)
+    expect(up.yaw).toBeCloseTo(0.65, 10)
   })
 
   test('AC26: Shift makes every arrow step five times larger', () => {
     expect(setCam(cameraForKey(key('ArrowRight', { shiftKey: true }), cam)).yaw).toBeCloseTo(
-      -0.15,
+      1.15,
       10,
     )
     expect(setCam(cameraForKey(key('ArrowLeft', { shiftKey: true }), cam)).yaw).toBeCloseTo(
-      -1.15,
+      0.15,
       10,
     )
     expect(setCam(cameraForKey(key('ArrowDown', { shiftKey: true }), cam)).pitch).toBeCloseTo(
@@ -278,10 +283,10 @@ describe('chart3dModel', () => {
     expect(m.tags).toEqual([])
   })
 
-  test('AC13: a complete model has 20 grid lines, 12 cube edges and 3 axis lines', () => {
+  test('AC13: a complete model has 30 grid lines, 12 cube edges and 3 axis lines', () => {
     const m = chart3dModel(pool, axes, ['zp1'], DEFAULT_CAMERA, d3)
     expect(m.ok).toBe(true)
-    expect(m.grid).toHaveLength(20)
+    expect(m.grid).toHaveLength(30)
     expect(m.edges).toHaveLength(12)
     expect(m.axes).toHaveLength(3)
     expect(m.labels).toHaveLength(3)
@@ -318,21 +323,21 @@ describe('chart3dModel', () => {
 
   test('AC14: point coordinates follow the cube mapping (hand-computed for zp1)', () => {
     // zp1 is the league max on zhigh and zbig (cube 1) and zlow 3.5 of 1.25..9 maps to -0.4194.
-    // Projected at yaw -0.65, pitch 0.38: x 319.5, y 334.8.
+    // Projected at yaw 0.65, pitch 0.38: x 456.6, y 250.6.
     const m = chart3dModel(pool, axes, ['zp1'], DEFAULT_CAMERA, d3)
     const p = m.points.find((q) => q.id === 'zp1')!
-    expect(p.x).toBeCloseTo(319.5, 1)
-    expect(p.y).toBeCloseTo(334.8, 1)
+    expect(p.x).toBeCloseTo(456.6, 1)
+    expect(p.y).toBeCloseTo(250.6, 1)
   })
 
   test('AC32: a selected entity with a null axis is plotted at -1 on that axis', () => {
     // zp4: zhigh null -> -1, zlow 9 (max) -> 1, zbig 2500 of 1000..4000 -> 0.
-    // Projected at the default camera: x 193.6, y 87.9.
+    // Projected at the default camera: x 208.4, y 82.3.
     const m = chart3dModel(pool, axes, ['zp4'], DEFAULT_CAMERA, d3)
     const p = m.points.find((q) => q.id === 'zp4')!
     expect(p.selIndex).toBe(0)
-    expect(p.x).toBeCloseTo(193.6, 1)
-    expect(p.y).toBeCloseTo(87.9, 1)
+    expect(p.x).toBeCloseTo(208.4, 1)
+    expect(p.y).toBeCloseTo(82.3, 1)
   })
 
   test('AC16: tags exist only for selected points and use the shortName', () => {
@@ -344,15 +349,15 @@ describe('chart3dModel', () => {
   })
 
   test('AC16: a tag sits 10 units right of its point, as rounded percentages', () => {
-    // zp1 point (319.5, 334.8): left (329.5 / 600) = 54.9%, top (334.8 / 460) = 72.8%.
-    // zp4 point (193.6, 87.9): left (203.6 / 600) = 33.9%, top (87.9 / 460) = 19.1%.
+    // zp1 point (456.6, 250.6): left (466.6 / 600) = 77.8%, top (250.6 / 460) = 54.5%.
+    // zp4 point (208.4, 82.3): left (218.4 / 600) = 36.4%, top (82.3 / 460) = 17.9%.
     const m = chart3dModel(pool, axes, ['zp1', 'zp4'], DEFAULT_CAMERA, d3)
     const q1 = m.tags.find((t) => t.name === 'Quenby')!
-    expect(q1.left).toBeCloseTo(54.9, 5)
-    expect(q1.top).toBeCloseTo(72.8, 5)
+    expect(q1.left).toBeCloseTo(77.8, 5)
+    expect(q1.top).toBeCloseTo(54.5, 5)
     const q4 = m.tags.find((t) => t.name === 'Tolliver')!
-    expect(q4.left).toBeCloseTo(33.9, 5)
-    expect(q4.top).toBeCloseTo(19.1, 5)
+    expect(q4.left).toBeCloseTo(36.4, 5)
+    expect(q4.top).toBeCloseTo(17.9, 5)
   })
 
   test('AC16: a selected id that is not in the pool produces no point and no tag', () => {
@@ -402,26 +407,101 @@ describe('chart3dModel', () => {
   })
 })
 
-describe('axisLabelLayout edge flipping', () => {
-  const side = (yaw: number, letter: string) =>
-    axisLabelLayout({ yaw, pitch: 0.3 }, defs3).find((l) => l.letter === letter)
+describe('axisLabelLayout sides', () => {
+  const label = (yaw: number, letter: string) =>
+    axisLabelLayout({ yaw, pitch: 0.3 }, defs3).find((l) => l.letter === letter)!
 
-  test('a label near the left edge opens rightwards', () => {
-    const z = side(-1, 'Z')
-    expect(z?.left).toBeLessThan(40)
-    expect(z?.side).toBe('after')
+  test('the y title near the left edge opens rightwards', () => {
+    const y = label(0.65, 'Y')
+    expect(y.left).toBeLessThan(40)
+    expect(y.side).toBe('after')
   })
 
-  test('a label near the right edge opens leftwards', () => {
-    const x = side(-1, 'X')
-    expect(x?.left).toBeGreaterThan(60)
-    expect(x?.side).toBe('before')
+  test('x and z titles are centred and kept away from the card edges', () => {
+    for (const yaw of [-2, -1, 0, 0.5, 1, 2.5]) {
+      for (const letter of ['X', 'Z']) {
+        const l = label(yaw, letter)
+        expect(l.side).toBe('center')
+        expect(l.left).toBeGreaterThanOrEqual(20)
+        expect(l.left).toBeLessThanOrEqual(80)
+      }
+    }
   })
 
-  test('a centred label keeps its natural side', () => {
-    const z = side(0.5, 'Z')
-    expect(z?.left).toBeGreaterThanOrEqual(40)
-    expect(z?.left).toBeLessThanOrEqual(60)
-    expect(z?.side).toBe('before')
+  test('a flat view hides the title of the axis that points at the viewer', () => {
+    const front = axisLabelLayout({ yaw: 0, pitch: 0, flat: true }, defs3)
+    expect(front.map((l) => l.hidden)).toEqual([false, false, true])
+  })
+})
+
+describe('axisTicks', () => {
+  const pool = comparePlayers()
+  const axes = ['zhigh', 'zlow', 'zbig'] as const
+  const d3 = axisDefs(axes, defs)
+
+  test('numbers the league minimum, middle and maximum of every visible axis', () => {
+    const ticks = axisTicks(pool, axes, DEFAULT_CAMERA, d3)
+    expect(ticks.map((t) => t.key)).toEqual([
+      'X-1',
+      'X0',
+      'X1',
+      'Y-1',
+      'Y0',
+      'Y1',
+      'Z-1',
+      'Z0',
+      'Z1',
+    ])
+    // zlow runs from 1.25 to 9 with two decimals.
+    expect(ticks.slice(3, 6).map((t) => t.text)).toEqual(['1.25', '5.13', '9.00'])
+  })
+
+  test('leaves out the axis that points at the viewer', () => {
+    const ticks = axisTicks(pool, axes, { yaw: 0, pitch: 0, flat: true }, d3)
+    expect(ticks.map((t) => t.key[0])).toEqual(['X', 'X', 'X', 'Y', 'Y', 'Y'])
+  })
+
+  test('numbers only the middle when the league has a single value', () => {
+    const one = [pool[0]]
+    const ticks = axisTicks(one, axes, DEFAULT_CAMERA, d3)
+    expect(ticks.map((t) => t.key)).toEqual(['X0', 'Y0', 'Z0'])
+    expect(ticks[0].text).toBe('10')
+  })
+})
+
+describe('picking and stepping through dots', () => {
+  const pool = comparePlayers()
+  const points = chart3dModel(
+    pool,
+    ['zhigh', 'zlow', 'zbig'],
+    ['zp3', 'zp1'],
+    DEFAULT_CAMERA,
+    axisDefs(['zhigh', 'zlow', 'zbig'], defs),
+  ).points
+
+  test('picks the dot under the pointer and nothing when it is far away', () => {
+    const target = points.find((p) => p.id === 'zp1')!
+    expect(nearestPoint(points, target.x + 2, target.y - 2)).toBe('zp1')
+    expect(nearestPoint(points, -500, -500)).toBeNull()
+  })
+
+  test('steps through selected dots first, in selection order, and wraps', () => {
+    expect(stepPoint(pool, points, null, 1)).toBe('zp3')
+    expect(stepPoint(pool, points, 'zp3', 1)).toBe('zp1')
+    const last = stepPoint(pool, points, null, -1)
+    expect(stepPoint(pool, points, last, 1)).toBe('zp3')
+    expect(stepPoint(pool, [], null, 1)).toBeNull()
+  })
+
+  test('moves tags apart when two points are close together', () => {
+    const close = [
+      { ...points[0], id: 'a', x: 100, y: 100 },
+      { ...points[0], id: 'b', x: 105, y: 104 },
+      { ...points[0], id: 'c', x: 400, y: 100 },
+    ]
+    const places = placeTags(close)
+    expect(places.get('a')).toEqual({ x: 100, y: 100 })
+    expect(places.get('b')).toEqual({ x: 105, y: 100 + TAG_HEIGHT })
+    expect(places.get('c')).toEqual({ x: 400, y: 100 })
   })
 })

@@ -10,6 +10,7 @@ import type {
 
 export type ViewMode = 'num' | '2d' | '3d'
 export type Chart2Mode = 'bars' | 'dots' | 'radar'
+export type CameraPreset = '3d' | 'front' | 'side' | 'top'
 export type TeamMode = 'compare' | 'inside'
 export type AxisIndex = 0 | 1 | 2
 export type Axes = [string, string, string]
@@ -38,14 +39,22 @@ export interface AppState {
   tSort: RosterSort
   yaw: number
   pitch: number
+  /** True while a straight-on view is shown (no perspective). */
+  flat: boolean
 }
 
 export const MAX_SELECTED = 8
-export const DEFAULT_YAW = -0.65
+export const DEFAULT_YAW = 0.65
 export const DEFAULT_PITCH = 0.38
 export const PITCH_MIN = -0.2
 export const PITCH_MAX = 1.3
 export const ALL_POSITIONS = 'All'
+/** Straight-on views. These may exceed the drag limits on pitch. */
+export const FLAT_VIEWS: Record<Exclude<CameraPreset, '3d'>, { yaw: number; pitch: number }> = {
+  front: { yaw: 0, pitch: 0 },
+  side: { yaw: Math.PI / 2, pitch: 0 },
+  top: { yaw: 0, pitch: Math.PI / 2 },
+}
 
 export type AppAction =
   | { type: 'toggleEntity'; id: EntityId }
@@ -64,6 +73,7 @@ export type AppAction =
   | { type: 'setAxis'; index: AxisIndex; key: string }
   | { type: 'setCamera'; yaw: number; pitch: number }
   | { type: 'resetView' }
+  | { type: 'setCameraPreset'; preset: CameraPreset }
   | { type: 'setTeamMode'; mode: TeamMode }
   | { type: 'setTeam'; teamId: TeamId }
   | { type: 'setUnit'; unit: RosterUnit }
@@ -125,7 +135,13 @@ export function createInitialState(defaults: LeagueUiDefaults): AppState {
     tSort: { k: defaults.sortKey, d: -1 },
     yaw: DEFAULT_YAW,
     pitch: DEFAULT_PITCH,
+    flat: false,
   }
+}
+
+function withDefaultCamera(state: AppState): AppState {
+  if (state.yaw === DEFAULT_YAW && state.pitch === DEFAULT_PITCH && !state.flat) return state
+  return { ...state, yaw: DEFAULT_YAW, pitch: DEFAULT_PITCH, flat: false }
 }
 
 export function createAppReducer(
@@ -210,12 +226,17 @@ export function createAppReducer(
       case 'setCamera': {
         if (!Number.isFinite(action.yaw) || !Number.isFinite(action.pitch)) return state
         const pitch = Math.min(PITCH_MAX, Math.max(PITCH_MIN, action.pitch))
-        if (action.yaw === state.yaw && pitch === state.pitch) return state
-        return { ...state, yaw: action.yaw, pitch }
+        if (action.yaw === state.yaw && pitch === state.pitch && !state.flat) return state
+        return { ...state, yaw: action.yaw, pitch, flat: false }
       }
       case 'resetView':
-        if (state.yaw === DEFAULT_YAW && state.pitch === DEFAULT_PITCH) return state
-        return { ...state, yaw: DEFAULT_YAW, pitch: DEFAULT_PITCH }
+        return withDefaultCamera(state)
+      case 'setCameraPreset': {
+        if (action.preset === '3d') return withDefaultCamera(state)
+        const { yaw, pitch } = FLAT_VIEWS[action.preset]
+        if (state.flat && state.yaw === yaw && state.pitch === pitch) return state
+        return { ...state, yaw, pitch, flat: true }
+      }
       case 'setTeamMode':
         return { ...state, teamMode: action.mode, addOpen: false }
       case 'setTeam':

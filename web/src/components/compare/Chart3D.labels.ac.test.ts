@@ -15,8 +15,9 @@ function sweep(): Camera[] {
   return out
 }
 
-/** Room a label needs on its open side, as a percentage of the card width. */
+/** Room a label needs on its open side, or on both sides when centred, in % of the card width. */
 function roomOk(l: { side: string; left: number }): boolean {
+  if (l.side === 'center') return l.left >= MAX_PCT / 2 && l.left <= 100 - MAX_PCT / 2
   return l.side === 'before' ? l.left >= MAX_PCT : l.left <= 100 - MAX_PCT
 }
 
@@ -39,22 +40,34 @@ describe('AC5: 3D axis labels stay inside the chart card', () => {
     )
   })
 
+  it('AC5: X and Z titles are centred in the rotating view', () => {
+    const titles = sweep()
+      .flatMap((cam) => axisLabelLayout(cam, defs3))
+      .filter((l) => l.letter !== 'Y')
+    expect(titles.filter((l) => l.side !== 'center')).toEqual([])
+  })
+
   it('AC5: label text always starts with its letter', () => {
     const all = sweep().flatMap((cam) => axisLabelLayout(cam, defs3))
     expect(all.every((l) => l.text.startsWith(`${l.letter} · `))).toBe(true)
   })
 
-  it('AC5: a label in the middle band keeps the side that follows the centre line', () => {
-    const mid = sweep()
+  it('AC5: the Y title follows the centre line and flips inwards near an edge', () => {
+    const y = sweep()
       .flatMap((cam) => axisLabelLayout(cam, defs3))
-      .filter((l) => l.left > MAX_PCT && l.left < 100 - MAX_PCT)
-    expect(mid.length).toBeGreaterThan(0)
-    expect(mid.filter((l) => l.side !== (l.left < 50 ? 'before' : 'after'))).toEqual([])
+      .filter((l) => l.letter === 'Y')
+    expect(y.length).toBeGreaterThan(0)
+    const expected = (left: number) => {
+      if (left < MAX_PCT) return 'after'
+      if (left > 100 - MAX_PCT) return 'before'
+      return left < 50 ? 'before' : 'after'
+    }
+    expect(y.filter((l) => l.side !== expected(l.left))).toEqual([])
   })
 
   it('AC5: both sides occur across the sweep', () => {
     const sides = new Set(sweep().flatMap((cam) => axisLabelLayout(cam, defs3).map((l) => l.side)))
-    expect(sides).toEqual(new Set(['before', 'after']))
+    expect(sides).toEqual(new Set(['before', 'after', 'center']))
   })
 
   it('AC5: missing axis stat still yields a label with the letter', () => {

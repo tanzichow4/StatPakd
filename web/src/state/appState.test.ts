@@ -427,9 +427,9 @@ describe('AC20/AC21/AC31: camera', () => {
     const s = reducer(before, { type: 'setCamera', yaw: 1, pitch: 0.1 })
     expect(changedOutside(before, s, ['yaw', 'pitch'])).toEqual([])
   })
-  it('AC21: resetView restores -0.65 and 0.38', () => {
+  it('AC21: resetView restores 0.65 and 0.38', () => {
     const s = reducer(make({ yaw: 3, pitch: 1 }), { type: 'resetView' })
-    expect(s.yaw).toBe(-0.65)
+    expect(s.yaw).toBe(0.65)
     expect(s.pitch).toBe(0.38)
   })
   it('AC21: resetView changes nothing else', () => {

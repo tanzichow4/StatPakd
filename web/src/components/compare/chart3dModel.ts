@@ -1,10 +1,13 @@
 import type { Entity, StatDef } from '../../domain/types'
-import { NULL_PLACEHOLDER, formatStat } from '../../lib/stats'
+import { NULL_PLACEHOLDER, formatStat, leagueRange } from '../../lib/stats'
 import {
   CENTER_X,
-  axisLabelAnchors,
+  TICK_STEPS,
+  axisGuides,
   axisLines,
   cubeEdges,
+  cubeFaces,
+  depthScale,
   dragCamera,
   gridLines,
   plotPoints,
@@ -13,7 +16,7 @@ import {
   type Line,
   type PlotPoint,
 } from '../../lib/projection'
-import { canonicalStatOrder, type AppAction } from '../../state'
+import { FLAT_VIEWS, canonicalStatOrder, type AppAction, type CameraPreset } from '../../state'
 import type { SelectOption } from '../ui/Select'
 import type { CompareColumn } from './tableModel'
 
@@ -26,6 +29,16 @@ export const NAME_TAG_DX = 10
 export const KEY_STEP_PX = 10
 /** Step multiplier while Shift is held. */
 export const SHIFT_MULTIPLIER = 5
+/** Dot radius at the cube centre; nearer dots are drawn bigger. */
+export const SELECTED_RADIUS = 8
+export const UNSELECTED_RADIUS = 4.5
+/** Pointer travel (px) below which a press is a tap, not a drag. */
+export const DRAG_THRESHOLD_PX = 3
+/** How close (viewBox units) the pointer must be to pick a dot. */
+export const PICK_DISTANCE = 18
+/** Room a name tag takes (viewBox units), used to stop tags overlapping. */
+export const TAG_WIDTH = 90
+export const TAG_HEIGHT = 22
 
 export type AxisLetter = 'X' | 'Y' | 'Z'
 const LETTERS: readonly AxisLetter[] = ['X', 'Y', 'Z']
@@ -42,7 +55,10 @@ export interface AxisLabel {
   text: string
   left: number
   top: number
-  side: 'before' | 'after'
+  /** Which way the text opens from its position. */
+  side: 'before' | 'after' | 'center'
+  /** True when the axis points at the viewer, so it has no title. */
+  hidden: boolean
 }
 
 /** Labels are capped at 40% of the card width, so they need that much room on their open side. */
@@ -50,21 +66,65 @@ const LABEL_MAX_PCT = 40
 
 /** Overlay position of the three axis labels. Labels near an edge flip to open inwards. */
 export function axisLabelLayout(camera: Camera, defs3: AxisDefs): AxisLabel[] {
-  const a = axisLabelAnchors(camera)
-  const anchors = [a.x, a.y, a.z]
+  const g = axisGuides(camera)
+  const guides = [g.x, g.y, g.z]
   return LETTERS.map((letter, i) => {
-    const left = pct(anchors[i].x, CHART3D.width)
-    let side: AxisLabel['side'] = anchors[i].x < CENTER_X ? 'before' : 'after'
+    const { title, visible } = guides[i]
+    const left = pct(title.x, CHART3D.width)
+    let side: AxisLabel['side'] = title.x < CENTER_X ? 'before' : 'after'
     if (side === 'before' && left < LABEL_MAX_PCT) side = 'after'
     else if (side === 'after' && left > 100 - LABEL_MAX_PCT) side = 'before'
+    // X and Z titles sit centred below their axes, unless shown upright in a flat view.
+    const upright = letter === 'Y' || (camera.flat === true && Math.abs(title.x - CENTER_X) >= 1)
+    if (!upright) side = 'center'
+    const half = LABEL_MAX_PCT / 2
     return {
       letter,
       text: `${letter} · ${defs3[i]?.label ?? ''}`,
-      left,
-      top: pct(Math.max(LABEL_MIN_Y, anchors[i].y), CHART3D.height),
+      left: side === 'center' ? Math.min(100 - half, Math.max(half, left)) : left,
+      top: pct(Math.max(LABEL_MIN_Y, title.y), CHART3D.height),
       side,
+      hidden: !visible,
     }
   })
+}
+
+export interface AxisTick {
+  key: string
+  text: string
+  left: number
+  top: number
+}
+
+/** League minimum, middle and maximum along each visible axis. */
+export function axisTicks(
+  pool: readonly Entity[],
+  axes: AxisKeys,
+  camera: Camera,
+  defs3: AxisDefs,
+): AxisTick[] {
+  const g = axisGuides(camera)
+  const guides = [g.x, g.y, g.z]
+  const out: AxisTick[] = []
+  guides.forEach(({ ticks }, i) => {
+    const def = defs3[i]
+    const range = leagueRange(pool, axes[i])
+    if (!def || !range || ticks.length === 0) return
+    TICK_STEPS.forEach((step, j) => {
+      // With a single league value every point sits mid-axis, so only that tick is numbered.
+      if (range.min === range.max && step !== 0) return
+      const middle = (range.min + range.max) / 2
+      const value =
+        step < 0 ? range.min : step > 0 ? range.max : def.decimals ? middle : Math.round(middle)
+      out.push({
+        key: `${LETTERS[i]}${step}`,
+        text: formatStat(value, def),
+        left: pct(ticks[j].x, CHART3D.width),
+        top: pct(ticks[j].y, CHART3D.height),
+      })
+    })
+  })
+  return out
 }
 
 /** Overlay position of a selected point's name tag. */
@@ -178,14 +238,90 @@ export interface NameTag {
   top: number
 }
 
+/** A plotted point with the radius it is drawn at. */
+export interface DrawnPoint extends PlotPoint {
+  r: number
+}
+
 export interface Chart3DModel {
   ok: boolean
+  faces: { floor: string; wallX: string; wallZ: string } | null
   grid: Line[]
   edges: Line[]
   axes: Line[]
-  points: PlotPoint[]
+  points: DrawnPoint[]
   tags: NameTag[]
   labels: AxisLabel[]
+  ticks: AxisTick[]
+}
+
+/** Tag positions for the points, moving a tag down when it would cover an earlier one. */
+export function placeTags(points: readonly PlotPoint[]): Map<string, { x: number; y: number }> {
+  const placed = new Map<string, { x: number; y: number }>()
+  for (const p of [...points].sort((a, b) => a.y - b.y || a.x - b.x)) {
+    let y = p.y
+    const blocker = () =>
+      [...placed.values()].find(
+        (q) => Math.abs(q.x - p.x) < TAG_WIDTH && Math.abs(q.y - y) < TAG_HEIGHT,
+      )
+    for (let hit = blocker(); hit; hit = blocker()) y = hit.y + TAG_HEIGHT
+    placed.set(p.id, { x: p.x, y })
+  }
+  return placed
+}
+
+/** The point closest to a viewBox position, if one is close enough. Selected points win ties. */
+export function nearestPoint(
+  points: readonly PlotPoint[],
+  x: number,
+  y: number,
+  limit = PICK_DISTANCE,
+): string | null {
+  let best: string | null = null
+  let bestDistance = limit
+  // Later points are drawn on top, so an equally close later point replaces an earlier one.
+  for (const p of points) {
+    const distance = Math.hypot(p.x - x, p.y - y)
+    if (distance <= bestDistance) {
+      best = p.id
+      bestDistance = distance
+    }
+  }
+  return best
+}
+
+/** The next dot for keyboard stepping: selected first in selection order, then pool order. */
+export function stepPoint(
+  pool: readonly Entity[],
+  points: readonly PlotPoint[],
+  current: string | null,
+  direction: 1 | -1,
+): string | null {
+  const poolIndex = new Map(pool.map((e, i) => [e.id, i]))
+  const rank = (p: PlotPoint) =>
+    p.selIndex >= 0 ? p.selIndex : pool.length + (poolIndex.get(p.id) ?? 0)
+  const ids = [...points].sort((a, b) => rank(a) - rank(b)).map((p) => p.id)
+  if (ids.length === 0) return null
+  const at = current === null ? -1 : ids.indexOf(current)
+  if (at < 0) return direction === 1 ? ids[0] : ids[ids.length - 1]
+  return ids[(at + direction + ids.length) % ids.length]
+}
+
+/** Spoken form of one readout card. */
+export function describeCard(card: ReadoutCard): string {
+  const cells = card.cells.map((c) => `${c.label} ${c.na ? 'not applicable' : c.text}`)
+  return `${card.entity.name}: ${cells.join(', ')}`
+}
+
+/** The flat view a camera shows, or "3d" for the rotating view. */
+export function presetOf(camera: Camera): CameraPreset {
+  if (camera.flat) {
+    for (const preset of ['front', 'side', 'top'] as const) {
+      const view = FLAT_VIEWS[preset]
+      if (view.yaw === camera.yaw && view.pitch === camera.pitch) return preset
+    }
+  }
+  return '3d'
 }
 
 /** Everything the chart needs to render at a camera. Geometry is empty when an axis is missing. */
@@ -198,23 +334,40 @@ export function chart3dModel(
 ): Chart3DModel {
   const labels = axisLabelLayout(camera, defs3)
   if (!axesComplete(defs3)) {
-    return { ok: false, grid: [], edges: [], axes: [], points: [], tags: [], labels }
+    return {
+      ok: false,
+      faces: null,
+      grid: [],
+      edges: [],
+      axes: [],
+      points: [],
+      tags: [],
+      labels,
+      ticks: [],
+    }
   }
   const byId = new Map(pool.map((e) => [e.id, e]))
-  const points = drawOrder(plotPoints(pool, axes, selIds, camera))
+  const points = drawOrder(plotPoints(pool, axes, selIds, camera)).map((p): DrawnPoint => {
+    const base = p.selIndex >= 0 ? SELECTED_RADIUS : UNSELECTED_RADIUS
+    return { ...p, r: Math.round(base * depthScale(p.depth, camera) * 10) / 10 }
+  })
+  const selected = points.filter((p) => p.selIndex >= 0)
+  const places = placeTags(selected)
   const tags: NameTag[] = []
-  for (const p of points) {
-    if (p.selIndex < 0) continue
+  for (const p of selected) {
     const entity = byId.get(p.id)
-    if (entity) tags.push({ id: p.id, name: entity.shortName, ...nameTagPosition(p) })
+    const place = places.get(p.id)
+    if (entity && place) tags.push({ id: p.id, name: entity.shortName, ...nameTagPosition(place) })
   }
   return {
     ok: true,
+    faces: cubeFaces(camera),
     grid: gridLines(camera),
     edges: cubeEdges(camera),
     axes: axisLines(camera),
     points,
     tags,
     labels,
+    ticks: axisTicks(pool, axes, camera, defs3),
   }
 }

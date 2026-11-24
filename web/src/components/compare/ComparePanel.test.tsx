@@ -332,7 +332,7 @@ describe('AC8: placeholders', () => {
     expect(screen.queryByText(RADAR_CAPTION)).toBeNull()
     expect(screen.queryByText(/Radar chart/)).not.toBeInTheDocument()
   })
-  it('AC8: the 3D panel controls are the three axis selects and Reset view, with no links', async () => {
+  it('AC8: the 3D panel controls are the axis selects and view buttons, with no links', async () => {
     setup()
     const panel = screen.getByRole('tabpanel', { name: '3D chart' })
     await flush()
@@ -345,7 +345,7 @@ describe('AC8: placeholders', () => {
       within(panel)
         .getAllByRole('button')
         .map((b) => b.textContent),
-    ).toEqual(['Reset view'])
+    ).toEqual(['Reset view', '3D', 'Front', 'Side', 'Top'])
     expect(within(panel).queryAllByRole('link')).toHaveLength(0)
   })
 })
@@ -1085,7 +1085,11 @@ describe('T14 AC3: an empty selection', () => {
     // Seven of the eight players have all three axis values.
     expect(screen.getAllByTestId('point')).toHaveLength(7)
     for (const g of screen.getAllByTestId('point')) {
-      expect(g.querySelector('circle')).toHaveAttribute('r', '4.5')
+      const circle = g.querySelector('circle') as SVGCircleElement
+      // Smaller than a selected dot at any depth.
+      expect(Number(circle.getAttribute('r'))).toBeGreaterThan(3)
+      expect(Number(circle.getAttribute('r'))).toBeLessThan(6.5)
+      expect(g.getAttribute('style')).toBeNull()
     }
   })
   it('AC3: teams show the team empty text once', async () => {

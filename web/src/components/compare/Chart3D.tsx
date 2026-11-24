@@ -11,16 +11,24 @@ import {
 import type { Entity, StatDef } from '../../domain/types'
 import { cx } from '../../lib/cx'
 import { dragCamera, type AxisKeys, type Camera } from '../../lib/projection'
-import { useAppState } from '../../state'
+import { useAppState, type CameraPreset } from '../../state'
 import { seriesColor } from '../../styles/series'
+import { useAnnounce } from '../a11y/useAnnounce'
+import { SegmentedControl, type SegmentedOption } from '../ui'
 import { AxisControls } from './AxisControls'
 import {
   CHART3D,
+  DRAG_THRESHOLD_PX,
   axisDefs,
   axisOptions,
   cameraForKey,
   chart3dModel,
+  describeCard,
+  nearestPoint,
+  pct,
+  presetOf,
   readoutModel,
+  stepPoint,
 } from './chart3dModel'
 import { Readout } from './Readout'
 import { resolveColumns } from './tableModel'
@@ -36,28 +44,69 @@ interface DragState {
   startX: number
   startY: number
   start: Camera
+  /** Set once the pointer has travelled far enough to count as a drag. */
+  moved: boolean
 }
+
+const VIEWS: SegmentedOption<CameraPreset>[] = [
+  { value: '3d', label: '3D' },
+  { value: 'front', label: 'Front' },
+  { value: 'side', label: 'Side' },
+  { value: 'top', label: 'Top' },
+]
 
 export function Chart3D({ pool, defs }: Props) {
   const { state, dispatch } = useAppState()
-  const { kind, yaw, pitch } = state
+  const { kind, yaw, pitch, flat } = state
   const axes: AxisKeys = state.ax[kind]
   const sel = state.sel[kind]
   const hintId = useId()
   const keysId = useId()
+  const dotKeysId = useId()
   const drag = useRef<DragState | null>(null)
   const [dragging, setDragging] = useState(false)
+  const svg = useRef<SVGSVGElement>(null)
+  const announce = useAnnounce()
+  const [hoverId, setHoverId] = useState<string | null>(null)
+  const [pinnedId, setPinnedId] = useState<string | null>(null)
 
   const defs3 = useMemo(() => axisDefs(axes, defs), [axes, defs])
   const options = useMemo(() => axisOptions(defs), [defs])
   const model = useMemo(
-    () => chart3dModel(pool, axes, sel, { yaw, pitch }, defs3),
-    [pool, axes, sel, yaw, pitch, defs3],
+    () => chart3dModel(pool, axes, sel, { yaw, pitch, flat }, defs3),
+    [pool, axes, sel, yaw, pitch, flat, defs3],
   )
   const cards = useMemo(
     () => readoutModel(resolveColumns(sel, pool), axes, defs3),
     [sel, pool, axes, defs3],
   )
+
+  const activeId = hoverId ?? pinnedId
+  const active = model.points.find((p) => p.id === activeId)
+  const activeEntity = active && pool.find((e) => e.id === active.id)
+  const detail = activeEntity
+    ? readoutModel([{ entity: activeEntity, colorIndex: 0 }], axes, defs3)[0]
+    : undefined
+
+  /** The dot under a pointer event, using the drawn size of the plot. */
+  const dotAt = (e: PointerEvent<HTMLDivElement>): string | null => {
+    const box = svg.current?.getBoundingClientRect()
+    if (!box || box.width === 0 || box.height === 0) return null
+    return nearestPoint(
+      model.points,
+      ((e.clientX - box.left) / box.width) * CHART3D.width,
+      ((e.clientY - box.top) / box.height) * CHART3D.height,
+    )
+  }
+
+  const onPointerUp = (e: PointerEvent<HTMLDivElement>) => {
+    const d = drag.current
+    if (d?.pointerId === e.pointerId && !d.moved) {
+      const id = dotAt(e)
+      setPinnedId((current) => (current === id ? null : id))
+    }
+    endDrag(e)
+  }
 
   const endDrag = (e: PointerEvent<HTMLDivElement>) => {
     if (drag.current?.pointerId !== e.pointerId) return
@@ -73,7 +122,9 @@ export function Chart3D({ pool, defs }: Props) {
       startX: e.clientX,
       startY: e.clientY,
       start: { yaw, pitch },
+      moved: false,
     }
+    setHoverId(null)
     setDragging(true)
     e.currentTarget.focus()
     try {
@@ -86,12 +137,37 @@ export function Chart3D({ pool, defs }: Props) {
 
   const onPointerMove = (e: PointerEvent<HTMLDivElement>) => {
     const d = drag.current
+    if (!d && e.pointerType === 'mouse') setHoverId(dotAt(e))
     if (d?.pointerId !== e.pointerId) return
-    const next = dragCamera(d.start, e.clientX - d.startX, e.clientY - d.startY)
+    const dx = e.clientX - d.startX
+    const dy = e.clientY - d.startY
+    if (!d.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return
+    d.moved = true
+    const next = dragCamera(d.start, dx, dy)
     dispatch({ type: 'setCamera', yaw: next.yaw, pitch: next.pitch })
   }
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (!e.ctrlKey && !e.altKey && !e.metaKey) {
+      const letter = e.key.toLowerCase()
+      if (letter === 'n' || letter === 'p') {
+        e.preventDefault()
+        const id = stepPoint(pool, model.points, pinnedId, letter === 'n' ? 1 : -1)
+        setHoverId(null)
+        setPinnedId(id)
+        const entity = pool.find((x) => x.id === id)
+        if (entity) {
+          const [card] = readoutModel([{ entity, colorIndex: 0 }], axes, defs3)
+          announce(describeCard(card))
+        }
+        return
+      }
+      if (e.key === 'Escape' && pinnedId !== null) {
+        e.preventDefault()
+        setPinnedId(null)
+        return
+      }
+    }
     const action = cameraForKey(e, { yaw, pitch })
     if (!action) return
     e.preventDefault()
@@ -107,15 +183,25 @@ export function Chart3D({ pool, defs }: Props) {
           onAxis={(index, key) => dispatch({ type: 'setAxis', index, key })}
           onReset={() => dispatch({ type: 'resetView' })}
         />
+        <div className={styles.views}>
+          <SegmentedControl
+            label="View angle"
+            size="sm"
+            options={VIEWS}
+            value={presetOf({ yaw, pitch, flat })}
+            onChange={(preset) => dispatch({ type: 'setCameraPreset', preset })}
+          />
+        </div>
         <div
           role="group"
           aria-label="3D chart"
-          aria-describedby={model.ok ? `${hintId} ${keysId}` : undefined}
+          aria-describedby={model.ok ? `${hintId} ${keysId} ${dotKeysId}` : undefined}
           tabIndex={0}
           className={cx(styles.card, dragging && styles.dragging)}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
-          onPointerUp={endDrag}
+          onPointerUp={onPointerUp}
+          onPointerLeave={() => setHoverId(null)}
           onPointerCancel={endDrag}
           onLostPointerCapture={endDrag}
           onKeyDown={onKeyDown}
@@ -123,11 +209,19 @@ export function Chart3D({ pool, defs }: Props) {
           {model.ok ? (
             <>
               <svg
+                ref={svg}
                 viewBox={`0 0 ${CHART3D.width} ${CHART3D.height}`}
                 className={styles.svg}
                 aria-hidden="true"
                 focusable="false"
               >
+                {model.faces && (
+                  <>
+                    <polygon points={model.faces.wallX} className={styles.wall} />
+                    <polygon points={model.faces.wallZ} className={styles.wall} />
+                    <polygon points={model.faces.floor} className={styles.floor} />
+                  </>
+                )}
                 {model.grid.map((l, i) => (
                   <line key={i} {...l} className={styles.grid} data-testid="grid-line" />
                 ))}
@@ -146,26 +240,56 @@ export function Chart3D({ pool, defs }: Props) {
                     <g
                       key={p.id}
                       style={style}
-                      className={selected ? styles.selected : styles.unselected}
+                      className={cx(
+                        selected ? styles.selected : styles.unselected,
+                        p.id === active?.id && styles.activePoint,
+                      )}
                       data-testid="point"
                     >
                       <line x1={p.x} y1={p.y} x2={p.footX} y2={p.footY} className={styles.drop} />
-                      <circle cx={p.x} cy={p.y} r={selected ? 7 : 4.5} className={styles.dot} />
+                      <circle cx={p.x} cy={p.y} r={p.r} className={styles.dot} />
                     </g>
                   )
                 })}
+                {active && (
+                  <circle
+                    cx={active.x}
+                    cy={active.y}
+                    r={active.r + 4}
+                    className={styles.ring}
+                    data-testid="active-ring"
+                  />
+                )}
               </svg>
               <div className={styles.overlay} aria-hidden="true">
-                {model.labels.map((l) => (
+                {model.ticks.map((t) => (
                   <span
-                    key={l.letter}
-                    className={cx(styles.axisLabel, l.side === 'before' && styles.before)}
-                    data-testid="axis-label"
-                    style={{ left: `${l.left}%`, top: `${l.top}%` }}
+                    key={t.key}
+                    className={styles.tick}
+                    data-testid="axis-tick"
+                    style={{ left: `${t.left}%`, top: `${t.top}%` }}
                   >
-                    {l.text}
+                    {t.text}
                   </span>
                 ))}
+                {model.labels
+                  .filter((l) => !l.hidden)
+                  .map((l) => (
+                    <span
+                      key={l.letter}
+                      className={cx(
+                        styles.axisLabel,
+                        l.side === 'before' && styles.before,
+                        l.side === 'center' && styles.center,
+                        l.letter === 'Y' && styles.upright,
+                      )}
+                      data-testid="axis-label"
+                      data-letter={l.letter}
+                      style={{ left: `${l.left}%`, top: `${l.top}%` }}
+                    >
+                      {l.text}
+                    </span>
+                  ))}
                 {model.tags.map((t) => (
                   <span
                     key={t.id}
@@ -176,12 +300,37 @@ export function Chart3D({ pool, defs }: Props) {
                     {t.name}
                   </span>
                 ))}
+                {active && detail && (
+                  <div
+                    className={cx(
+                      styles.tooltip,
+                      active.x > CHART3D.width / 2 && styles.tooltipLeft,
+                      active.y > CHART3D.height / 2 && styles.tooltipUp,
+                    )}
+                    data-testid="point-tooltip"
+                    style={{
+                      left: `${pct(active.x, CHART3D.width)}%`,
+                      top: `${pct(active.y, CHART3D.height)}%`,
+                    }}
+                  >
+                    <strong>{detail.entity.name}</strong>
+                    {detail.cells.map((c) => (
+                      <span key={c.letter} className={styles.tooltipRow}>
+                        <span>{c.label}</span>
+                        <span className={styles.tooltipValue}>{c.text}</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
               <span id={hintId} className={styles.hint}>
-                Drag to rotate · gray dots = rest of league
+                Drag to rotate · tap a dot · gray = league
               </span>
               <span id={keysId} className={styles.srOnly}>
                 Use arrow keys to rotate, Home to reset.
+              </span>
+              <span id={dotKeysId} className={styles.srOnly}>
+                Press N or P to step through the dots, Escape to clear.
               </span>
             </>
           ) : (
@@ -190,7 +339,7 @@ export function Chart3D({ pool, defs }: Props) {
         </div>
       </div>
       <div className={styles.readoutCol}>
-        <Readout cards={cards} kind={kind} />
+        <Readout cards={cards} kind={kind} activeId={active?.id ?? null} onHover={setHoverId} />
       </div>
     </div>
   )

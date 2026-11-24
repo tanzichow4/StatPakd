@@ -53,7 +53,7 @@ describe('AC2: the reducer works with a non-NFL league', () => {
       addOpen: false,
       addStatOpen: null,
       teamMode: 'compare',
-      yaw: -0.65,
+      yaw: 0.65,
       pitch: 0.38,
     })
     expect(initial().sel).toEqual({ players: ['e1', 'e2', 'e3'], teams: ['t1', 't2'] })
@@ -150,7 +150,7 @@ describe('AC2: the reducer works with a non-NFL league', () => {
       pitch: 1.3,
     })
     expect(reducer(make({ yaw: 5, pitch: 1 }), { type: 'resetView' })).toMatchObject({
-      yaw: -0.65,
+      yaw: 0.65,
       pitch: 0.38,
     })
     const before = initial()
