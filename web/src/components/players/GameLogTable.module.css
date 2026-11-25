@@ -1,0 +1,97 @@
+.scroll {
+  position: relative;
+  min-width: 0;
+  overflow-x: auto;
+  border: 1px solid var(--color-border-alt);
+  border-radius: var(--radius-12);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  white-space: nowrap;
+}
+
+.table thead tr {
+  background: var(--color-surface-subtle);
+}
+
+.table tbody tr {
+  border-top: 1px solid var(--color-divider);
+}
+
+.table tbody tr.chosen {
+  background: var(--color-track);
+}
+
+.head,
+.periodHead {
+  padding: 10px 14px;
+  font-size: var(--text-11);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-ink);
+}
+
+.head {
+  text-align: right;
+}
+
+.periodHead,
+.period {
+  text-align: left;
+}
+
+.period {
+  padding: 0 14px;
+  font-size: var(--text-13);
+  font-weight: 500;
+}
+
+.check {
+  min-height: 34px;
+}
+
+/* Lines the bye week up with the labels beside the checkboxes. */
+.rest {
+  padding-left: 26px;
+  color: var(--color-text-muted);
+}
+
+.cell {
+  padding: 8px 14px;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: var(--text-13);
+}
+
+.na {
+  color: var(--color-text-na);
+}
+
+.bye {
+  padding: 8px 14px;
+  text-align: center;
+  font-size: var(--text-12);
+  color: var(--color-ink);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (max-width: 1023px) {
+  .check {
+    min-height: 40px;
+  }
+}

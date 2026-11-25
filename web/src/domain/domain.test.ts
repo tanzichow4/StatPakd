@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import type { DataProvider } from './provider'
-import type { Entity, EntityKind, League, RosterEntry, RosterUnitDef, StatDef } from './types'
+import type {
+  Entity,
+  EntityKind,
+  GameLogEntry,
+  League,
+  RosterEntry,
+  RosterUnitDef,
+  StatDef,
+} from './types'
 
 const leagues: League[] = [
   { id: 'league-a', name: 'League A', enabled: true },
@@ -67,6 +75,13 @@ const provider: DataProvider = {
   getRoster: async (_leagueId, teamId, unit, _season) =>
     teamId === 'team-1' && unit === 'unit-1' ? roster : [],
   getRosterUnits: async (leagueId) => (leagueId === 'league-a' ? rosterUnits : []),
+  getGameLog: async (_leagueId, playerId): Promise<GameLogEntry[]> =>
+    playerId === 'entity-1'
+      ? [
+          { period: 1, label: 'Round 1', shortLabel: 'R1', played: true, stats: { points: 3 } },
+          { period: 2, label: 'Round 2', shortLabel: 'R2', played: false, stats: {} },
+        ]
+      : [],
 }
 
 describe('domain types and DataProvider contract', () => {
@@ -130,6 +145,13 @@ describe('domain types and DataProvider contract', () => {
 
   it('AC9: getRoster resolves to an empty array for an unknown team', async () => {
     expect(await provider.getRoster('league-a', 'nope', 'unit-1', '2002')).toEqual([])
+  })
+
+  it('T25: getGameLog resolves one entry per period, with empty stats when not played', async () => {
+    const result = await provider.getGameLog('league-a', 'entity-1', '2002')
+    expect(result.map((e) => e.period)).toEqual([1, 2])
+    expect(result[1]).toMatchObject({ played: false, stats: {} })
+    await expect(provider.getGameLog('league-a', 'nope', '2002')).resolves.toEqual([])
   })
 
   it('AC9: every method returns a Promise', () => {
@@ -200,6 +222,7 @@ describe('domain types and DataProvider contract', () => {
       getEntities: async () => [],
       getRoster: async () => [],
       getRosterUnits: async () => [],
+      getGameLog: async () => [],
     }
     expect(Array.isArray(syncProvider.getLeagues())).toBe(true)
   })

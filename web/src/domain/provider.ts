@@ -1,6 +1,8 @@
 import type {
   Entity,
+  EntityId,
   EntityKind,
+  GameLogEntry,
   League,
   LeagueId,
   RosterEntry,
@@ -66,4 +68,13 @@ export interface DataProvider {
     unit: RosterUnit,
     season: Season,
   ): Promise<RosterEntry[]>
+
+  /**
+   * Resolves to a player's season, one entry per period in order. Resolves to `[]` for a league
+   * that is not enabled.
+   * @param leagueId id of a league from `getLeagues`.
+   * @param playerId id of a player entity.
+   * @param season a label from `getSeasons`.
+   */
+  getGameLog(leagueId: LeagueId, playerId: EntityId, season: Season): Promise<GameLogEntry[]>
 }

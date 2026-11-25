@@ -1,7 +1,9 @@
 import type { DataProvider } from '../domain/provider'
 import type {
   Entity,
+  EntityId,
   EntityKind,
+  GameLogEntry,
   League,
   LeagueId,
   RosterEntry,
@@ -15,6 +17,7 @@ import { getLeagueRegistry } from './leagues'
 import {
   NFL_SEASONS,
   ROSTER_UNITS,
+  buildGameLog,
   buildPlayers,
   buildRoster,
   buildTeams,
@@ -44,6 +47,16 @@ export class MockProvider implements DataProvider {
     if (!this.isEnabled(leagueId)) return []
     this.checkSeason(season)
     return kind === 'players' ? buildPlayers(season) : buildTeams(season)
+  }
+
+  async getGameLog(
+    leagueId: LeagueId,
+    playerId: EntityId,
+    season: Season,
+  ): Promise<GameLogEntry[]> {
+    if (!this.isEnabled(leagueId)) return []
+    this.checkSeason(season)
+    return buildGameLog(playerId, season)
   }
 
   async getRosterUnits(leagueId: LeagueId): Promise<RosterUnitDef[]> {

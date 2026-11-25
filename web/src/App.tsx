@@ -3,6 +3,7 @@ import { AnnouncerProvider } from './components/a11y'
 import { ComparePanel } from './components/compare'
 import { GlobalNav } from './components/nav'
 import { EntityPicker } from './components/picker'
+import { PlayerDetail, PlayerModeSwitch } from './components/players'
 import { StatSidebar } from './components/sidebar'
 import { TeamBreakdown, TeamModeSwitch } from './components/teams'
 import { MockProvider } from './data/mockProvider'
@@ -16,11 +17,15 @@ const provider = new MockProvider()
 function AppMain() {
   const { state } = useAppState()
   const breakdown = state.kind === 'teams' && state.teamMode === 'inside'
+  const detail = state.kind === 'players' && state.playerMode === 'detail'
   return (
     <main className={styles.content}>
       <h1 className={styles.srOnly}>StatPakd</h1>
+      <PlayerModeSwitch />
       <TeamModeSwitch />
-      {breakdown ? (
+      {detail ? (
+        <PlayerDetail />
+      ) : breakdown ? (
         <TeamBreakdown />
       ) : (
         <>

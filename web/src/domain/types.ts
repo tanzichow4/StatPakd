@@ -128,3 +128,17 @@ export interface RosterEntry {
    */
   stats: StatMap
 }
+
+/** One period (for example a week) of a player's season. */
+export interface GameLogEntry {
+  /** Position in the season, starting at 1. Used for ordering and trends. */
+  period: number
+  /** Display label of the period. */
+  label: string
+  /** Compact label for narrow spaces. */
+  shortLabel: string
+  /** False when there was no game in the period; `stats` is then empty. */
+  played: boolean
+  /** Stat values by stat key, with the same meaning as `Entity.stats`. */
+  stats: StatMap
+}

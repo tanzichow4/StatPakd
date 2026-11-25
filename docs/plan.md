@@ -46,6 +46,7 @@ A web app to pick up to 8 players or teams, choose stats, and compare them as a 
 | 4 Quality | [T18](tickets/T18-responsive-and-a11y.md) | Responsive and accessibility pass | M | T10 to T17 |
 | | [T19](tickets/T19-e2e-tests.md) | Playwright e2e tests in CI | M | T10 to T17 |
 | | [T20](tickets/T20-visual-fidelity-pass.md) | Visual fidelity pass against design | M | T10 to T17 |
+| | [T25](tickets/T25-player-weeks-dot-plot-3d.md) | Player detail, weekly trends, dot plot, readable 3D | L | T10 to T14 |
 | 5 Real data (later) | [T21](tickets/T21-spike-data-provider.md) | Spike: choose a stats data provider | S | none |
 | | [T22](tickets/T22-python-api.md) | Python API serving the data contract | L | T21, T03 |
 | | [T23](tickets/T23-api-provider-in-frontend.md) | Frontend API provider, loading and errors | M | T22 |

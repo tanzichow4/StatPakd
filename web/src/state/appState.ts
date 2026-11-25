@@ -12,6 +12,7 @@ export type ViewMode = 'num' | '2d' | '3d'
 export type Chart2Mode = 'bars' | 'dots' | 'radar'
 export type CameraPreset = '3d' | 'front' | 'side' | 'top'
 export type TeamMode = 'compare' | 'inside'
+export type PlayerMode = 'compare' | 'detail'
 export type AxisIndex = 0 | 1 | 2
 export type Axes = [string, string, string]
 export type PerKind<T> = Record<EntityKind, T>
@@ -33,6 +34,13 @@ export interface AppState {
   pos: string
   addOpen: boolean
   addStatOpen: string | null
+  playerMode: PlayerMode
+  /** Player shown in player detail; empty until one is chosen. */
+  playerId: EntityId
+  /** Stat of the period-by-period chart; empty until one is chosen. */
+  periodStat: string
+  /** Periods chosen for comparison, in season order. */
+  periods: number[]
   teamMode: TeamMode
   teamId: TeamId
   unit: RosterUnit
@@ -74,6 +82,11 @@ export type AppAction =
   | { type: 'setCamera'; yaw: number; pitch: number }
   | { type: 'resetView' }
   | { type: 'setCameraPreset'; preset: CameraPreset }
+  | { type: 'setPlayerMode'; mode: PlayerMode }
+  | { type: 'setPlayer'; playerId: EntityId }
+  | { type: 'setPeriodStat'; key: string }
+  | { type: 'togglePeriod'; period: number }
+  | { type: 'setPeriods'; periods: number[] }
   | { type: 'setTeamMode'; mode: TeamMode }
   | { type: 'setTeam'; teamId: TeamId }
   | { type: 'setUnit'; unit: RosterUnit }
@@ -129,6 +142,10 @@ export function createInitialState(defaults: LeagueUiDefaults): AppState {
     pos: ALL_POSITIONS,
     addOpen: false,
     addStatOpen: null,
+    playerMode: 'compare',
+    playerId: '',
+    periodStat: '',
+    periods: [],
     teamMode: 'compare',
     teamId: defaults.teamId,
     unit: defaults.unit,
@@ -138,6 +155,11 @@ export function createInitialState(defaults: LeagueUiDefaults): AppState {
     flat: false,
   }
 }
+
+const isPeriod = (period: number) => Number.isInteger(period) && period > 0
+
+/** Unique periods in season order. */
+const sortedPeriods = (periods: number[]) => [...new Set(periods)].sort((a, b) => a - b)
 
 function withDefaultCamera(state: AppState): AppState {
   if (state.yaw === DEFAULT_YAW && state.pitch === DEFAULT_PITCH && !state.flat) return state
@@ -236,6 +258,28 @@ export function createAppReducer(
         const { yaw, pitch } = FLAT_VIEWS[action.preset]
         if (state.flat && state.yaw === yaw && state.pitch === pitch) return state
         return { ...state, yaw, pitch, flat: true }
+      }
+      case 'setPlayerMode':
+        return action.mode === state.playerMode
+          ? state
+          : { ...state, playerMode: action.mode, addOpen: false, addStatOpen: null }
+      case 'setPlayer':
+        // Chosen periods belong to the player they were chosen for.
+        return action.playerId === state.playerId
+          ? state
+          : { ...state, playerId: action.playerId, periods: [] }
+      case 'setPeriodStat':
+        return action.key === state.periodStat ? state : { ...state, periodStat: action.key }
+      case 'togglePeriod': {
+        if (!isPeriod(action.period)) return state
+        const periods = state.periods.includes(action.period)
+          ? state.periods.filter((p) => p !== action.period)
+          : sortedPeriods([...state.periods, action.period])
+        return { ...state, periods }
+      }
+      case 'setPeriods': {
+        const periods = sortedPeriods(action.periods.filter(isPeriod))
+        return periods.join() === state.periods.join() ? state : { ...state, periods }
       }
       case 'setTeamMode':
         return { ...state, teamMode: action.mode, addOpen: false }
