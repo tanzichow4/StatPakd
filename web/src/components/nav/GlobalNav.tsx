@@ -1,6 +1,7 @@
+import { useDataProvider } from '../../dataSource'
 import { cx } from '../../lib/cx'
 import { useAppState } from '../../state'
-import { Select, SegmentedControl } from '../ui'
+import { Checkbox, Select, SegmentedControl } from '../ui'
 import styles from './GlobalNav.module.css'
 import { useNavData } from './useNavData'
 
@@ -12,6 +13,7 @@ const KIND_OPTIONS = [
 export function GlobalNav() {
   const { state, dispatch } = useAppState()
   const { leagues, activeLeagueId, seasons } = useNavData()
+  const { hasPlayoffs } = useDataProvider()
 
   return (
     <header className={styles.bar}>
@@ -64,6 +66,14 @@ export function GlobalNav() {
             onChange={(season) => dispatch({ type: 'setSeason', season })}
           />
         </label>
+        {hasPlayoffs && (
+          <Checkbox
+            label="Include playoffs"
+            checked={state.playoffs}
+            onChange={() => dispatch({ type: 'togglePlayoffs' })}
+            className={styles.playoffs}
+          />
+        )}
       </div>
     </header>
   )

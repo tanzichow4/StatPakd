@@ -10,6 +10,7 @@ describe('week to week state', () => {
   it('starts on season totals with every week and trend lines', () => {
     expect(initial()).toMatchObject({
       playerMode: 'season',
+      playoffs: true,
       periods: null,
       weekGraph: 'week',
       trend: true,
@@ -50,6 +51,7 @@ describe('week to week state', () => {
     [{ type: 'setDotX', key: 'k' }, { dotX: 'k' }],
     [{ type: 'setDotY', key: 'k' }, { dotY: 'k' }],
     [{ type: 'toggleTrend' }, { trend: false }],
+    [{ type: 'togglePlayoffs' }, { playoffs: false }],
   ] as const)('applies %o', (action, expected) => {
     expect(reducer(initial(), action)).toMatchObject(expected)
   })

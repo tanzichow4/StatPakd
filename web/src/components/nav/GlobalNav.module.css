@@ -74,6 +74,11 @@
   color: var(--color-nav-text);
 }
 
+.playoffs {
+  font-size: var(--text-12);
+  color: var(--color-white);
+}
+
 .srOnly {
   position: absolute;
   width: 1px;
@@ -91,6 +96,10 @@
 }
 
 @media (max-width: 1023px) {
+  .playoffs {
+    min-height: 40px;
+  }
+
   .league {
     min-height: 40px;
     min-width: 40px;

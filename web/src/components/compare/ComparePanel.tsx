@@ -29,9 +29,9 @@ const DOT_LABEL = { players: 'Dot graph', teams: 'Dot plot' } as const
 
 export function ComparePanel() {
   const { state, dispatch } = useAppState()
-  const { kind, season, view, chart2 } = state
+  const { kind, season, view, chart2, playoffs } = state
   const baseId = useId()
-  const entities = useEntities(kind, season)
+  const entities = useEntities(kind, season, playoffs)
   const defs = useStatDefs(kind)
   const sel = state.sel[kind]
   const statKeys = state.stats[kind]

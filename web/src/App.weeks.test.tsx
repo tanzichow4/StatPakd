@@ -49,6 +49,15 @@ async function onlyAllen(): Promise<User> {
   return user
 }
 
+describe('playoffs switch', () => {
+  it('is not offered for the sample data, which has no playoff games', async () => {
+    render(<App />)
+    await screen.findByRole('list', { name: 'Selected players' })
+    expect(screen.queryByRole('checkbox', { name: 'Include playoffs' })).toBeNull()
+    expect(screen.queryByText(/Playoff games are/)).toBeNull()
+  })
+})
+
 describe('player viewing options', () => {
   it('offers Week to week and Season totals, and starts on Season totals', async () => {
     render(<App />)

@@ -5,6 +5,8 @@ import time
 from collections.abc import Callable
 from typing import Any
 
+import polars as pl
+
 from statpakd.models import (
     Entity,
     GameLogEntry,
@@ -58,10 +60,13 @@ class NflService:
     def _season(self, year: int) -> Season:
         return self._remember(("season", year), lambda: load_season(self._source, year))
 
-    def season(self, label: str) -> Season:
+    def season(self, label: str, playoffs: bool = True) -> Season:
         if label not in self.seasons():
             raise NotFound(f"Unknown season: {label}")
-        return self._season(int(label))
+        season = self._season(int(label))
+        if playoffs:
+            return season
+        return self._remember(("regular", label), season.without_playoffs)
 
     def stat_defs(self, kind: str) -> list[StatDef]:
         return list(PLAYER_STATS if kind == "players" else TEAM_STATS)
@@ -69,38 +74,46 @@ class NflService:
     def roster_units(self) -> list[RosterUnitDef]:
         return list(ROSTER_UNITS)
 
-    def entities(self, kind: str, label: str) -> list[Entity]:
-        season = self.season(label)
+    def entities(self, kind: str, label: str, playoffs: bool = True) -> list[Entity]:
+        season = self.season(label, playoffs)
         if kind == "players":
-            return self._remember(("players", label), lambda: player_stats.player_entities(season))
-        return self._remember(
-            ("teams", label),
-            lambda: team_stats.team_entities(
-                season,
-                self._source.team_stats(season.year),
-                self._source.third_downs(season.year),
-                self._source.teams(),
-            ),
-        )
+            return self._remember(
+                ("players", label, playoffs), lambda: player_stats.player_entities(season)
+            )
 
-    def roster(self, team_id: str, unit: str, label: str) -> list[RosterEntry]:
-        season = self.season(label)
+        def build() -> list[Entity]:
+            stats = self._source.team_stats(season.year)
+            thirds = self._source.third_downs(season.year)
+            if not playoffs:
+                weeks = list(season.regular_weeks)
+                stats = stats.filter(pl.col("week").is_in(weeks))
+                thirds = thirds.filter(pl.col("week").is_in(weeks))
+            return team_stats.team_entities(season, stats, thirds, self._source.teams())
+
+        return self._remember(("teams", label, playoffs), build)
+
+    def roster(
+        self, team_id: str, unit: str, label: str, playoffs: bool = True
+    ) -> list[RosterEntry]:
+        season = self.season(label, playoffs)
         team = team_id.upper()
         if team_id != team_id.lower() or team not in season.teams:
             raise NotFound(f"Unknown team: {team_id}")
         if unit not in {u.key for u in ROSTER_UNITS}:
             raise NotFound(f"Unknown unit: {unit}")
         return self._remember(
-            ("roster", label, team, unit), lambda: team_stats.roster(season, team, unit)
+            ("roster", label, team, unit, playoffs),
+            lambda: team_stats.roster(season, team, unit),
         )
 
-    def game_log(self, player_id: str, label: str) -> list[GameLogEntry]:
-        """The weeks of a player. A known player who did not play that season gets ``[]``."""
-        season = self.season(label)
+    def game_log(self, player_id: str, label: str, playoffs: bool = True) -> list[GameLogEntry]:
+        """The weeks of a player. A known player with no weeks to show gets ``[]``."""
+        season = self.season(label, playoffs)
         player = season.players.get(player_id)
         if player and player_stats.is_listed(player):
             return player_stats.game_log(season, player)
-        if any(
+        # Known from this season's playoffs or from another season.
+        if player_id in self.season(label).players or any(
             player_id in self._season(int(other)).players
             for other in self.seasons()
             if other != label

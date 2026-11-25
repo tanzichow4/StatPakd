@@ -1,4 +1,4 @@
-import type { DataProvider, DataStatus, DataStatusSource } from '../domain/provider'
+import type { DataProvider, DataStatus, DataStatusSource, GameFilter } from '../domain/provider'
 import type {
   Entity,
   EntityId,
@@ -78,7 +78,8 @@ const IDLE: DataStatus = { pending: 0, error: null }
  * request is forgotten so that it can be tried again.
  */
 export class ApiProvider implements DataProvider {
-  readonly notice = 'Data from nflverse. Season and weekly totals include playoff games.'
+  readonly notice = 'Data from nflverse.'
+  readonly hasPlayoffs = true
 
   private readonly cache = new Map<string, Promise<unknown>>()
   private readonly listeners = new Set<() => void>()
@@ -113,8 +114,14 @@ export class ApiProvider implements DataProvider {
     return this.get(`${league(leagueId)}/stat-defs?${query({ kind })}`, checks.statDefs)
   }
 
-  getEntities(leagueId: LeagueId, kind: EntityKind, season: Season): Promise<Entity[]> {
-    return this.get(`${league(leagueId)}/entities?${query({ kind, season })}`, checks.entities)
+  getEntities(
+    leagueId: LeagueId,
+    kind: EntityKind,
+    season: Season,
+    filter?: GameFilter,
+  ): Promise<Entity[]> {
+    const search = query({ kind, season }, filter)
+    return this.get(`${league(leagueId)}/entities?${search}`, checks.entities)
   }
 
   getRosterUnits(leagueId: LeagueId): Promise<RosterUnitDef[]> {
@@ -126,14 +133,20 @@ export class ApiProvider implements DataProvider {
     teamId: TeamId,
     unit: RosterUnit,
     season: Season,
+    filter?: GameFilter,
   ): Promise<RosterEntry[]> {
     const path = `${league(leagueId)}/teams/${encodeURIComponent(teamId)}/roster`
-    return this.get(`${path}?${query({ unit, season })}`, checks.roster)
+    return this.get(`${path}?${query({ unit, season }, filter)}`, checks.roster)
   }
 
-  getGameLog(leagueId: LeagueId, playerId: EntityId, season: Season): Promise<GameLogEntry[]> {
+  getGameLog(
+    leagueId: LeagueId,
+    playerId: EntityId,
+    season: Season,
+    filter?: GameFilter,
+  ): Promise<GameLogEntry[]> {
     const path = `${league(leagueId)}/players/${encodeURIComponent(playerId)}/game-log`
-    return this.get(`${path}?${query({ season })}`, checks.gameLog)
+    return this.get(`${path}?${query({ season }, filter)}`, checks.gameLog)
   }
 
   getUiDefaults(leagueId: LeagueId): Promise<LeagueUiDefaults> {
@@ -178,4 +191,8 @@ export class ApiProvider implements DataProvider {
 }
 
 const league = (id: LeagueId) => `/api/leagues/${encodeURIComponent(id)}`
-const query = (values: Record<string, string>) => new URLSearchParams(values).toString()
+/** The query string; leaving playoffs out is the only filter that needs saying. */
+const query = (values: Record<string, string>, filter?: GameFilter) =>
+  new URLSearchParams(
+    filter?.playoffs === false ? { ...values, playoffs: 'false' } : values,
+  ).toString()

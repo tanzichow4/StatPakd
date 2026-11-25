@@ -227,3 +227,53 @@ def test_seasons_are_built_once(source):
     service.entities("players", "2026")
     service.game_log("qb1", "2026")
     assert calls == [2026]
+
+
+def test_without_playoffs_players_total_only_regular_season_games(service):
+    quin = by_id(service.entities("players", "2026", playoffs=False))["qb1"].stats
+    assert (quin["passYds"], quin["passAtt"], quin["int"]) == (300, 40, 0)
+    assert (quin["passYpg"], quin["snaps"]) == (300.0, 60)
+    # Asking again with playoffs still includes them.
+    assert by_id(service.entities("players", "2026"))["qb1"].stats["passYds"] == 400
+
+
+def test_without_playoffs_the_game_log_ends_with_the_regular_season(service):
+    log = service.game_log("qb1", "2026", playoffs=False)
+    assert {e.phase for e in log} == {"Regular season"}
+    assert max(e.period for e in log) == 2
+
+
+def test_without_playoffs_team_stats_and_record_drop_the_playoff_game(service):
+    ants = by_id(service.entities("teams", "2026", playoffs=False))["aaa"]
+    assert ants.meta == "North · 1–0–1"
+    assert (ants.stats["totPts"], ants.stats["ppg"], ants.stats["win"]) == (34, 17.0, 75.0)
+    # Passing 300 + 150 and rushing 100 + 80 over two games; one interception against none given.
+    assert (ants.stats["pass"], ants.stats["rush"]) == (225.0, 90.0)
+    assert ants.stats["to"] == 1
+
+
+def test_without_playoffs_roster_shares_use_regular_season_snaps(service):
+    rory = by_id(service.roster("aaa", "off", "2026", playoffs=False))["rb1"]
+    # 75 of the 110 offensive snaps in the two regular season games.
+    assert rory.stats["snap"] == 68
+
+
+def test_a_player_seen_only_in_the_playoffs_has_an_empty_regular_season(source):
+    real = source.weekly_stats
+
+    def playoffs_only(season):
+        frame = real(season)
+        if season != 2026:
+            return frame
+        extra = frame.head(1).with_columns(
+            pl.lit("late1").alias("player_id"),
+            pl.lit("Lee Late").alias("player_display_name"),
+            pl.lit(19).cast(frame["week"].dtype).alias("week"),
+        )
+        return pl.concat([frame, extra])
+
+    source.weekly_stats = playoffs_only
+    service = NflService(source, first_season=2025)
+    assert "late1" in by_id(service.entities("players", "2026"))
+    assert "late1" not in by_id(service.entities("players", "2026", playoffs=False))
+    assert service.game_log("late1", "2026", playoffs=False) == []

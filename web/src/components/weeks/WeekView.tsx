@@ -32,13 +32,13 @@ const GRAPHS: SegmentedOption<WeekGraphMode>[] = [
 /** Week to week: pick weeks, then see a dot graph, a table and totals for the chosen players. */
 export function WeekView() {
   const { state, dispatch } = useAppState()
-  const { season, weekGraph, trend } = state
-  const players = useEntities('players', season)
+  const { season, weekGraph, trend, playoffs } = state
+  const players = useEntities('players', season, playoffs)
   const defs = useStatDefs('players')
   const sel = state.sel.players
   const columns = useMemo(() => resolveColumns(sel, players), [sel, players])
   const ids = useMemo(() => columns.map((c) => c.entity.id), [columns])
-  const logs = useGameLogs(ids, season)
+  const logs = useGameLogs(ids, season, playoffs)
 
   // The stat sidebar is hidden here, so its menu must not stay open.
   useEffect(() => {

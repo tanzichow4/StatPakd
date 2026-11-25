@@ -71,6 +71,15 @@ def test_game_log(client):
     assert log[-1]["tickLabel"] == "WC"
 
 
+@pytest.mark.parametrize(("query", "yards"), [("", 400), ("&playoffs=false", 300)])
+def test_playoffs_can_be_left_out(client, query, yards):
+    players = ok(client, f"{BASE}/entities?kind=players&season=2026{query}")
+    assert next(p for p in players if p["id"] == "qb1")["stats"]["passYds"] == yards
+    log = ok(client, f"{BASE}/players/qb1/game-log?season=2026{query}")
+    assert (log[-1].get("tickLabel") == "WC") is (query == "")
+    assert ok(client, f"{BASE}/teams/aaa/roster?unit=off&season=2026{query}")
+
+
 def test_ui_defaults(client):
     defaults = ok(client, f"{BASE}/ui-defaults")
     assert defaults["teamId"] == "aaa"

@@ -21,7 +21,8 @@ Real NFL data will come from **nflverse**, read in Python with **`nflreadpy`**. 
   own regular plus playoff summaries with no differences; team points matched the schedules.
 
 ## Choices made
-- Seasons from 2022; playoff games are included in all totals (owner).
+- Seasons from 2022; playoff games are included in all totals unless switched off in the top bar
+  (owner).
 - Player views list QB, RB, FB, WR and TE; defenders appear in team breakdown (owner).
 - Passer rating is computed from totals with the official formula. Passing rates are shown only for
   quarterbacks and for others with at least 10 attempts.

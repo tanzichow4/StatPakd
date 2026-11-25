@@ -14,6 +14,12 @@ import type {
   TeamId,
 } from './types'
 
+/** Choices about which games the numbers come from. */
+export interface GameFilter {
+  /** False leaves playoff games out. They are included when not set. */
+  playoffs?: boolean
+}
+
 export interface DataStatus {
   /** Requests under way. */
   pending: number
@@ -40,6 +46,9 @@ export interface DataStatusSource {
  * - Runtime validation of incoming data is the job of the API provider (T23).
  */
 export interface DataProvider {
+  /** True when playoff games exist and `GameFilter.playoffs` can leave them out. */
+  readonly hasPlayoffs?: boolean
+
   /** Text shown with the data, such as where it comes from. */
   readonly notice?: string
 
@@ -74,7 +83,12 @@ export interface DataProvider {
    * @param kind players or teams.
    * @param season a label from `getSeasons`.
    */
-  getEntities(leagueId: LeagueId, kind: EntityKind, season: Season): Promise<Entity[]>
+  getEntities(
+    leagueId: LeagueId,
+    kind: EntityKind,
+    season: Season,
+    filter?: GameFilter,
+  ): Promise<Entity[]>
 
   /**
    * Resolves to the roster units of a league in display order, each with its roster stat
@@ -95,6 +109,7 @@ export interface DataProvider {
     teamId: TeamId,
     unit: RosterUnit,
     season: Season,
+    filter?: GameFilter,
   ): Promise<RosterEntry[]>
 
   /**
@@ -104,5 +119,10 @@ export interface DataProvider {
    * @param playerId id of a player entity.
    * @param season a label from `getSeasons`.
    */
-  getGameLog(leagueId: LeagueId, playerId: EntityId, season: Season): Promise<GameLogEntry[]>
+  getGameLog(
+    leagueId: LeagueId,
+    playerId: EntityId,
+    season: Season,
+    filter?: GameFilter,
+  ): Promise<GameLogEntry[]>
 }

@@ -20,6 +20,7 @@ describe('AC1: NFL defaults match the design', () => {
       addOpen: false,
       addStatOpen: null,
       playerMode: 'season',
+      playoffs: true,
       periods: null,
       weekGraph: 'week',
       weekX: '',

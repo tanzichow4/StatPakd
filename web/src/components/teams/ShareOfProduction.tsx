@@ -23,7 +23,7 @@ export function ShareOfProduction({ teamId, season, renderAfter }: Props) {
   const headingId = useId()
   const units = useRosterUnits()
   const unit = units ? findUnit(units, state.unit) : undefined
-  const roster = useRoster(teamId, unit ? unit.key : null, season)
+  const roster = useRoster(teamId, unit ? unit.key : null, season, state.playoffs)
 
   const rows = useMemo(
     () => (unit && roster ? shareStats(unit).map((def) => buildShareRow(def, roster)) : []),

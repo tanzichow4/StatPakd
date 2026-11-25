@@ -117,3 +117,24 @@ describe('ApiProvider failures', () => {
     expect(pending).toEqual([1, 0])
   })
 })
+
+describe('ApiProvider playoffs', () => {
+  it('can leave playoff games out', () => {
+    expect(new ApiProvider().hasPlayoffs).toBe(true)
+  })
+
+  it('says so only when they are left out', async () => {
+    const fetcher = vi.fn<Fetch>(() => answer([]))
+    const provider = new ApiProvider('', fetcher)
+    await provider.getEntities('nfl', 'teams', '1', { playoffs: false })
+    await provider.getRoster('nfl', 't', 'u', '1', { playoffs: false })
+    await provider.getGameLog('nfl', 'p', '1', { playoffs: false })
+    await provider.getEntities('nfl', 'teams', '1', { playoffs: true })
+    expect(fetcher.mock.calls.map(([url]) => url)).toEqual([
+      '/api/leagues/nfl/entities?kind=teams&season=1&playoffs=false',
+      '/api/leagues/nfl/teams/t/roster?unit=u&season=1&playoffs=false',
+      '/api/leagues/nfl/players/p/game-log?season=1&playoffs=false',
+      '/api/leagues/nfl/entities?kind=teams&season=1',
+    ])
+  })
+})

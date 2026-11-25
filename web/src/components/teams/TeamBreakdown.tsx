@@ -12,8 +12,8 @@ import styles from './TeamBreakdown.module.css'
 /** Team breakdown mode: team chips and the header card of the chosen team. */
 export function TeamBreakdown() {
   const { state, dispatch } = useAppState()
-  const { season, teamId } = state
-  const teams = useEntities('teams', season)
+  const { season, teamId, playoffs } = state
+  const teams = useEntities('teams', season, playoffs)
   const defs = useStatDefs('teams')
 
   // Entering breakdown must never leave an add-stat menu open.

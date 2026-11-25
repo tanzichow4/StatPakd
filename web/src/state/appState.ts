@@ -36,6 +36,8 @@ export interface AppState {
   addOpen: boolean
   addStatOpen: string | null
   playerMode: PlayerMode
+  /** Whether playoff games count towards the numbers shown. */
+  playoffs: boolean
   /** Periods shown week to week, in season order; `null` shows every period. */
   periods: number[] | null
   weekGraph: WeekGraphMode
@@ -93,6 +95,7 @@ export type AppAction =
   | { type: 'setWeekX'; key: string }
   | { type: 'setWeekY'; key: string }
   | { type: 'toggleTrend' }
+  | { type: 'togglePlayoffs' }
   | { type: 'setDotX'; key: string }
   | { type: 'setDotY'; key: string }
   | { type: 'setTeamMode'; mode: TeamMode }
@@ -151,6 +154,7 @@ export function createInitialState(defaults: LeagueUiDefaults): AppState {
     addOpen: false,
     addStatOpen: null,
     playerMode: 'season',
+    playoffs: true,
     periods: null,
     weekGraph: 'week',
     weekX: '',
@@ -288,6 +292,8 @@ export function createAppReducer(
         return action.key === state.weekX ? state : { ...state, weekX: action.key }
       case 'setWeekY':
         return action.key === state.weekY ? state : { ...state, weekY: action.key }
+      case 'togglePlayoffs':
+        return { ...state, playoffs: !state.playoffs }
       case 'toggleTrend':
         return { ...state, trend: !state.trend }
       case 'setDotX':

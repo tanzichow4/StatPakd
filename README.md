@@ -49,7 +49,8 @@ VITE_DATA_SOURCE=mock npm run dev             # macOS / Linux
 ## Data
 
 Real data comes from [nflverse](https://github.com/nflverse) through
-[`nflreadpy`](https://pypi.org/project/nflreadpy/): seasons from 2022, playoffs included. The API
+[`nflreadpy`](https://pypi.org/project/nflreadpy/): seasons from 2022. Playoff games are included
+unless **Include playoffs** in the top bar is switched off. The API
 downloads tables when they are first needed, saves them on disk, and downloads them again once they
 are older than a day. If that fails it keeps using the saved copy. Interactive API documentation is
 at http://127.0.0.1:8000/docs.

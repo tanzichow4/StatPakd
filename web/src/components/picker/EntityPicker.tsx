@@ -22,7 +22,7 @@ interface VisibleCard {
 export function EntityPicker() {
   const { state, dispatch } = useAppState()
   const { kind, season, q, pos, addOpen, teamMode } = state
-  const entities = useEntities(kind, season)
+  const entities = useEntities(kind, season, state.playoffs)
   const announce = useAnnounce()
   const popoverId = useId()
   const selectedIds = state.sel[kind]

@@ -81,20 +81,22 @@ def create_app(service: NflService | None = None, settings: Settings | None = No
         return nfl.stat_defs(kind) if enabled(league_id) else []
 
     @app.get(f"{base}/entities", response_model=list[Entity], **options)
-    def entities(league_id: str, kind: Literal["players", "teams"], season: str):
-        return nfl.entities(kind, season) if enabled(league_id) else []
+    def entities(
+        league_id: str, kind: Literal["players", "teams"], season: str, playoffs: bool = True
+    ):
+        return nfl.entities(kind, season, playoffs) if enabled(league_id) else []
 
     @app.get(f"{base}/roster-units", response_model=list[RosterUnitDef], **options)
     def roster_units(league_id: str):
         return nfl.roster_units() if enabled(league_id) else []
 
     @app.get(f"{base}/teams/{{team_id}}/roster", response_model=list[RosterEntry], **options)
-    def roster(league_id: str, team_id: str, unit: str, season: str):
-        return nfl.roster(team_id, unit, season) if enabled(league_id) else []
+    def roster(league_id: str, team_id: str, unit: str, season: str, playoffs: bool = True):
+        return nfl.roster(team_id, unit, season, playoffs) if enabled(league_id) else []
 
     @app.get(f"{base}/players/{{player_id}}/game-log", response_model=list[GameLogEntry], **options)
-    def game_log(league_id: str, player_id: str, season: str):
-        return nfl.game_log(player_id, season) if enabled(league_id) else []
+    def game_log(league_id: str, player_id: str, season: str, playoffs: bool = True):
+        return nfl.game_log(player_id, season, playoffs) if enabled(league_id) else []
 
     @app.get(f"{base}/ui-defaults", response_model=UiDefaults)
     def ui_defaults(league_id: str):

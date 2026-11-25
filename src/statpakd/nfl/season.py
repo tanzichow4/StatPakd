@@ -1,6 +1,6 @@
 """One season of player weeks, joined from weekly stats, snap counts and the schedule."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 import polars as pl
 
@@ -75,6 +75,25 @@ class Season:
 
     def game(self, team: str, week: int) -> Game | None:
         return next((g for g in self.games if g.week == week and team in (g.home, g.away)), None)
+
+    @property
+    def regular_weeks(self) -> set[int]:
+        return {g.week for g in self.games if g.game_type == REGULAR}
+
+    def without_playoffs(self) -> "Season":
+        """The same season with only its regular season games, snaps and player weeks."""
+        weeks = self.regular_weeks
+        players = {}
+        for key, player in self.players.items():
+            kept = {n: w for n, w in player.weeks.items() if n in weeks}
+            if kept:
+                players[key] = replace(player, weeks=kept)
+        return Season(
+            year=self.year,
+            players=players,
+            games=[g for g in self.games if g.week in weeks],
+            team_snaps={k: v for k, v in self.team_snaps.items() if k[1] in weeks},
+        )
 
     def game_type(self, week: int) -> str:
         return next((g.game_type for g in self.games if g.week == week), REGULAR)

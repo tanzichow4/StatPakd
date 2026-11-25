@@ -26,7 +26,7 @@ const sampleStart: StartData | undefined = sample
 
 function AppMain() {
   const { state } = useAppState()
-  const { notice } = useDataProvider()
+  const { notice, hasPlayoffs } = useDataProvider()
   const breakdown = state.kind === 'teams' && state.teamMode === 'inside'
   const weekly = state.kind === 'players' && state.playerMode === 'weeks'
   return (
@@ -52,7 +52,12 @@ function AppMain() {
           </div>
         </>
       )}
-      {notice && <p className={styles.notice}>{notice}</p>}
+      {notice && (
+        <p className={styles.notice}>
+          {notice}
+          {hasPlayoffs && ` Playoff games are ${state.playoffs ? 'included' : 'not included'}.`}
+        </p>
+      )}
     </main>
   )
 }

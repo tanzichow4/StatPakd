@@ -83,6 +83,7 @@ const targets: Target[] = [
   { name: 'AddPopover ctaAdd', css: addPopover, sel: '.ctaAdd', width: false },
   { name: 'AddPopover ctaRemove', css: addPopover, sel: '.ctaRemove', width: false },
   { name: 'GlobalNav league', css: globalNav, sel: '.league', width: true },
+  { name: 'GlobalNav playoffs', css: globalNav, sel: '.playoffs', width: false },
   { name: 'Select', css: select, sel: '.select', width: false },
   { name: 'SegmentedControl item', css: segmented, sel: '.item', width: true },
   { name: 'Tabs tab', css: tabs, sel: '.tab', width: true },

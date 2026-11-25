@@ -27,7 +27,7 @@ Range T01-T20. Integration branch: `autobuild`. Baseline before run: web lint/ty
 | T25 | done | ticket/T25-player-weeks-dot-plot | Owner request, built outside autobuild on top of main; revised after owner feedback (see ticket); merged into main on 2026-11-24. New DataProvider.getGameLog and StatDef.rollup (T22 must serve both). Checks green: unit, e2e at 375/1280, lint, types, format, build, ruff, pytest. The qa-tester agent was not run. |
 | T21 | done | (decision) | Owner chose nflverse via nflreadpy. No three-way comparison was written; data terms still open (docs/decisions/data-provider.md). |
 | T22 | done | ticket/T22-nflverse-api | Python API over nflverse, built with T23 on one branch; not merged. CI not run; .env.example not updated. |
-| T23 | done | ticket/T22-nflverse-api | ApiProvider is the default data source, with loading, failure and retry. Skeletons were not built. |
+| T23 | done | ticket/T22-nflverse-api | ApiProvider is the default data source, with loading, failure and retry. Skeletons were not built. Added at the owner's request: an Include playoffs switch, and npm run dev starting the API too. |
 
 ## Assumptions
 

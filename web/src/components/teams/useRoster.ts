@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useActiveLeagueId, useDataProvider } from '../../dataSource'
+import { filterArgs, useActiveLeagueId, useDataProvider } from '../../dataSource'
 import type { LeagueId, RosterEntry, RosterUnit, Season, TeamId } from '../../domain/types'
 
 interface Loaded {
@@ -7,6 +7,7 @@ interface Loaded {
   teamId: TeamId
   unit: RosterUnit
   season: Season
+  playoffs: boolean
   roster: RosterEntry[]
 }
 
@@ -18,6 +19,7 @@ export function useRoster(
   teamId: TeamId,
   unit: RosterUnit | null,
   season: Season,
+  playoffs = true,
 ): RosterEntry[] | null {
   const provider = useDataProvider()
   const leagueId = useActiveLeagueId()
@@ -26,9 +28,9 @@ export function useRoster(
   useEffect(() => {
     if (leagueId === null || unit === null) return
     let cancelled = false
-    provider.getRoster(leagueId, teamId, unit, season).then(
+    provider.getRoster(leagueId, teamId, unit, season, ...filterArgs(playoffs)).then(
       (roster) => {
-        if (!cancelled) setLoaded({ leagueId, teamId, unit, season, roster })
+        if (!cancelled) setLoaded({ leagueId, teamId, unit, season, playoffs, roster })
       },
       () => {
         if (!cancelled) setLoaded(null)
@@ -37,7 +39,7 @@ export function useRoster(
     return () => {
       cancelled = true
     }
-  }, [provider, leagueId, teamId, unit, season])
+  }, [provider, leagueId, teamId, unit, season, playoffs])
 
   const current =
     loaded !== null &&
@@ -45,6 +47,7 @@ export function useRoster(
     loaded.leagueId === leagueId &&
     loaded.teamId === teamId &&
     loaded.unit === unit &&
-    loaded.season === season
+    loaded.season === season &&
+    loaded.playoffs === playoffs
   return current ? loaded.roster : null
 }
