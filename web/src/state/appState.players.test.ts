@@ -6,53 +6,52 @@ const defaults = nflUiDefaults()
 const reducer = createAppReducer(createReducerConfig(defaults, nflStatDefsByKind()))
 const initial = () => createInitialState(defaults)
 
-describe('player detail state', () => {
-  it('starts in comparison with nothing chosen', () => {
+describe('week to week state', () => {
+  it('starts on season totals with every week and trend lines', () => {
     expect(initial()).toMatchObject({
-      playerMode: 'compare',
-      playerId: '',
-      periodStat: '',
-      periods: [],
+      playerMode: 'season',
+      periods: null,
+      weekGraph: 'week',
+      trend: true,
+      dotX: '',
+      dotY: '',
     })
   })
 
-  it('switches mode and closes open menus', () => {
+  it('switches view and closes open menus', () => {
     const open = { ...initial(), addOpen: true, addStatOpen: 'x' }
-    expect(reducer(open, { type: 'setPlayerMode', mode: 'detail' })).toMatchObject({
-      playerMode: 'detail',
+    expect(reducer(open, { type: 'setPlayerMode', mode: 'weeks' })).toMatchObject({
+      playerMode: 'weeks',
       addOpen: false,
       addStatOpen: null,
     })
     const same = initial()
-    expect(reducer(same, { type: 'setPlayerMode', mode: 'compare' })).toBe(same)
+    expect(reducer(same, { type: 'setPlayerMode', mode: 'season' })).toBe(same)
   })
 
-  it('toggles periods and keeps them in season order', () => {
-    let s = initial()
-    for (const period of [5, 2, 9]) s = reducer(s, { type: 'togglePeriod', period })
-    expect(s.periods).toEqual([2, 5, 9])
-    expect(reducer(s, { type: 'togglePeriod', period: 5 }).periods).toEqual([2, 9])
-  })
-
-  it.each([0, -1, 1.5, NaN])('ignores the period %s', (period) => {
-    const s = initial()
-    expect(reducer(s, { type: 'togglePeriod', period })).toBe(s)
-  })
-
-  it('replaces periods with a sorted, unique, valid list', () => {
-    const s = reducer(initial(), { type: 'setPeriods', periods: [3, 1, 3, 0] })
+  it('stores weeks sorted, unique and valid', () => {
+    const s = reducer(initial(), { type: 'setPeriods', periods: [3, 1, 3, 0, -1, 1.5, NaN] })
     expect(s.periods).toEqual([1, 3])
     expect(reducer(s, { type: 'setPeriods', periods: [1, 3] })).toBe(s)
   })
 
-  it('clears the periods when the player changes', () => {
-    const s = { ...initial(), playerId: 'a', periods: [1] }
-    expect(reducer(s, { type: 'setPlayer', playerId: 'b' }).periods).toEqual([])
-    expect(reducer(s, { type: 'setPlayer', playerId: 'a' })).toBe(s)
+  it('tells no weeks apart from every week', () => {
+    const none = reducer(initial(), { type: 'setPeriods', periods: [] })
+    expect(none.periods).toEqual([])
+    expect(reducer(none, { type: 'setPeriods', periods: null }).periods).toBeNull()
+    const all = initial()
+    expect(reducer(all, { type: 'setPeriods', periods: null })).toBe(all)
   })
 
-  it('stores the chart stat', () => {
-    expect(reducer(initial(), { type: 'setPeriodStat', key: 'k' }).periodStat).toBe('k')
+  it.each([
+    [{ type: 'setWeekGraph', mode: 'stats' }, { weekGraph: 'stats' }],
+    [{ type: 'setWeekX', key: 'k' }, { weekX: 'k' }],
+    [{ type: 'setWeekY', key: 'k' }, { weekY: 'k' }],
+    [{ type: 'setDotX', key: 'k' }, { dotX: 'k' }],
+    [{ type: 'setDotY', key: 'k' }, { dotY: 'k' }],
+    [{ type: 'toggleTrend' }, { trend: false }],
+  ] as const)('applies %o', (action, expected) => {
+    expect(reducer(initial(), action)).toMatchObject(expected)
   })
 })
 

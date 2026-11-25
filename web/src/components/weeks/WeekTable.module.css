@@ -12,20 +12,29 @@
   white-space: nowrap;
 }
 
+.caption {
+  padding: 10px 14px;
+  text-align: left;
+  font-size: var(--text-12);
+  color: var(--color-ink);
+}
+
 .table thead tr {
   background: var(--color-surface-subtle);
 }
 
-.table tbody tr {
+.table tbody tr,
+.table tfoot tr {
   border-top: 1px solid var(--color-divider);
 }
 
-.table tbody tr.chosen {
+.table tfoot tr {
   background: var(--color-track);
+  font-weight: 700;
 }
 
 .head,
-.periodHead {
+.weekHead {
   padding: 10px 14px;
   font-size: var(--text-11);
   font-weight: 600;
@@ -38,41 +47,36 @@
   text-align: right;
 }
 
-.periodHead,
-.period {
+.weekHead,
+.week {
   text-align: left;
 }
 
-.period {
-  padding: 0 14px;
+.week {
+  padding: 8px 14px;
   font-size: var(--text-13);
-  font-weight: 500;
+  font-weight: 600;
 }
 
-.check {
-  min-height: 34px;
-}
-
-/* Lines the bye week up with the labels beside the checkboxes. */
-.rest {
-  padding-left: 26px;
-  color: var(--color-text-muted);
+.swatch {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 50%;
 }
 
 .cell {
-  padding: 8px 14px;
+  padding: 6px 14px;
   text-align: right;
   font-family: var(--font-mono);
   font-size: var(--text-13);
 }
 
-.na {
-  color: var(--color-text-na);
-}
-
+/* Left aligned so it stays in view while the wide table is scrolled to the start. */
 .bye {
   padding: 8px 14px;
-  text-align: center;
+  text-align: left;
   font-size: var(--text-12);
   color: var(--color-ink);
 }
@@ -88,10 +92,4 @@
   clip: rect(0, 0, 0, 0);
   clip-path: inset(50%);
   white-space: nowrap;
-}
-
-@media (max-width: 1023px) {
-  .check {
-    min-height: 40px;
-  }
 }

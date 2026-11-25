@@ -36,6 +36,11 @@ const PLAYER_KEYS = [
   'recYpg',
   'touches',
   'ypt',
+  'passAtt',
+  'passCmp',
+  'snaps',
+  'snapPct',
+  'teamSnaps',
 ]
 const TEAM_KEYS = [
   'ppg',
@@ -103,6 +108,11 @@ describe('AC1: 2024 players match the design', () => {
       recYpg: 16.4,
       touches: 378,
       ypt: 6,
+      passAtt: null,
+      passCmp: null,
+      snaps: 748,
+      snapPct: 65.7,
+      teamSnaps: 1139,
     })
   })
 
@@ -130,6 +140,11 @@ describe('AC1: 2024 players match the design', () => {
       recYpg: null,
       touches: 102,
       ypt: 5.2,
+      passAtt: expect.any(Number),
+      passCmp: expect.any(Number),
+      snaps: 1050,
+      snapPct: 95.1,
+      teamSnaps: 1104,
     })
   })
 
@@ -583,7 +598,7 @@ describe('AC7: output shapes', () => {
     expect(allen.meta).toBe(`BUF ${MIDDLE_DOT} QB ${MIDDLE_DOT} #17`)
   })
 
-  it('every player has all 22 stat keys and a meta of TEAM, POS, #N', () => {
+  it('every player has all 27 stat keys, including team snaps and a meta of TEAM, POS, #N', () => {
     for (const season of SEASONS) {
       for (const p of buildPlayers(season)) {
         expect(Object.keys(p.stats).sort()).toEqual([...PLAYER_KEYS].sort())

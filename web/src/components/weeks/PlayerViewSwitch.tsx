@@ -1,14 +1,14 @@
 import { useAppState, type PlayerMode } from '../../state'
 import { SegmentedControl, type SegmentedOption } from '../ui'
-import styles from './PlayerDetail.module.css'
+import styles from './Weeks.module.css'
 
 const OPTIONS: SegmentedOption<PlayerMode>[] = [
-  { value: 'compare', label: 'Compare players' },
-  { value: 'detail', label: 'Player detail' },
+  { value: 'weeks', label: 'Week to week' },
+  { value: 'season', label: 'Season totals' },
 ]
 
-/** Compare/detail switch, shown only for the Players kind. */
-export function PlayerModeSwitch() {
+/** Week to week or season totals, shown only for the Players kind. */
+export function PlayerViewSwitch() {
   const { state, dispatch } = useAppState()
   if (state.kind !== 'players') return null
   return (
@@ -19,9 +19,7 @@ export function PlayerModeSwitch() {
         value={state.playerMode}
         onChange={(mode) => dispatch({ type: 'setPlayerMode', mode })}
       />
-      <span className={styles.hint}>
-        {state.playerMode === 'detail' ? 'One player, week by week' : 'Players side by side'}
-      </span>
+      <span className={styles.hint}>Pick one player for trends, or several to compare</span>
     </div>
   )
 }

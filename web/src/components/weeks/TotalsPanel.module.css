@@ -1,0 +1,144 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  flex: 1 0 250px;
+  max-width: 300px;
+  min-width: 0;
+}
+
+/* Several players need a column each. */
+.panel.many {
+  flex-basis: 360px;
+  max-width: 420px;
+}
+
+.heading {
+  margin: 0;
+  font-size: var(--text-18);
+  font-weight: 600;
+}
+
+.sub {
+  margin: 0;
+  font-size: var(--text-12);
+  color: var(--color-text-muted);
+}
+
+.group {
+  position: relative;
+  min-width: 0;
+  overflow-x: auto;
+  border: 1px solid var(--color-border-alt);
+  border-radius: var(--radius-10);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table thead tr {
+  background: var(--color-surface-subtle);
+}
+
+.table tbody tr {
+  border-top: 1px solid var(--color-divider);
+}
+
+.table tbody tr.graphed {
+  background: var(--color-track);
+}
+
+.groupName {
+  padding: 8px 10px;
+  text-align: left;
+  font-size: var(--text-11);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-ink);
+}
+
+.player {
+  padding: 8px 10px;
+  text-align: right;
+  font-size: var(--text-11);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.swatch {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 4px;
+  border-radius: 50%;
+}
+
+.stat {
+  padding: 0 4px 0 10px;
+  text-align: left;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.pick {
+  min-height: 30px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-ink);
+  font-size: var(--text-13);
+  text-align: left;
+  cursor: pointer;
+}
+
+.pick:hover {
+  text-decoration: underline;
+}
+
+.pick[aria-pressed='true'] {
+  font-weight: 700;
+}
+
+.note {
+  margin-left: var(--space-4);
+  font-size: var(--text-11);
+  color: var(--color-ink);
+}
+
+.value {
+  padding: 4px 10px;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: var(--text-13);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (max-width: 1023px) {
+  .panel,
+  .panel.many {
+    max-width: 100%;
+    flex-basis: 100%;
+  }
+
+  .pick {
+    min-height: 40px;
+    min-width: 40px;
+  }
+}

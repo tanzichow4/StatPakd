@@ -1,5 +1,6 @@
 import type { Entity, RosterEntry, StatMap } from '../../domain/types'
 import { DEF_T, OFF_T, RAW_P, RAW_T, ROSTERS } from './raw'
+import { gameSnaps, passVolume } from './usage'
 import { rnd, round1, vary } from './variation'
 
 export const NFL_SEASONS = ['2024', '2023', '2022'] as const
@@ -31,11 +32,16 @@ export function buildPlayers(season: string): Entity[] {
     const int = isQB ? required(V('int'), `${id}.int`) : null
     const scrim = ry + (rcy ?? 0)
     const touches = ra + (rec ?? 0)
+    const games = gameSnaps(id, season, pos)
+    const snaps = games.reduce((a, g) => a + g.snaps, 0)
+    const teamSnaps = games.reduce((a, g) => a + g.teamSnaps, 0)
+    const cmp = isQB ? required(V('cmp', false), `${id}.cmp`) : null
+    const volume = passYds != null && cmp != null ? passVolume(id, season, passYds, cmp) : null
     const stats: StatMap = {
       passYds,
       passTd,
       int,
-      cmp: isQB ? required(V('cmp', false), `${id}.cmp`) : null,
+      cmp,
       rate: isQB ? required(V('rate', false), `${id}.rate`) : null,
       rushYds: ry,
       rushTd: rtd,
@@ -54,6 +60,11 @@ export function buildPlayers(season: string): Entity[] {
       recYpg: rcy != null ? round1(rcy / 17) : null,
       touches,
       ypt: touches >= 20 ? round1(scrim / touches) : null,
+      passAtt: volume?.attempts ?? null,
+      passCmp: volume?.completions ?? null,
+      snaps,
+      snapPct: round1((snaps / teamSnaps) * 100),
+      teamSnaps,
     }
     return {
       id,

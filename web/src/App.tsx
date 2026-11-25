@@ -1,11 +1,12 @@
 import styles from './App.module.css'
 import { AnnouncerProvider } from './components/a11y'
 import { ComparePanel } from './components/compare'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { GlobalNav } from './components/nav'
 import { EntityPicker } from './components/picker'
-import { PlayerDetail, PlayerModeSwitch } from './components/players'
 import { StatSidebar } from './components/sidebar'
 import { TeamBreakdown, TeamModeSwitch } from './components/teams'
+import { PlayerViewSwitch, WeekView } from './components/weeks'
 import { MockProvider } from './data/mockProvider'
 import { nflStatDefsByKind, nflUiDefaults } from './data/nfl'
 import { DataSource } from './dataSource'
@@ -17,14 +18,17 @@ const provider = new MockProvider()
 function AppMain() {
   const { state } = useAppState()
   const breakdown = state.kind === 'teams' && state.teamMode === 'inside'
-  const detail = state.kind === 'players' && state.playerMode === 'detail'
+  const weekly = state.kind === 'players' && state.playerMode === 'weeks'
   return (
     <main className={styles.content}>
       <h1 className={styles.srOnly}>StatPakd</h1>
-      <PlayerModeSwitch />
+      <PlayerViewSwitch />
       <TeamModeSwitch />
-      {detail ? (
-        <PlayerDetail />
+      {weekly ? (
+        <>
+          <EntityPicker />
+          <WeekView />
+        </>
       ) : breakdown ? (
         <TeamBreakdown />
       ) : (
@@ -45,13 +49,15 @@ function AppMain() {
 export default function App() {
   if (window.location.pathname === '/dev') return <DevPage />
   return (
-    <DataSource provider={provider}>
-      <AppStateProvider defaults={nflUiDefaults()} statDefs={nflStatDefsByKind()}>
-        <AnnouncerProvider>
-          <GlobalNav />
-          <AppMain />
-        </AnnouncerProvider>
-      </AppStateProvider>
-    </DataSource>
+    <ErrorBoundary>
+      <DataSource provider={provider}>
+        <AppStateProvider defaults={nflUiDefaults()} statDefs={nflStatDefsByKind()}>
+          <AnnouncerProvider>
+            <GlobalNav />
+            <AppMain />
+          </AnnouncerProvider>
+        </AppStateProvider>
+      </DataSource>
+    </ErrorBoundary>
   )
 }

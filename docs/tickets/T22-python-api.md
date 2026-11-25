@@ -9,3 +9,7 @@ FastAPI app in `src/statpakd` exposing endpoints matching the `DataProvider` met
 - [ ] pytest covers each endpoint with fixtures (no live network in tests).
 - [ ] Ruff and CI pass on all supported Python versions.
 - [ ] No secrets in the repo; `.env.example` documents new variables.
+
+## Owner decision (2026-11-24)
+Use nflverse through `nflreadpy`. See [the decision note](../decisions/data-provider.md), which lists
+what is still open.

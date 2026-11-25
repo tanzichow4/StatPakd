@@ -1,49 +1,74 @@
 import { expect, test, type Page } from '@playwright/test'
 import { expectNoPageHScroll, openApp } from './helpers.js'
 
-async function openDetail(page: Page): Promise<void> {
+async function openWeeks(page: Page): Promise<void> {
   await openApp(page)
   await page
     .getByRole('group', { name: 'Player view' })
-    .getByRole('button', { name: 'Player detail' })
+    .getByRole('button', { name: 'Week to week' })
     .click()
-  await expect(page.getByRole('table', { name: 'Game log' })).toBeVisible()
+  await expect(page.getByRole('group', { name: 'Weekly dot graph' })).toBeVisible()
 }
 
-const weekChip = (page: Page, week: number) =>
-  page
-    .getByRole('group', { name: 'Weeks to compare' })
-    .getByRole('button', { name: `Week ${week}`, exact: true })
+const combobox = (page: Page, name: string) => page.getByRole('combobox', { name })
 
-test('the dot plot shows one scale for each selected stat', async ({ page }) => {
+test('week to week compares the selected players, with totals for the chosen weeks', async ({
+  page,
+}) => {
+  await openWeeks(page)
+  const totals = page.getByRole('complementary', { name: 'Totals' })
+  await expect(totals).toContainText('18 weeks chosen')
+  await expectNoPageHScroll(page)
+
+  await page.getByRole('button', { name: 'Last 4' }).click()
+  await expect(totals).toContainText('4 weeks chosen')
+  const table = page.getByRole('table', { name: /by week and player$/ })
+  // Four week rows, plus the header and total rows.
+  await expect(table.getByRole('row')).toHaveCount(6)
+  await expectNoPageHScroll(page)
+})
+
+test('a week range limits one player to those weeks', async ({ page }) => {
+  await openWeeks(page)
+  const list = page.getByRole('list', { name: 'Selected players' })
+  while ((await list.getByRole('button', { name: /^Remove / }).count()) > 1) {
+    await list
+      .getByRole('button', { name: /^Remove / })
+      .last()
+      .click()
+  }
+  await combobox(page, 'First week').selectOption('3')
+  await combobox(page, 'Last week').selectOption('5')
+  const table = page.getByRole('table', { name: /week by week$/ })
+  await expect(table.getByRole('row')).toHaveCount(5)
+  await expectNoPageHScroll(page)
+})
+
+test('the weekly dot graph can compare one stat against another', async ({ page }) => {
+  await openWeeks(page)
+  await page.getByRole('button', { name: 'Stat vs stat' }).click()
+  await combobox(page, 'Weekly X axis').selectOption({ label: 'Snaps' })
+  await combobox(page, 'Weekly Y axis').selectOption({ label: 'Scrimmage Yds' })
+  const graph = page.getByRole('group', { name: 'Weekly dot graph' })
+  await expect(graph.getByTestId('x-title')).toHaveText('Snaps')
+  await expect(graph.getByTestId('y-title')).toHaveText('Scrimmage Yds')
+  await expect(graph.getByTestId('dot').first()).toBeVisible()
+  await expectNoPageHScroll(page)
+})
+
+test('the season dot graph uses an x axis alone or two stats', async ({ page }) => {
   await openApp(page)
   await page.getByRole('tab', { name: '2D chart' }).click()
-  const bars = page.getByRole('group', { name: 'Bars chart' })
-  const statCount = await bars.getByRole('group').count()
-  await page.getByRole('button', { name: 'Dot plot', exact: true }).click()
-  const plot = page.getByRole('group', { name: 'Dot plot' })
-  await expect(plot.getByRole('group')).toHaveCount(statCount)
-  await expect(bars).toBeHidden()
+  await page.getByRole('button', { name: 'Dot graph', exact: true }).click()
+  const graph = page.getByRole('group', { name: 'Dot graph' })
+  await expect(graph.getByTestId('y-tick')).toHaveCount(3)
   await expectNoPageHScroll(page)
-})
 
-test('picking weeks 1, 2 and 3 compares them as dot plots and as a table', async ({ page }) => {
-  await openDetail(page)
+  await combobox(page, 'Graph X axis').selectOption({ label: 'Snaps' })
+  await combobox(page, 'Graph Y axis').selectOption({ label: 'Scrimmage Yds' })
+  await expect(graph.getByTestId('league-dot').first()).toBeVisible()
+  await expect(graph.getByTestId('dot')).toHaveCount(3)
   await expectNoPageHScroll(page)
-  for (const week of [1, 2, 3]) await weekChip(page, week).click()
-  const table = page.getByRole('table', { name: 'Chosen weeks compared by stat' })
-  await expect(table.getByRole('columnheader')).toHaveCount(4)
-  await expect(page.getByTestId('week-trend').first()).toContainText('W1 to W3')
-  await expectNoPageHScroll(page)
-})
-
-test('clicking a week on the season chart adds it to the comparison', async ({ page }) => {
-  await openDetail(page)
-  const dot = page.getByRole('button', { name: /^Week 2:/ })
-  await dot.click()
-  await expect(dot).toHaveAttribute('aria-pressed', 'true')
-  await expect(weekChip(page, 2)).toHaveAttribute('aria-pressed', 'true')
-  await expect(page.getByRole('checkbox', { name: 'Week 2' })).toBeChecked()
 })
 
 test('the 3D chart has flat views and shows values for a tapped dot', async ({ page }) => {

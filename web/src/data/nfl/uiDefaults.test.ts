@@ -19,10 +19,14 @@ describe('AC1: NFL defaults match the design', () => {
       pos: 'All',
       addOpen: false,
       addStatOpen: null,
-      playerMode: 'compare',
-      playerId: '',
-      periodStat: '',
-      periods: [],
+      playerMode: 'season',
+      periods: null,
+      weekGraph: 'week',
+      weekX: '',
+      weekY: '',
+      trend: true,
+      dotX: '',
+      dotY: '',
       teamMode: 'compare',
       teamId: 'phi',
       unit: 'off',
@@ -62,7 +66,7 @@ describe('AC1: NFL defaults match the design', () => {
     expect(stats).toEqual(order.filter((k) => stats.includes(k)))
   })
   it('AC1: canonical player order places extras inside their group', () => {
-    expect(canonicalStatOrder(nflStatDefsByKind().players).slice(0, 8)).toEqual([
+    expect(canonicalStatOrder(nflStatDefsByKind().players).slice(0, 10)).toEqual([
       'passYds',
       'passTd',
       'int',
@@ -70,6 +74,8 @@ describe('AC1: NFL defaults match the design', () => {
       'rate',
       'passYpg',
       'tdInt',
+      'passAtt',
+      'passCmp',
       'rushYds',
     ])
   })

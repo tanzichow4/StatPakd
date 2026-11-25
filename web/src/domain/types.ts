@@ -62,7 +62,17 @@ export interface StatDef {
    * True when the value is a 0-100 percentage: the roster table appends `%` and shows a mini bar.
    */
   percent?: boolean
+  /** How values from several periods combine into one total. Added up when not set. */
+  rollup?: Rollup
 }
+
+/**
+ * - `average`: the mean of the periods.
+ * - `ratio`: the summed `num` stat divided by the summed `den` stat, times `scale`. `minDen`
+ *   replaces a smaller denominator; without it a zero denominator gives no value.
+ */
+export type Rollup =
+  { kind: 'average' } | { kind: 'ratio'; num: string; den: string; scale?: number; minDen?: number }
 
 /**
  * One roster unit of a league. `stats` are the roster stat definitions of the unit, in display

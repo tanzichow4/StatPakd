@@ -12,7 +12,8 @@ export type ViewMode = 'num' | '2d' | '3d'
 export type Chart2Mode = 'bars' | 'dots' | 'radar'
 export type CameraPreset = '3d' | 'front' | 'side' | 'top'
 export type TeamMode = 'compare' | 'inside'
-export type PlayerMode = 'compare' | 'detail'
+export type PlayerMode = 'weeks' | 'season'
+export type WeekGraphMode = 'week' | 'stats'
 export type AxisIndex = 0 | 1 | 2
 export type Axes = [string, string, string]
 export type PerKind<T> = Record<EntityKind, T>
@@ -35,12 +36,16 @@ export interface AppState {
   addOpen: boolean
   addStatOpen: string | null
   playerMode: PlayerMode
-  /** Player shown in player detail; empty until one is chosen. */
-  playerId: EntityId
-  /** Stat of the period-by-period chart; empty until one is chosen. */
-  periodStat: string
-  /** Periods chosen for comparison, in season order. */
-  periods: number[]
+  /** Periods shown week to week, in season order; `null` shows every period. */
+  periods: number[] | null
+  weekGraph: WeekGraphMode
+  /** Stats of the weekly graph axes; empty until chosen. */
+  weekX: string
+  weekY: string
+  trend: boolean
+  /** Stats of the season dot graph axes; empty x is automatic, empty y means x only. */
+  dotX: string
+  dotY: string
   teamMode: TeamMode
   teamId: TeamId
   unit: RosterUnit
@@ -83,10 +88,13 @@ export type AppAction =
   | { type: 'resetView' }
   | { type: 'setCameraPreset'; preset: CameraPreset }
   | { type: 'setPlayerMode'; mode: PlayerMode }
-  | { type: 'setPlayer'; playerId: EntityId }
-  | { type: 'setPeriodStat'; key: string }
-  | { type: 'togglePeriod'; period: number }
-  | { type: 'setPeriods'; periods: number[] }
+  | { type: 'setPeriods'; periods: number[] | null }
+  | { type: 'setWeekGraph'; mode: WeekGraphMode }
+  | { type: 'setWeekX'; key: string }
+  | { type: 'setWeekY'; key: string }
+  | { type: 'toggleTrend' }
+  | { type: 'setDotX'; key: string }
+  | { type: 'setDotY'; key: string }
   | { type: 'setTeamMode'; mode: TeamMode }
   | { type: 'setTeam'; teamId: TeamId }
   | { type: 'setUnit'; unit: RosterUnit }
@@ -142,10 +150,14 @@ export function createInitialState(defaults: LeagueUiDefaults): AppState {
     pos: ALL_POSITIONS,
     addOpen: false,
     addStatOpen: null,
-    playerMode: 'compare',
-    playerId: '',
-    periodStat: '',
-    periods: [],
+    playerMode: 'season',
+    periods: null,
+    weekGraph: 'week',
+    weekX: '',
+    weekY: '',
+    trend: true,
+    dotX: '',
+    dotY: '',
     teamMode: 'compare',
     teamId: defaults.teamId,
     unit: defaults.unit,
@@ -263,24 +275,25 @@ export function createAppReducer(
         return action.mode === state.playerMode
           ? state
           : { ...state, playerMode: action.mode, addOpen: false, addStatOpen: null }
-      case 'setPlayer':
-        // Chosen periods belong to the player they were chosen for.
-        return action.playerId === state.playerId
-          ? state
-          : { ...state, playerId: action.playerId, periods: [] }
-      case 'setPeriodStat':
-        return action.key === state.periodStat ? state : { ...state, periodStat: action.key }
-      case 'togglePeriod': {
-        if (!isPeriod(action.period)) return state
-        const periods = state.periods.includes(action.period)
-          ? state.periods.filter((p) => p !== action.period)
-          : sortedPeriods([...state.periods, action.period])
-        return { ...state, periods }
-      }
       case 'setPeriods': {
+        if (action.periods === null) {
+          return state.periods === null ? state : { ...state, periods: null }
+        }
         const periods = sortedPeriods(action.periods.filter(isPeriod))
-        return periods.join() === state.periods.join() ? state : { ...state, periods }
+        return periods.join() === state.periods?.join() ? state : { ...state, periods }
       }
+      case 'setWeekGraph':
+        return action.mode === state.weekGraph ? state : { ...state, weekGraph: action.mode }
+      case 'setWeekX':
+        return action.key === state.weekX ? state : { ...state, weekX: action.key }
+      case 'setWeekY':
+        return action.key === state.weekY ? state : { ...state, weekY: action.key }
+      case 'toggleTrend':
+        return { ...state, trend: !state.trend }
+      case 'setDotX':
+        return action.key === state.dotX ? state : { ...state, dotX: action.key }
+      case 'setDotY':
+        return action.key === state.dotY ? state : { ...state, dotY: action.key }
       case 'setTeamMode':
         return { ...state, teamMode: action.mode, addOpen: false }
       case 'setTeam':

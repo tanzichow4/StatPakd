@@ -57,10 +57,10 @@ describe('getSeasons', () => {
 })
 
 describe('getStatDefs', () => {
-  it('AC9: resolves to 22 player defs and 13 team defs in design order', async () => {
+  it('AC9: resolves to 26 player defs and 13 team defs in design order', async () => {
     const players = await provider.getStatDefs('nfl', 'players')
     const teams = await provider.getStatDefs('nfl', 'teams')
-    expect(players).toHaveLength(22)
+    expect(players).toHaveLength(26)
     expect(teams).toHaveLength(13)
     expect(players[0]).toEqual({ key: 'passYds', label: 'Pass Yds', group: 'Passing' })
     expect(players[2]).toEqual({
@@ -75,6 +75,7 @@ describe('getStatDefs', () => {
       group: 'Totals',
       decimals: 1,
       extra: true,
+      rollup: { kind: 'ratio', num: 'scrim', den: 'touches' },
     })
     expect(teams[6]).toEqual({
       key: 'to',
@@ -93,7 +94,7 @@ describe('getStatDefs', () => {
     def.label = 'changed'
     first.length = 0
     const second = await provider.getStatDefs('nfl', 'players')
-    expect(second).toHaveLength(22)
+    expect(second).toHaveLength(26)
     expect(second[0]?.label).toBe('Pass Yds')
   })
 })

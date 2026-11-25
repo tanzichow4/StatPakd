@@ -14,25 +14,74 @@ const EXPECTED_PLAYER_DEFS: StatDef[] = [
   { key: 'passYds', label: 'Pass Yds', group: 'Passing' },
   { key: 'passTd', label: 'Pass TD', group: 'Passing' },
   { key: 'int', label: 'Interceptions', group: 'Passing', lowerIsBetter: true },
-  { key: 'cmp', label: 'Comp %', group: 'Passing', decimals: 1 },
-  { key: 'rate', label: 'Passer Rating', group: 'Passing', decimals: 1 },
+  {
+    key: 'cmp',
+    label: 'Comp %',
+    group: 'Passing',
+    decimals: 1,
+    rollup: { kind: 'ratio', num: 'passCmp', den: 'passAtt', scale: 100 },
+  },
+  {
+    key: 'rate',
+    label: 'Passer Rating',
+    group: 'Passing',
+    decimals: 1,
+    rollup: { kind: 'average' },
+  },
   { key: 'rushYds', label: 'Rush Yds', group: 'Rushing' },
   { key: 'rushTd', label: 'Rush TD', group: 'Rushing' },
-  { key: 'ypc', label: 'Yds / Carry', group: 'Rushing', decimals: 1 },
+  {
+    key: 'ypc',
+    label: 'Yds / Carry',
+    group: 'Rushing',
+    decimals: 1,
+    rollup: { kind: 'ratio', num: 'rushYds', den: 'carries' },
+  },
   { key: 'rec', label: 'Receptions', group: 'Receiving' },
   { key: 'recYds', label: 'Rec Yds', group: 'Receiving' },
   { key: 'recTd', label: 'Rec TD', group: 'Receiving' },
-  { key: 'ypr', label: 'Yds / Catch', group: 'Receiving', decimals: 1 },
+  {
+    key: 'ypr',
+    label: 'Yds / Catch',
+    group: 'Receiving',
+    decimals: 1,
+    rollup: { kind: 'ratio', num: 'recYds', den: 'rec' },
+  },
   { key: 'scrim', label: 'Scrimmage Yds', group: 'Totals' },
   { key: 'totTd', label: 'Scrimmage TD', group: 'Totals' },
   { key: 'passYpg', label: 'Pass Yds / G', group: 'Passing', decimals: 1, extra: true },
-  { key: 'tdInt', label: 'TD : INT', group: 'Passing', decimals: 1, extra: true },
+  {
+    key: 'tdInt',
+    label: 'TD : INT',
+    group: 'Passing',
+    decimals: 1,
+    extra: true,
+    rollup: { kind: 'ratio', num: 'passTd', den: 'int', minDen: 1 },
+  },
   { key: 'carries', label: 'Carries', group: 'Rushing', extra: true },
   { key: 'rushYpg', label: 'Rush Yds / G', group: 'Rushing', decimals: 1, extra: true },
   { key: 'tgt', label: 'Targets', group: 'Receiving', extra: true },
   { key: 'recYpg', label: 'Rec Yds / G', group: 'Receiving', decimals: 1, extra: true },
   { key: 'touches', label: 'Touches', group: 'Totals', extra: true },
-  { key: 'ypt', label: 'Yds / Touch', group: 'Totals', decimals: 1, extra: true },
+  {
+    key: 'ypt',
+    label: 'Yds / Touch',
+    group: 'Totals',
+    decimals: 1,
+    extra: true,
+    rollup: { kind: 'ratio', num: 'scrim', den: 'touches' },
+  },
+  // T25: play statistics.
+  { key: 'passAtt', label: 'Pass Attempts', group: 'Passing', extra: true },
+  { key: 'passCmp', label: 'Completions', group: 'Passing', extra: true },
+  { key: 'snaps', label: 'Snaps', group: 'Usage' },
+  {
+    key: 'snapPct',
+    label: 'Snap %',
+    group: 'Usage',
+    decimals: 1,
+    rollup: { kind: 'ratio', num: 'snaps', den: 'teamSnaps', scale: 100 },
+  },
 ]
 
 const EXPECTED_TEAM_DEFS: StatDef[] = [
@@ -211,7 +260,7 @@ describe('raw data', () => {
 
 describe('stat definitions', () => {
   it('AC5/AC7: there are 22 player defs in design order with mapped fields', () => {
-    expect(playerStatDefs()).toHaveLength(22)
+    expect(playerStatDefs()).toHaveLength(26)
     expect(playerStatDefs()).toEqual(EXPECTED_PLAYER_DEFS)
     expect(playerStatDefs().map((d) => d.key)).toEqual(EXPECTED_PLAYER_DEFS.map((d) => d.key))
   })

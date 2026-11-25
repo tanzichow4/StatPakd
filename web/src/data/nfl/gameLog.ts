@@ -1,9 +1,10 @@
 import type { Entity, GameLogEntry, StatMap, StatValue } from '../../domain/types'
 import { buildPlayers } from './builders'
+import { GAMES, gameSnaps } from './usage'
 import { rnd, round1 } from './variation'
 
 /** Weeks in a season; each team has one of them off. */
-export const WEEK_COUNT = 18
+export const WEEK_COUNT = GAMES + 1
 const FIRST_BYE = 5
 const BYE_SPAN = 10
 
@@ -49,6 +50,24 @@ function weeklyStats(player: Entity, season: string, games: number): StatMap[] {
   const passYds = split('passYds')
   const passTd = split('passTd')
   const int = split('int')
+  // Busier passing games gain more yards, so attempts lean towards the high-yard weeks.
+  const typical = (s.passYds ?? 0) / games || 1
+  const passAtt =
+    s.passAtt != null && passYds
+      ? distribute(
+          s.passAtt,
+          passYds.map((y, i) => (y + typical) * (0.9 + 0.2 * roll('passAtt', i))),
+        )
+      : null
+  // Completions follow the attempts, so a week never completes more passes than it throws.
+  const passCmp =
+    passAtt && s.passCmp != null
+      ? distribute(
+          s.passCmp,
+          passAtt.map((a, i) => a * (0.85 + 0.3 * roll('passCmp', i))),
+        )
+      : null
+  const snaps = gameSnaps(player.id, season, player.badge)
   const carries = split('carries')
   const rushYds = split('rushYds', carries ?? undefined)
   const rushTd = split('rushTd', carries ?? undefined)
@@ -64,11 +83,14 @@ function weeklyStats(player: Entity, season: string, games: number): StatMap[] {
         )
       : null
 
-  /** A rate that moves around the season value. */
-  const around = (key: string, i: number, spread: number, max: number): number | null => {
-    const v = s[key]
-    return v == null ? null : round1(Math.min(max, v * (1 - spread + 2 * spread * roll(key, i))))
-  }
+  /** Ratings that move around the season value and average out to it. */
+  const ratings = (() => {
+    const v = s.rate
+    if (v == null) return null
+    const raw = slots.map((i) => v * (0.7 + 0.6 * roll('rate', i)))
+    const shift = v - raw.reduce((a, r) => a + r, 0) / raw.length
+    return raw.map((r) => round1(Math.min(158.3, Math.max(0, r + shift))))
+  })()
 
   return slots.map((i) => {
     const ry = rushYds?.[i] ?? 0
@@ -83,8 +105,13 @@ function weeklyStats(player: Entity, season: string, games: number): StatMap[] {
       passYds: passYds?.[i] ?? null,
       passTd: td,
       int: picks,
-      cmp: around('cmp', i, 0.14, 100),
-      rate: around('rate', i, 0.3, 158.3),
+      cmp: ratio((passCmp?.[i] ?? 0) * 100, passAtt?.[i] ?? 0),
+      passAtt: passAtt?.[i] ?? null,
+      passCmp: passCmp?.[i] ?? null,
+      snaps: snaps[i].snaps,
+      teamSnaps: snaps[i].teamSnaps,
+      snapPct: ratio(snaps[i].snaps * 100, snaps[i].teamSnaps),
+      rate: ratings?.[i] ?? null,
       tdInt: td != null && picks != null ? round1(td / Math.max(picks, 1)) : null,
       rushYds: ry,
       rushTd: rushTd?.[i] ?? 0,
@@ -108,7 +135,7 @@ export function buildGameLog(playerId: string, season: string): GameLogEntry[] {
   const player = buildPlayers(season).find((p) => p.id === playerId)
   if (!player) throw new Error(`Unknown player: ${playerId}`)
   const bye = byeWeek(player.teamId ?? playerId, season)
-  const games = weeklyStats(player, season, WEEK_COUNT - 1)
+  const games = weeklyStats(player, season, GAMES)
   let next = 0
   return Array.from({ length: WEEK_COUNT }, (_, i): GameLogEntry => {
     const period = i + 1

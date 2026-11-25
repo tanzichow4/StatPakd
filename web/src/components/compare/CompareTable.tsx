@@ -15,25 +15,12 @@ import {
 import styles from './CompareTable.module.css'
 
 interface Props {
-  /** What the columns are; used for the table name when `label` is not given. */
-  kind?: EntityKind
+  kind: EntityKind
   columns: CompareColumn[]
   rows: StatDef[]
-  /** Accessible table name. */
-  label?: string
-  caption?: string
-  /** Series colour dots in the column headers. */
-  dots?: boolean
 }
 
-export function CompareTable({
-  kind,
-  columns,
-  rows,
-  label = `Selected ${kind} compared by stat`,
-  caption = 'Black = best among selected · — = not applicable to position',
-  dots = true,
-}: Props) {
+export function CompareTable({ kind, columns, rows }: Props) {
   const n = columns.length
   const compact = n >= COMPACT_HEADER_MIN
   const rowStyle: CSSProperties = { gridTemplateColumns: gridColumns(n) }
@@ -44,7 +31,7 @@ export function CompareTable({
       <section aria-label="Comparison table" tabIndex={0} className={styles.scroll}>
         <table
           role="table"
-          aria-label={label}
+          aria-label={`Selected ${kind} compared by stat`}
           className={styles.table}
           style={{ minWidth: tableMinWidth(n) }}
         >
@@ -58,13 +45,11 @@ export function CompareTable({
                 return (
                   <th key={entity.id} role="columnheader" scope="col" className={styles.colHead}>
                     <span className={styles.title}>
-                      {dots && (
-                        <span
-                          aria-hidden="true"
-                          className={styles.dot}
-                          style={{ background: seriesColor(colorIndex) }}
-                        />
-                      )}
+                      <span
+                        aria-hidden="true"
+                        className={styles.dot}
+                        style={{ background: seriesColor(colorIndex) }}
+                      />
                       {title}
                     </span>
                     {sub !== undefined && <span className={styles.sub}>{sub}</span>}
@@ -112,7 +97,7 @@ export function CompareTable({
           </tbody>
         </table>
       </section>
-      <p className={styles.caption}>{caption}</p>
+      <p className={styles.caption}>Black = best among selected · — = not applicable to position</p>
     </div>
   )
 }

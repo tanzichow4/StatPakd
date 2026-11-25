@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { MockProvider } from '../mockProvider'
+import { rollup } from '../../lib/rollup'
 import { NFL_SEASONS, buildPlayers } from './builders'
 import { WEEK_COUNT, buildGameLog, byeWeek, distribute } from './gameLog'
+import { playerStatDefs } from './statDefs'
 
 const SUMMED = [
   'passYds',
@@ -17,6 +19,10 @@ const SUMMED = [
   'scrim',
   'totTd',
   'touches',
+  'passAtt',
+  'passCmp',
+  'snaps',
+  'teamSnaps',
 ]
 
 describe('distribute', () => {
@@ -71,6 +77,28 @@ describe('buildGameLog', () => {
     ).toEqual([])
     expect(weeks.filter((w) => w.rec != null && !(w.tgt! >= w.rec))).toEqual([])
     expect(weeks.filter((w) => (w.cmp ?? 0) > 100)).toEqual([])
+  })
+
+  it.each(cases)('%s %s totals over every week agree with the season view', (season, id) => {
+    const player = buildPlayers(season).find((p) => p.id === id)!
+    const weeks = buildGameLog(id, season).map((e) => e.stats)
+    const defs = playerStatDefs().filter(
+      (d) => ['cmp', 'snapPct', 'rate'].includes(d.key) && player.stats[d.key] != null,
+    )
+    expect(defs.length).toBeGreaterThan(0)
+    for (const def of defs) {
+      expect(Math.abs(rollup(def, weeks)! - player.stats[def.key]!)).toBeLessThanOrEqual(0.11)
+    }
+  })
+
+  it.each(cases)('%s %s has plausible play statistics each week', (season, id) => {
+    const weeks = buildGameLog(id, season)
+      .filter((e) => e.played)
+      .map((e) => e.stats)
+    expect(weeks.filter((w) => w.snaps! < 1 || w.snaps! > w.teamSnaps!)).toEqual([])
+    expect(weeks.filter((w) => w.passCmp != null && w.passCmp > w.passAtt!)).toEqual([])
+    // No week averages an absurd number of yards for each pass thrown.
+    expect(weeks.filter((w) => w.passAtt != null && w.passYds! / w.passAtt > 16)).toEqual([])
   })
 
   it('is deterministic and returns fresh objects', () => {

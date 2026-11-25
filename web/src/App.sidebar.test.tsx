@@ -47,10 +47,10 @@ describe('AC22: layout regions', () => {
 })
 
 describe('AC2/AC5: mock data groups', () => {
-  it('AC2: Players show Passing, Rushing, Receiving, Totals', async () => {
+  it('AC2: Players show Passing, Rushing, Receiving, Totals, Usage', async () => {
     render(<App />)
     await loaded()
-    expect(headingNames()).toEqual(['Passing', 'Rushing', 'Receiving', 'Totals'])
+    expect(headingNames()).toEqual(['Passing', 'Rushing', 'Receiving', 'Totals', 'Usage'])
   })
   it('AC3: Players default rows are only the selected stats', async () => {
     render(<App />)

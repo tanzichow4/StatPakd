@@ -12,8 +12,8 @@ import addStatMenu from './sidebar/AddStatMenu.module.css?raw'
 import axisControls from './compare/AxisControls.module.css?raw'
 import chip from './ui/Chip.module.css?raw'
 import rosterTable from './teams/RosterTable.module.css?raw'
-import playerDetail from './players/PlayerDetail.module.css?raw'
-import gameLog from './players/GameLogTable.module.css?raw'
+import weeks from './weeks/Weeks.module.css?raw'
+import totals from './weeks/TotalsPanel.module.css?raw'
 
 interface Rule {
   selectors: string[]
@@ -93,9 +93,9 @@ const targets: Target[] = [
   { name: 'AxisControls reset', css: axisControls, sel: '.reset', width: true },
   { name: 'team Chip', css: chip, sel: '.chip', width: true },
   { name: 'RosterTable sortButton', css: rosterTable, sel: '.sortButton', width: true },
-  { name: 'PlayerDetail search', css: playerDetail, sel: '.search', width: false },
-  { name: 'PlayerDetail shortcut', css: playerDetail, sel: '.shortcut', width: true },
-  { name: 'GameLogTable check', css: gameLog, sel: '.check', width: false },
+  { name: 'Week shortcut', css: weeks, sel: '.shortcut', width: true },
+  { name: 'Week trend checkbox', css: weeks, sel: '.check', width: false },
+  { name: 'Totals stat button', css: totals, sel: '.pick', width: true },
 ]
 
 /** Declared px values of the given properties across the media rules for the target. */

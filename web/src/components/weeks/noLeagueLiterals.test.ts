@@ -1,28 +1,32 @@
 import { describe, expect, it } from 'vitest'
 import { getLeagueRegistry } from '../../data/leagues'
 import { NFL_SEASONS, buildPlayers, playerStatDefs } from '../../data/nfl'
-import gameLogTable from './GameLogTable.tsx?raw'
-import playerDetail from './PlayerDetail.tsx?raw'
-import playerModeSwitch from './PlayerModeSwitch.tsx?raw'
-import playerPicker from './PlayerPicker.tsx?raw'
-import trendChart from './TrendChart.tsx?raw'
-import weekCompare from './WeekCompare.tsx?raw'
-import headerModel from './headerModel.ts?raw'
+import playerViewSwitch from './PlayerViewSwitch.tsx?raw'
+import totalsPanel from './TotalsPanel.tsx?raw'
+import weekSelector from './WeekSelector.tsx?raw'
+import weekTable from './WeekTable.tsx?raw'
+import weekView from './WeekView.tsx?raw'
 import index from './index.ts?raw'
-import playerModel from './playerModel.ts?raw'
-import useGameLog from './useGameLog.ts?raw'
+import useGameLogs from './useGameLogs.ts?raw'
+import weekModel from './weekModel.ts?raw'
+import dotGraph from '../dotgraph/DotGraph.tsx?raw'
+import graphModel from '../dotgraph/graphModel.ts?raw'
+import scale from '../dotgraph/scale.ts?raw'
+import rollup from '../../lib/rollup.ts?raw'
 
 const sources: Record<string, string> = {
-  'GameLogTable.tsx': gameLogTable,
-  'PlayerDetail.tsx': playerDetail,
-  'PlayerModeSwitch.tsx': playerModeSwitch,
-  'PlayerPicker.tsx': playerPicker,
-  'TrendChart.tsx': trendChart,
-  'WeekCompare.tsx': weekCompare,
-  'headerModel.ts': headerModel,
+  'PlayerViewSwitch.tsx': playerViewSwitch,
+  'TotalsPanel.tsx': totalsPanel,
+  'WeekSelector.tsx': weekSelector,
+  'WeekTable.tsx': weekTable,
+  'WeekView.tsx': weekView,
   'index.ts': index,
-  'playerModel.ts': playerModel,
-  'useGameLog.ts': useGameLog,
+  'useGameLogs.ts': useGameLogs,
+  'weekModel.ts': weekModel,
+  'DotGraph.tsx': dotGraph,
+  'graphModel.ts': graphModel,
+  'scale.ts': scale,
+  'rollup.ts': rollup,
 }
 
 const leagueValues = [
@@ -36,7 +40,7 @@ const leagueValues = [
 const findHits = (text: string) =>
   leagueValues.filter((v) => [`'${v}'`, `"${v}"`, `\`${v}\``].some((q) => text.includes(q)))
 
-describe('player detail source files hold no league literals', () => {
+describe('week view and dot graph source files hold no league literals', () => {
   it.each(Object.keys(sources))('%s has no quoted league value', (name) => {
     expect(sources[name].length).toBeGreaterThan(20)
     expect(findHits(sources[name])).toEqual([])
@@ -48,6 +52,6 @@ describe('player detail source files hold no league literals', () => {
   })
 
   it('would catch a planted literal', () => {
-    expect(findHits("const a = 'passYds'")).toEqual(['passYds'])
+    expect(findHits("const a = 'snaps'")).toEqual(['snaps'])
   })
 })

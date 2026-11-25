@@ -22,6 +22,8 @@ import emptyState from './EmptyState.tsx?raw'
 import index from './index.ts?raw'
 import radarChart from './RadarChart.tsx?raw'
 import radarModel from './radarModel.ts?raw'
+import seasonDotGraph from './SeasonDotGraph.tsx?raw'
+import seasonDotModel from './seasonDotModel.ts?raw'
 import readout from './Readout.tsx?raw'
 
 const sources: Record<string, string> = {
@@ -30,6 +32,8 @@ const sources: Record<string, string> = {
   'BarsChart.tsx': barsChart,
   'barsModel.ts': barsModel,
   'DotPlot.tsx': dotPlot,
+  'SeasonDotGraph.tsx': seasonDotGraph,
+  'seasonDotModel.ts': seasonDotModel,
   'dotsModel.ts': dotsModel,
   'ChartPlaceholder.tsx': chartPlaceholder,
   'RadarChart.tsx': radarChart,

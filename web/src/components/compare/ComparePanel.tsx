@@ -6,6 +6,7 @@ import { SegmentedControl, TabPanel, Tabs } from '../ui'
 import { BarsChart } from './BarsChart'
 import { Chart3D } from './Chart3D'
 import { RadarChart } from './RadarChart'
+import { SeasonDotGraph } from './SeasonDotGraph'
 import { resolveColumns, resolveRows } from './tableModel'
 import styles from './ComparePanel.module.css'
 import { CompareTable } from './CompareTable'
@@ -21,8 +22,10 @@ const VIEW_OPTIONS: { value: ViewMode; label: string }[] = [
 const CHART_OPTIONS: { value: Chart2Mode; label: string }[] = [
   { value: 'bars', label: 'Bars' },
   { value: 'radar', label: 'Radar' },
-  { value: 'dots', label: 'Dot plot' },
 ]
+
+/** Players get a dot graph with chosen axes; teams keep the dot plot. */
+const DOT_LABEL = { players: 'Dot graph', teams: 'Dot plot' } as const
 
 export function ComparePanel() {
   const { state, dispatch } = useAppState()
@@ -51,7 +54,13 @@ export function ComparePanel() {
     if (!ready || value === '3d') return null
     if (value === 'num') return <CompareTable kind={kind} columns={columns} rows={rows} />
     if (chart2 === 'bars') return <BarsChart columns={columns} rows={rows} pool={entities} />
-    if (chart2 === 'dots') return <DotPlot columns={columns} rows={rows} pool={entities} />
+    if (chart2 === 'dots') {
+      return kind === 'players' ? (
+        <SeasonDotGraph columns={columns} rows={rows} defs={defs} pool={entities} />
+      ) : (
+        <DotPlot columns={columns} rows={rows} pool={entities} />
+      )
+    }
     return <RadarChart columns={columns} rows={rows} pool={entities} />
   }
 
@@ -71,7 +80,7 @@ export function ComparePanel() {
             <SegmentedControl
               label="Chart type"
               size="sm"
-              options={CHART_OPTIONS}
+              options={[...CHART_OPTIONS, { value: 'dots', label: DOT_LABEL[kind] }]}
               value={chart2}
               onChange={(c) => dispatch({ type: 'setChart2', chart2: c })}
             />
