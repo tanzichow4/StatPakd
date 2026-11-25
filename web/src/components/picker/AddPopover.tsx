@@ -3,6 +3,9 @@ import type { Entity, EntityId, EntityKind } from '../../domain/types'
 import { kindSingular } from './filterEntities'
 import styles from './AddPopover.module.css'
 
+/** Most results listed at once; searching narrows the rest. */
+export const RESULT_LIMIT = 50
+
 export interface AddPopoverProps {
   id: string
   kind: EntityKind
@@ -102,7 +105,7 @@ export function AddPopover({
         <p className={styles.empty}>No matches.</p>
       ) : (
         <ul className={styles.results} aria-label="Results">
-          {results.map((entity) => {
+          {results.slice(0, RESULT_LIMIT).map((entity) => {
             const selected = selectedIds.includes(entity.id)
             const verb = selected ? 'Remove' : 'Add'
             return (
@@ -127,6 +130,11 @@ export function AddPopover({
             )
           })}
         </ul>
+      )}
+      {results.length > RESULT_LIMIT && (
+        <p className={styles.empty}>
+          Showing {RESULT_LIMIT} of {results.length}. Search to find others.
+        </p>
       )}
     </dialog>
   )

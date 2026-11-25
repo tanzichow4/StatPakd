@@ -45,5 +45,12 @@ def test_passer_rating(att, cmp, yds, td, picks, expected):
     assert rollup(stat(PASSER_RATING, "rate", 1), [week]) == expected
 
 
+def test_a_rate_that_applies_to_no_week_has_no_total():
+    rule = RatioRollup(kind="ratio", num="n", den="d")
+    assert rollup(stat(rule, "q"), [{"q": None, "n": 1, "d": 1}]) is None
+    both = [{"q": None, "n": 0, "d": 0}, {"q": 1.0, "n": 1, "d": 1}]
+    assert rollup(stat(rule, "q"), both) == 1
+
+
 def test_passer_rating_without_attempts():
     assert rollup(stat(PASSER_RATING, "rate", 1), [{"passAtt": 0}]) is None

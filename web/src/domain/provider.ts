@@ -5,6 +5,7 @@ import type {
   GameLogEntry,
   League,
   LeagueId,
+  LeagueUiDefaults,
   RosterEntry,
   RosterUnit,
   RosterUnitDef,
@@ -12,6 +13,21 @@ import type {
   StatDef,
   TeamId,
 } from './types'
+
+export interface DataStatus {
+  /** Requests under way. */
+  pending: number
+  /** Message of the latest failed request, until it is cleared. */
+  error: string | null
+}
+
+/** An observable data status, in the form `useSyncExternalStore` reads. */
+export interface DataStatusSource {
+  subscribe(listener: () => void): () => void
+  getSnapshot(): DataStatus
+  /** Clears the failure. */
+  reset(): void
+}
 
 /**
  * The data contract the UI depends on, and what T22 (the API) must serve.
@@ -24,6 +40,18 @@ import type {
  * - Runtime validation of incoming data is the job of the API provider (T23).
  */
 export interface DataProvider {
+  /** Text shown with the data, such as where it comes from. */
+  readonly notice?: string
+
+  /** Reports loading and failures; absent for a source that does neither. */
+  readonly status?: DataStatusSource
+
+  /**
+   * Resolves to the starting choices of an enabled league.
+   * @param leagueId id of a league from `getLeagues`.
+   */
+  getUiDefaults(leagueId: LeagueId): Promise<LeagueUiDefaults>
+
   /** Resolves to every league, including ones that are not enabled yet. */
   getLeagues(): Promise<League[]>
 

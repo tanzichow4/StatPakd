@@ -39,6 +39,8 @@ export const PICK_DISTANCE = 18
 /** Room a name tag takes (viewBox units), used to stop tags overlapping. */
 export const TAG_WIDTH = 90
 export const TAG_HEIGHT = 22
+/** With more points than this, the drop lines of unselected points are not drawn. */
+export const CROWDED = 100
 
 export type AxisLetter = 'X' | 'Y' | 'Z'
 const LETTERS: readonly AxisLetter[] = ['X', 'Y', 'Z']

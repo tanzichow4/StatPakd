@@ -33,6 +33,7 @@ export function createFixtureProvider(overrides: Partial<DataProvider> = {}): Da
     getRosterUnits: vi.fn(() => Promise.resolve([])),
     getRoster: vi.fn(() => Promise.resolve([])),
     getGameLog: vi.fn(() => Promise.resolve([])),
+    getUiDefaults: vi.fn(() => Promise.resolve(fixtureUiDefaults())),
     ...overrides,
   }
 }

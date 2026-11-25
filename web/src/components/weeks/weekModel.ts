@@ -30,14 +30,16 @@ export interface Period {
   period: number
   label: string
   shortLabel: string
+  tickLabel?: string
+  phase?: string
 }
 
 /** Every period any of the logs covers, in order. */
 export function allPeriods(logs: GameLogs): Period[] {
   const byNumber = new Map<number, Period>()
   for (const log of logs.values()) {
-    for (const { period, label, shortLabel } of log) {
-      byNumber.set(period, { period, label, shortLabel })
+    for (const { period, label, shortLabel, tickLabel, phase } of log) {
+      byNumber.set(period, { period, label, shortLabel, tickLabel, phase })
     }
   }
   return [...byNumber.values()].sort((a, b) => a.period - b.period)
@@ -46,6 +48,37 @@ export function allPeriods(logs: GameLogs): Period[] {
 /** The chosen periods that exist; `null` means every period. */
 export function chosenPeriods(periods: readonly Period[], chosen: readonly number[] | null) {
   return chosen === null ? [...periods] : periods.filter((p) => chosen.includes(p.period))
+}
+
+/** The periods of each phase, when there is more than one phase to choose between. */
+export function phasesOf(periods: readonly Period[]): { phase: string; numbers: number[] }[] {
+  const phases = new Map<string, number[]>()
+  for (const { phase, period } of periods) {
+    if (!phase) continue
+    const numbers = phases.get(phase)
+    if (numbers) numbers.push(period)
+    else phases.set(phase, [period])
+  }
+  return phases.size < 2 ? [] : [...phases].map(([phase, numbers]) => ({ phase, numbers }))
+}
+
+/** The latest periods in which any of the players had a game. */
+export function recentPeriods(
+  periods: readonly Period[],
+  logs: GameLogs,
+  count = RECENT_COUNT,
+): number[] {
+  const players = [...logs.keys()]
+  return periods
+    .filter((p) => players.some((id) => playedEntry(logs, id, p.period)))
+    .slice(-count)
+    .map((p) => p.period)
+}
+
+/** What to show in place of stats for a period without a game. */
+export function absence(logs: GameLogs, id: EntityId, period: number): string {
+  const entry = logs.get(id)?.find((e) => e.period === period)
+  return entry ? (entry.note ?? 'Bye') : 'No game'
 }
 
 /** The entry of one period, when the player had a game in it. */
@@ -227,7 +260,10 @@ export function periodGraph(
   return {
     xTitle: 'Week',
     yTitle: def.label,
-    xTicks: periods.map((p, i) => ({ at: categoryAt(i, count), label: String(p.period) })),
+    xTicks: periods.map((p, i) => ({
+      at: categoryAt(i, count),
+      label: p.tickLabel ?? String(p.period),
+    })),
     yTicks: axis.ticks,
     points,
     lines,

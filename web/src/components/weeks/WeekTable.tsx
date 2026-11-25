@@ -4,7 +4,7 @@ import { bestIndex, formatStat, NULL_PLACEHOLDER } from '../../lib/stats'
 import { seriesColor } from '../../styles/series'
 import type { CompareColumn } from '../compare/tableModel'
 import { Pill } from '../ui'
-import { periodTotal, playedEntry, type GameLogs, type Period } from './weekModel'
+import { absence, periodTotal, playedEntry, type GameLogs, type Period } from './weekModel'
 import styles from './WeekTable.module.css'
 
 function Value({
@@ -84,7 +84,7 @@ export function PlayerWeekTable({ column, logs, defs, periods }: PlayerProps) {
                 ))
               ) : (
                 <td colSpan={defs.length} className={styles.bye}>
-                  Bye
+                  {absence(logs, id, p.period)}
                 </td>
               )}
             </tr>
@@ -163,7 +163,7 @@ export function StatWeekTable({ columns, logs, def, periods }: CompareProps) {
                   {entry ? (
                     <Value value={entry.stats[def.key]} def={def} best={best.includes(i)} />
                   ) : (
-                    'Bye'
+                    absence(logs, columns[i].entity.id, p.period)
                   )}
                 </td>
               ))}

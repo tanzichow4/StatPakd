@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import type { Entity, GameLogEntry, StatDef } from '../../domain/types'
 import {
+  absence,
   allPeriods,
   chosenPeriods,
   describeTrend,
   groupedTotals,
   periodGraph,
+  recentPeriods,
+  phasesOf,
   periodTotal,
   pickStat,
   statGraph,
@@ -133,5 +136,44 @@ describe('statGraph', () => {
 
   it('labels dots with the week when there are few', () => {
     expect(graph.points[0].text).toBe('R1')
+  })
+})
+
+describe('playoffs and absences', () => {
+  const phased: GameLogs = new Map([
+    [
+      'a',
+      [
+        { ...week(1, { k: 1 }), phase: 'Early' },
+        { ...week(2, null), phase: 'Early', note: 'Did not play' },
+        { ...week(19, { k: 2 }), phase: 'Late', tickLabel: 'WC' },
+        { ...week(20, null), phase: 'Late' },
+      ],
+    ],
+  ])
+  const list = allPeriods(phased)
+
+  it('groups periods by phase only when there is more than one', () => {
+    expect(phasesOf(list)).toEqual([
+      { phase: 'Early', numbers: [1, 2] },
+      { phase: 'Late', numbers: [19, 20] },
+    ])
+    expect(phasesOf(list.slice(0, 2))).toEqual([])
+    expect(phasesOf(periods)).toEqual([])
+  })
+
+  it('counts only periods with a game as recent', () => {
+    expect(recentPeriods(list, phased, 2)).toEqual([1, 19])
+  })
+
+  it('explains why there are no stats', () => {
+    expect(absence(phased, 'a', 2)).toBe('Did not play')
+    expect(absence(phased, 'a', 20)).toBe('Bye')
+    expect(absence(phased, 'a', 21)).toBe('No game')
+  })
+
+  it('uses the axis label of a period when it has one', () => {
+    const graph = periodGraph([column('a', 0)], phased, k, list, false)
+    expect(graph.xTicks.map((t) => t.label)).toEqual(['1', '2', 'WC', '20'])
   })
 })

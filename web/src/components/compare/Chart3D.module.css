@@ -109,6 +109,10 @@
   fill: var(--series);
 }
 
+.crowded .unselected:not(.activePoint) .drop {
+  display: none;
+}
+
 .activePoint .drop {
   stroke: var(--color-ink);
   stroke-width: 1.5;

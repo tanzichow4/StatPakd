@@ -60,7 +60,7 @@ export function GlobalNav() {
             variant="dark"
             label="Season"
             value={state.season}
-            options={seasons.map((s) => ({ value: s, label: `${s} Regular Season` }))}
+            options={seasons.map((s) => ({ value: s, label: `${s} Season` }))}
             onChange={(season) => dispatch({ type: 'setSeason', season })}
           />
         </label>

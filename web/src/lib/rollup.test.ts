@@ -35,4 +35,39 @@ describe('rollup', () => {
       rollup({ key: 'q', rollup: { kind: 'ratio', num: 'n', den: 'd' } }, [weeks[2]]),
     ).toBeNull()
   })
+
+  it('builds a capped composite from summed values', () => {
+    const rule = {
+      kind: 'composite' as const,
+      den: 'att',
+      max: 2.375,
+      scale: 100 / 6,
+      terms: [
+        { num: 'cmp', offset: -0.3, factor: 5 },
+        { num: 'yds', offset: -3, factor: 0.25 },
+        { num: 'td', offset: 0, factor: 20 },
+        { num: 'int', offset: -0.095, factor: -25 },
+      ],
+    }
+    const def = { key: 'rating', decimals: 1, rollup: rule }
+    const halves = [
+      { att: 30, cmp: 20, yds: 200, td: 2, int: 1 },
+      { att: 30, cmp: 20, yds: 200, td: 1, int: 1 },
+    ]
+    expect(rollup(def, halves)).toBe(88.2)
+    expect(rollup(def, [{ att: 10, cmp: 10, yds: 200, td: 4, int: 0 }])).toBe(158.3)
+    expect(rollup(def, [{ att: 10, cmp: 0, yds: 0, td: 0, int: 5 }])).toBe(0)
+    expect(rollup(def, [{ att: 0 }])).toBeNull()
+  })
+
+  it('has no total for a rate that applies to no period', () => {
+    const def = { key: 'q', rollup: { kind: 'ratio' as const, num: 'n', den: 'd' } }
+    expect(rollup(def, [{ q: null, n: 1, d: 1 }])).toBeNull()
+    expect(
+      rollup(def, [
+        { q: null, n: 0, d: 0 },
+        { q: 1, n: 1, d: 1 },
+      ]),
+    ).toBe(1)
+  })
 })

@@ -1341,3 +1341,28 @@ describe('T25: flat views, values on demand', () => {
     expect(tooltip()).toBeNull()
   })
 })
+
+describe('T22: large player pools', () => {
+  const pool = (size: number) =>
+    Array.from({ length: size }, (_, i) => ({
+      ...players[0],
+      id: `many${i}`,
+      stats: { zhigh: i, zlow: i, zbig: i },
+    }))
+  const svgClass = (size: number) => {
+    const { container, unmount } = render(
+      <AppStateProvider defaults={compareDefaults({ players: [] })} statDefs={compareStatDefs()}>
+        <Chart3D pool={pool(size)} defs={defs.players} />
+      </AppStateProvider>,
+    )
+    const name = container.querySelector('svg')?.getAttribute('class') ?? ''
+    unmount()
+    return name
+  }
+
+  it('hides the league drop lines only when the plot is crowded', () => {
+    expect(svgClass(100)).not.toMatch(/crowded/)
+    expect(svgClass(101)).toMatch(/crowded/)
+    expect(rule('.crowded .unselected:not(.activePoint) .drop')).toMatch(/display:\s*none/)
+  })
+})

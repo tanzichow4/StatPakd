@@ -24,7 +24,10 @@ Range T01-T20. Integration branch: `autobuild`. Baseline before run: web lint/ty
 | T18 | done | ticket/T18-responsive-and-a11y | Merged 5081fdb. 1 fix round (QA R1: radar label on ring vertex and 3D label/tag/hint overlaps at 375px); round 2 PASS (docs/qa/T18-report.md, T18-report-2.md). axe (all rules) 0 violations on 16 views at 375/1280. Contrast tokens darkened, decisions pending design sign-off in docs/a11y.md. 2571 web tests pass. |
 | T19 | in-progress | ticket/T19-e2e-tests | Partly done; merged to main on 2026-11-24 at the owner's request. Done: plan tasks T1-T7 and the T10 CI job; 20 e2e tests pass at 375/1280, 60/60 with --repeat-each=3. Remaining: season spec (T8, AC15), kind-switch spec (T9, AC16), rest of local validation (T11: trace proof, YAML check) and the QA report (T12, docs/qa/T19-report.md). |
 | T20 | todo | ticket/T20-visual-fidelity-pass | See T25 for intentional design deviations. |
-| T25 | done | ticket/T25-player-weeks-dot-plot | Owner request, built outside autobuild on top of main; revised after owner feedback (see ticket); not merged yet. New DataProvider.getGameLog and StatDef.rollup (T22 must serve both). Checks green: unit, e2e at 375/1280, lint, types, format, build, ruff, pytest. The qa-tester agent was not run. |
+| T25 | done | ticket/T25-player-weeks-dot-plot | Owner request, built outside autobuild on top of main; revised after owner feedback (see ticket); merged into main on 2026-11-24. New DataProvider.getGameLog and StatDef.rollup (T22 must serve both). Checks green: unit, e2e at 375/1280, lint, types, format, build, ruff, pytest. The qa-tester agent was not run. |
+| T21 | done | (decision) | Owner chose nflverse via nflreadpy. No three-way comparison was written; data terms still open (docs/decisions/data-provider.md). |
+| T22 | done | ticket/T22-nflverse-api | Python API over nflverse, built with T23 on one branch; not merged. CI not run; .env.example not updated. |
+| T23 | done | ticket/T22-nflverse-api | ApiProvider is the default data source, with loading, failure and retry. Skeletons were not built. |
 
 ## Assumptions
 

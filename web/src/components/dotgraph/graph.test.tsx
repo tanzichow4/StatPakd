@@ -22,6 +22,12 @@ describe('niceScale', () => {
     expect(niceScale([], true).ticks.length).toBeGreaterThan(1)
     expect(niceScale([-8, 8], true).min).toBeLessThanOrEqual(-8)
   })
+  it('does not add an empty step for slightly negative values', () => {
+    const scale = niceScale([-12, 1500], true)
+    expect(scale.min).toBe(-12)
+    expect(scale.ticks).toEqual([0, 500, 1000, 1500])
+    expect(along(-12, scale)).toBe(0)
+  })
   it('places values in percent', () => {
     expect(along(100, niceScale([0, 400], true))).toBe(25)
   })

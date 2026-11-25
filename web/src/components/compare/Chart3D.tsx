@@ -18,6 +18,7 @@ import { SegmentedControl, type SegmentedOption } from '../ui'
 import { AxisControls } from './AxisControls'
 import {
   CHART3D,
+  CROWDED,
   DRAG_THRESHOLD_PX,
   axisDefs,
   axisOptions,
@@ -211,7 +212,7 @@ export function Chart3D({ pool, defs }: Props) {
               <svg
                 ref={svg}
                 viewBox={`0 0 ${CHART3D.width} ${CHART3D.height}`}
-                className={styles.svg}
+                className={cx(styles.svg, model.points.length > CROWDED && styles.crowded)}
                 aria-hidden="true"
                 focusable="false"
               >

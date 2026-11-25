@@ -83,15 +83,12 @@ def team_entities(
 
 
 def _share(season: Season, weeks: list[Week], side: int) -> int | None:
-    """Percent of the team's snaps played, over the games the player appeared in."""
-    played = total = 0
-    for week in weeks:
-        team = season.team_snaps.get((week.team, week.week), (0, 0))[side]
-        snaps = week.offense_snaps if side == 0 else week.defense_snaps
-        if team and snaps is not None:
-            played += snaps
-            total += team
-    return round(played / total * 100) if total else None
+    """Percent of all the snaps the team ran that season, so missed games lower it."""
+    team = weeks[0].team
+    total = sum(counts[side] for (name, _), counts in season.team_snaps.items() if name == team)
+    snaps = [w.offense_snaps if side == 0 else w.defense_snaps for w in weeks]
+    played = [s for s in snaps if s is not None]
+    return round(sum(played) / total * 100) if total and played else None
 
 
 def _offense(season: Season, weeks: list[Week]) -> StatMap:

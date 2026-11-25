@@ -18,6 +18,7 @@ import {
   periodGraph,
   pickStat,
   playerTrends,
+  recentPeriods,
   statGraph,
   statsWithData,
 } from './weekModel'
@@ -64,13 +65,10 @@ export function WeekView() {
 
   return (
     <div className={styles.root}>
-      <p className={styles.sample}>
-        Sample data: weekly values and snap counts are generated for design purposes, not real game
-        results.
-      </p>
       <WeekSelector
         periods={periods}
         chosen={chosen}
+        recent={recentPeriods(periods, logs)}
         onChoose={(list) => dispatch({ type: 'setPeriods', periods: list })}
       />
       {chosen.length === 0 ? (

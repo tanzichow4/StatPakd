@@ -66,7 +66,7 @@ Each ticket is small enough for one commit or PR. A ticket is done when its acce
 - **Data licensing and cost** (T21): real NFL stats are often paid or restricted. This blocks T22 and T23 only, not the UI.
 - **3D interaction** (T14): painter sorting and drag handling are the most error prone part. T13 isolates the math so it can be tested without a browser.
 - **Fidelity drift**: the design is high fidelity. T20 is a dedicated pass, and tokens in T02 should prevent most drift.
-- **Mock data is deterministic fake data for 2023 and 2022** (hash-based variation in the design). Do not present it as real; label it clearly until T23.
+- **The mock data is deterministic fake data** (hash-based variation). It is now used only by tests and `VITE_DATA_SOURCE=mock`, where it stays labelled.
 
 ## Open questions
 1. License and distribution (T24): private, open-source repo, or hosted site? Not blocking until publish.

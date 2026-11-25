@@ -18,16 +18,6 @@
   color: var(--color-text-muted);
 }
 
-.sample {
-  margin: 0;
-  padding: var(--space-10) var(--space-14);
-  border: 1px dashed var(--color-checkbox-off);
-  border-radius: var(--radius-8);
-  background: var(--color-surface-subtle);
-  font-size: var(--text-13);
-  color: var(--color-ink);
-}
-
 .selector {
   display: flex;
   flex-direction: column;

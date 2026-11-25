@@ -27,6 +27,8 @@ export default defineConfig({
     command: 'npm run build && npm run preview -- --host 127.0.0.1 --port 4173 --strictPort',
     url: baseURL,
     reuseExistingServer: !process.env.CI,
+    // The browser tests use the sample data, so they need no API or network.
+    env: { VITE_DATA_SOURCE: 'mock' },
     timeout: 180_000,
   },
 })

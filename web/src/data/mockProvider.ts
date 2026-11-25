@@ -6,6 +6,7 @@ import type {
   GameLogEntry,
   League,
   LeagueId,
+  LeagueUiDefaults,
   RosterEntry,
   RosterUnit,
   RosterUnitDef,
@@ -21,6 +22,7 @@ import {
   buildPlayers,
   buildRoster,
   buildTeams,
+  nflUiDefaults,
   playerStatDefs,
   rosterUnitDefs,
   teamStatDefs,
@@ -29,6 +31,14 @@ import { ROSTERS } from './nfl/raw'
 
 /** In-memory provider serving the sample NFL data. */
 export class MockProvider implements DataProvider {
+  readonly notice =
+    'Sample data: weekly values and snap counts are generated for design purposes, not real game results.'
+
+  async getUiDefaults(leagueId: LeagueId): Promise<LeagueUiDefaults> {
+    if (!this.isEnabled(leagueId)) throw new Error(`No data for league: ${leagueId}`)
+    return nflUiDefaults()
+  }
+
   async getLeagues(): Promise<League[]> {
     return getLeagueRegistry()
   }

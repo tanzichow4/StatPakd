@@ -21,6 +21,8 @@ MINIMUMS = {
     "ypr": ("rec", 10),
     "ypt": ("touches", 20),
 }
+# A player who is not a quarterback needs this many season attempts to be rated as a passer.
+PASSER_ATTEMPTS = 10
 PER_GAME = {"passYpg": "passYds", "rushYpg": "rushYds", "recYpg": "recYds"}
 _DEFS = {d.key: d for d in PLAYER_STATS}
 
@@ -40,8 +42,9 @@ def is_listed(player: Player) -> bool:
     )
 
 
-def _passes(player: Player) -> bool:
-    return player.position == "QB" or any(w.value("attempts") for w in player.weeks.values())
+def _is_passer(player: Player) -> bool:
+    attempts = sum(w.value("attempts") for w in player.weeks.values())
+    return player.position == "QB" or attempts >= PASSER_ATTEMPTS
 
 
 def _receives(player: Player) -> bool:
@@ -50,7 +53,9 @@ def _receives(player: Player) -> bool:
 
 def week_stats(season: Season, player: Player, week: Week) -> StatMap:
     """The stats of one game. Stats that do not apply to the player are None."""
-    passing = _passes(player)
+    passer = _is_passer(player)
+    # Others have passing numbers only for the games in which they threw.
+    passing = passer or week.value("attempts") > 0
     receiving = _receives(player)
     count = lambda column: int(week.value(column))  # noqa: E731
     attempts, completions = count("attempts"), count("completions")
@@ -75,8 +80,8 @@ def week_stats(season: Season, player: Player, week: Week) -> StatMap:
     }
     stats: StatMap = {
         **(passing_values if passing else dict.fromkeys(passing_values)),
-        "cmp": _ratio(completions, attempts, 100) if passing else None,
-        "tdInt": _ratio(pass_tds, max(picks, 1)) if passing and attempts else None,
+        "cmp": _ratio(completions, attempts, 100) if passer else None,
+        "tdInt": _ratio(pass_tds, max(picks, 1)) if passer and attempts else None,
         "rushYds": rush_yards,
         "rushTd": rush_tds,
         "carries": carries,
@@ -95,7 +100,10 @@ def week_stats(season: Season, player: Player, week: Week) -> StatMap:
         "snapPct": _ratio(snaps, team, 100) if snaps is not None else None,
     }
     rating = _DEFS["rate"].model_copy(update={"rollup": PASSER_RATING})
-    stats["rate"] = rollup(rating, [stats]) if passing else None
+    # Without a rate of its own in any week, a stat has no total either.
+    stats["rate"] = None
+    if passer:
+        stats["rate"] = rollup(rating, [{k: v for k, v in stats.items() if k != "rate"}])
     return stats
 
 

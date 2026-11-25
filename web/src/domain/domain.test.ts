@@ -67,6 +67,14 @@ const rosterUnits: RosterUnitDef[] = [
 ]
 
 const provider: DataProvider = {
+  getUiDefaults: async () => ({
+    season: '2002',
+    teamId: 'team-1',
+    unit: 'unit-1',
+    sortKey: 'points',
+    players: { sel: [], stats: [], ax: ['points', 'points', 'points'] },
+    teams: { sel: [], stats: [], ax: ['points', 'points', 'points'] },
+  }),
   getLeagues: async () => leagues,
   getSeasons: async (leagueId) => (leagueId === 'league-a' ? ['2002', '2001'] : []),
   getStatDefs: async (_leagueId, kind) => (kind === 'players' ? statDefs : []),
@@ -223,6 +231,7 @@ describe('domain types and DataProvider contract', () => {
       getRoster: async () => [],
       getRosterUnits: async () => [],
       getGameLog: async () => [],
+      getUiDefaults: provider.getUiDefaults,
     }
     expect(Array.isArray(syncProvider.getLeagues())).toBe(true)
   })

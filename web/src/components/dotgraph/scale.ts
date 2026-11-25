@@ -1,5 +1,7 @@
 /** How many gaps an axis aims for between its numbered ticks. */
 export const TICK_GAPS = 4
+/** A dip below zero smaller than this share of a step counts as slight. */
+const SLIGHT_SHARE = 0.25
 
 export interface Scale {
   min: number
@@ -31,10 +33,13 @@ export function niceScale(values: readonly number[], whole: boolean): Scale {
     high += pad
   }
   const step = niceStep((high - low) / TICK_GAPS, whole)
-  const min = clean(Math.floor(low / step) * step)
+  // Values only slightly below zero end the axis there, without a mostly empty step under it.
+  const slight = low < 0 && -low < step * SLIGHT_SHARE
+  const first = slight ? 0 : clean(Math.floor(low / step) * step)
   const max = clean(Math.ceil(high / step) * step)
-  const count = Math.round((max - min) / step)
-  return { min, max, ticks: Array.from({ length: count + 1 }, (_, i) => clean(min + i * step)) }
+  const count = Math.round((max - first) / step)
+  const ticks = Array.from({ length: count + 1 }, (_, i) => clean(first + i * step))
+  return { min: slight ? low : first, max, ticks }
 }
 
 /** Percent of the way along the scale. */

@@ -263,13 +263,13 @@ describe('AC12: seasons', () => {
     await waitFor(() => expect(provider.getSeasons).toHaveBeenCalledWith('on1'))
     expect(provider.getSeasons).not.toHaveBeenCalledWith('off1')
   })
-  it('AC12: options show "<season> Regular Season" with the season as value, in order', async () => {
+  it('AC12: options show "<season> Season" with the season as value, in order', async () => {
     setup()
     await waitFor(() => expect(optionValues()).toEqual(fixtureSeasons))
     const labels = within(seasonSelect())
       .getAllByRole('option')
       .map((o) => o.textContent)
-    expect(labels).toEqual(fixtureSeasons.map((s) => `${s} Regular Season`))
+    expect(labels).toEqual(fixtureSeasons.map((s) => `${s} Season`))
   })
 })
 

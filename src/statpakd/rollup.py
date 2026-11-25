@@ -20,6 +20,11 @@ def rollup(stat: StatDef, weeks: Sequence[StatMap]) -> float | int | None:
     """One total for a stat over several weeks, following the stat's rollup rule."""
     rule = stat.rollup
     decimals = stat.decimals or 0
+    # A rate that is None in every week that lists it does not apply, whatever its parts add up to.
+    listed = [week[stat.key] for week in weeks if stat.key in week]
+    if isinstance(rule, RatioRollup | CompositeRollup) and listed:
+        if all(value is None for value in listed):
+            return None
     if isinstance(rule, RatioRollup):
         num, den = _present(weeks, rule.num), _present(weeks, rule.den)
         if not num or not den:

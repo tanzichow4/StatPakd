@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { Entity, EntityKind } from '../../domain/types'
 import { ALL_POSITIONS, MAX_SELECTED } from '../../state'
 import { fixturePlayers, fixtureTeams } from '../../test/fixtureProvider'
-import { AddPopover } from './AddPopover'
+import { AddPopover, RESULT_LIMIT } from './AddPopover'
 import { positionChips } from './filterEntities'
 
 type PopoverProps = Parameters<typeof AddPopover>[0]
@@ -323,5 +323,28 @@ describe('AC28: native controls', () => {
     const stranger: Entity[] = []
     setup({ results: stranger, selectedIds: ['unknown'] })
     expect(screen.getByText('No matches.')).toBeInTheDocument()
+  })
+})
+
+describe('T22: long result lists', () => {
+  const many = (count: number) =>
+    Array.from({ length: count }, (_, i) => ({
+      ...fixturePlayers()[0],
+      id: `p${i}`,
+      name: `Player ${i}`,
+    }))
+
+  it('lists only the first results and says how many there are', () => {
+    setup({ results: many(RESULT_LIMIT + 7) })
+    expect(rows()).toHaveLength(RESULT_LIMIT)
+    expect(
+      screen.getByText(`Showing ${RESULT_LIMIT} of ${RESULT_LIMIT + 7}. Search to find others.`),
+    ).toBeInTheDocument()
+  })
+
+  it('says nothing when every result fits', () => {
+    setup({ results: many(RESULT_LIMIT) })
+    expect(rows()).toHaveLength(RESULT_LIMIT)
+    expect(screen.queryByText(/Showing/)).toBeNull()
   })
 })

@@ -72,7 +72,19 @@ export interface StatDef {
  *   replaces a smaller denominator; without it a zero denominator gives no value.
  */
 export type Rollup =
-  { kind: 'average' } | { kind: 'ratio'; num: string; den: string; scale?: number; minDen?: number }
+  | { kind: 'average' }
+  | { kind: 'ratio'; num: string; den: string; scale?: number; minDen?: number }
+  /**
+   * Sum over the terms of `(num / den + offset) * factor`, each held between 0 and `max`, then
+   * times `scale`. Every `num` and `den` is summed over the periods first.
+   */
+  | {
+      kind: 'composite'
+      den: string
+      max: number
+      scale: number
+      terms: { num: string; offset: number; factor: number }[]
+    }
 
 /**
  * One roster unit of a league. `stats` are the roster stat definitions of the unit, in display
@@ -147,8 +159,14 @@ export interface GameLogEntry {
   label: string
   /** Compact label for narrow spaces. */
   shortLabel: string
-  /** False when there was no game in the period; `stats` is then empty. */
+  /** False when the player had no game in the period; `stats` is then empty. */
   played: boolean
   /** Stat values by stat key, with the same meaning as `Entity.stats`. */
   stats: StatMap
+  /** Label for a graph axis. The period number is used when not set. */
+  tickLabel?: string
+  /** Part of the season the period belongs to, used to pick all its periods at once. */
+  phase?: string
+  /** Why there are no stats, when `played` is false. */
+  note?: string
 }

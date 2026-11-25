@@ -1,3 +1,4 @@
+import polars as pl
 import pytest
 
 from statpakd.nfl.player_stats import is_listed, short_name
@@ -65,6 +66,27 @@ def test_stats_that_do_not_apply_are_none(service):
     players = by_id(service.entities("players", "2026"))
     assert players["rb1"].stats["passYds"] is None
     assert players["qb1"].stats["rec"] is None
+
+
+def test_a_trick_play_pass_counts_without_rating_the_player_as_a_passer(source):
+    real = source.weekly_stats
+
+    def with_trick_play(season):
+        frame = real(season)
+        threw = (pl.col("player_id") == "wr1") & (pl.col("week") == 1)
+        return frame.with_columns(
+            pl.when(threw).then(1).otherwise(pl.col("attempts")).alias("attempts"),
+            pl.when(threw).then(1).otherwise(pl.col("completions")).alias("completions"),
+            pl.when(threw).then(35).otherwise(pl.col("passing_yards")).alias("passing_yards"),
+        )
+
+    source.weekly_stats = with_trick_play
+    service = NflService(source, first_season=2025)
+    log = weeks(service, "wr1")
+    assert (log[1].stats["passYds"], log[2].stats["passYds"]) == (35, None)
+    assert (log[1].stats["cmp"], log[1].stats["rate"]) == (None, None)
+    season = by_id(service.entities("players", "2026"))["wr1"].stats
+    assert (season["passYds"], season["cmp"], season["rate"]) == (35, None, None)
 
 
 def test_small_samples_leave_season_rates_blank(service):
@@ -168,7 +190,7 @@ def test_offense_roster(service):
     roster = service.roster("aaa", "off", "2026")
     assert [r.id for r in roster] == ["qb1", "rb1"]
     rory = by_id(roster)["rb1"]
-    assert rory.stats == {"snap": 68, "touch": 37, "tgt": 3, "scrim": 160, "td": 1, "ypt": 4.3}
+    assert rory.stats == {"snap": 45, "touch": 37, "tgt": 3, "scrim": 160, "td": 1, "ypt": 4.3}
 
 
 def test_defense_roster_counts_tackles_and_takeaways(service):

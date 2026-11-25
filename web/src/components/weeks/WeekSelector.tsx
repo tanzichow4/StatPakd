@@ -1,18 +1,20 @@
 import { useId } from 'react'
 import { Chip, Select } from '../ui'
-import { RECENT_COUNT, type Period } from './weekModel'
+import { RECENT_COUNT, phasesOf, type Period } from './weekModel'
 import styles from './Weeks.module.css'
 
 interface Props {
   periods: readonly Period[]
   /** The periods being looked at. */
   chosen: readonly Period[]
+  /** The latest periods with a game, picked by the shortcut. */
+  recent: number[]
   /** `null` chooses every period. */
   onChoose: (periods: number[] | null) => void
 }
 
 /** Picks which weeks the view covers: shortcuts, a range, or single weeks. */
-export function WeekSelector({ periods, chosen, onChoose }: Props) {
+export function WeekSelector({ periods, chosen, recent, onChoose }: Props) {
   const headingId = useId()
   const picked = new Set(chosen.map((p) => p.period))
   const numbers = periods.map((p) => p.period)
@@ -33,11 +35,17 @@ export function WeekSelector({ periods, chosen, onChoose }: Props) {
         <button type="button" className={styles.shortcut} onClick={() => onChoose(null)}>
           All
         </button>
-        <button
-          type="button"
-          className={styles.shortcut}
-          onClick={() => onChoose(numbers.slice(-RECENT_COUNT))}
-        >
+        {phasesOf(periods).map(({ phase, numbers: inPhase }) => (
+          <button
+            key={phase}
+            type="button"
+            className={styles.shortcut}
+            onClick={() => onChoose(inPhase)}
+          >
+            {phase}
+          </button>
+        ))}
+        <button type="button" className={styles.shortcut} onClick={() => onChoose(recent)}>
           Last {RECENT_COUNT}
         </button>
         <button type="button" className={styles.shortcut} onClick={() => onChoose([])}>
