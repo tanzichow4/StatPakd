@@ -1,0 +1,154 @@
+.root {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-24);
+  min-width: 0;
+}
+
+.box {
+  position: relative;
+  flex: 1 1 420px;
+  max-width: 640px;
+  min-width: 0;
+}
+
+.svg {
+  display: block;
+  width: 100%;
+}
+
+.ring,
+.spoke {
+  fill: none;
+  stroke: #e6e6e2;
+  stroke-width: 1;
+}
+
+.poly {
+  fill: var(--series);
+  fill-opacity: 0.06;
+  stroke: var(--series);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.dot {
+  fill: var(--series);
+  stroke: #fff;
+  stroke-width: 1.5;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.axisLabel {
+  position: absolute;
+  font-size: var(--text-12);
+  font-weight: 500;
+  color: #333;
+  white-space: nowrap;
+}
+
+.middle {
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+
+.start {
+  transform: translate(0, -50%);
+  text-align: left;
+}
+
+.end {
+  transform: translate(-100%, -50%);
+  text-align: right;
+}
+
+.message {
+  flex: 1;
+  margin: 0;
+  padding: 60px;
+  text-align: center;
+  font-size: var(--text-14);
+  color: var(--color-text-muted);
+}
+
+.legendCol {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-14);
+  flex: 0 0 200px;
+  min-width: 0;
+}
+
+.legend {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-14);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.entry {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-left: var(--space-12);
+  border-left: 3px solid var(--series);
+}
+
+.name {
+  font-size: var(--text-14);
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.meta {
+  font-size: var(--text-12);
+  color: var(--color-text-muted);
+}
+
+.caption {
+  margin: 0;
+  font-size: var(--text-12);
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  list-style: none;
+}
+
+@media (max-width: 480px) {
+  /* Wrapped labels above or below the ring grow away from it, never over a vertex. */
+  .middle.above {
+    transform: translate(-50%, -100%);
+  }
+
+  .middle.below {
+    transform: translate(-50%, 0);
+  }
+
+  .axisLabel {
+    white-space: normal;
+    max-width: 15vw;
+    overflow-wrap: anywhere;
+    font-size: 11px;
+  }
+}

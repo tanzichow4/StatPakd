@@ -1,0 +1,95 @@
+.scroll {
+  position: relative;
+  min-width: 0;
+  overflow-x: auto;
+  border: 1px solid var(--color-border-alt);
+  border-radius: var(--radius-12);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  white-space: nowrap;
+}
+
+.caption {
+  padding: 10px 14px;
+  text-align: left;
+  font-size: var(--text-12);
+  color: var(--color-ink);
+}
+
+.table thead tr {
+  background: var(--color-surface-subtle);
+}
+
+.table tbody tr,
+.table tfoot tr {
+  border-top: 1px solid var(--color-divider);
+}
+
+.table tfoot tr {
+  background: var(--color-track);
+  font-weight: 700;
+}
+
+.head,
+.weekHead {
+  padding: 10px 14px;
+  font-size: var(--text-11);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-ink);
+}
+
+.head {
+  text-align: right;
+}
+
+.weekHead,
+.week {
+  text-align: left;
+}
+
+.week {
+  padding: 8px 14px;
+  font-size: var(--text-13);
+  font-weight: 600;
+}
+
+.swatch {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 50%;
+}
+
+.cell {
+  padding: 6px 14px;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: var(--text-13);
+}
+
+/* Left aligned so it stays in view while the wide table is scrolled to the start. */
+.bye {
+  padding: 8px 14px;
+  text-align: left;
+  font-size: var(--text-12);
+  color: var(--color-ink);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

@@ -1,0 +1,76 @@
+.card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-22);
+  padding: var(--space-18) var(--space-22);
+  border: 1px solid var(--color-border);
+  border-top: 4px solid #111111;
+  border-radius: var(--radius-12);
+  background: var(--color-white);
+  box-sizing: border-box;
+}
+
+.identity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-18);
+  min-width: 0;
+}
+
+.badge {
+  font-family: var(--font-mono);
+  font-size: var(--text-44);
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.name {
+  margin: 0;
+  font-size: var(--text-22);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.meta {
+  margin: 0;
+  font-size: var(--text-13);
+  color: var(--color-text-muted);
+}
+
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-22);
+  margin: 0;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.label {
+  font-size: var(--text-11);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-label);
+}
+
+.value {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-22);
+  font-weight: 600;
+}

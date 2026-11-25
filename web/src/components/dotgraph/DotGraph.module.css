@@ -1,0 +1,185 @@
+.graph {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  min-width: 0;
+}
+
+.graph.rows {
+  grid-template-columns: 96px minmax(0, 1fr);
+}
+
+.yTitle {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: var(--text-12);
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.yAxis,
+.plot {
+  box-sizing: border-box;
+  height: 340px;
+  /* Room so dots and their labels at the ends are not clipped. */
+  padding: 14px 0 8px;
+}
+
+.plot {
+  padding-right: 12px;
+}
+
+.scale {
+  position: relative;
+  height: 100%;
+}
+
+.yTick {
+  position: absolute;
+  right: var(--space-8);
+  max-width: calc(100% - var(--space-8));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: var(--font-mono);
+  font-size: var(--text-11);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  transform: translateY(-50%);
+}
+
+.rows .yTick {
+  font-family: var(--font-ui);
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.svg line {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+}
+
+.grid {
+  stroke: var(--color-border-soft);
+  stroke-width: 1;
+}
+
+.axis {
+  stroke: var(--color-ink);
+  stroke-width: 1.5;
+}
+
+.trend {
+  stroke-width: 2;
+  opacity: 0.75;
+}
+
+.dot {
+  position: absolute;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--color-white);
+  transform: translate(-50%, -50%);
+}
+
+.dot.muted {
+  width: 8px;
+  height: 8px;
+  background: var(--color-chart-muted);
+}
+
+.text {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 5px);
+  font-size: var(--text-11);
+  font-weight: 600;
+  color: var(--color-ink);
+  white-space: nowrap;
+  transform: translateY(-50%);
+}
+
+.text.textLeft {
+  right: calc(100% + 5px);
+  left: auto;
+}
+
+.xAxis {
+  grid-column: 2;
+  box-sizing: border-box;
+  height: 18px;
+  padding-right: 12px;
+}
+
+.xScale {
+  position: relative;
+  height: 100%;
+}
+
+.xTick {
+  position: absolute;
+  top: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-11);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+.xTitle {
+  grid-column: 2;
+  margin: 0;
+  text-align: center;
+  font-size: var(--text-12);
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  .graph {
+    grid-template-columns: 40px minmax(0, 1fr);
+  }
+
+  .graph.rows {
+    grid-template-columns: 76px minmax(0, 1fr);
+  }
+
+  .yAxis,
+  .plot {
+    height: 280px;
+  }
+
+  .yTick,
+  .xTick {
+    font-size: var(--text-10);
+  }
+
+  .dot {
+    width: 10px;
+    height: 10px;
+  }
+
+  .crowded .xTick:nth-child(even) {
+    display: none;
+  }
+}

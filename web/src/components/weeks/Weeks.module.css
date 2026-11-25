@@ -1,0 +1,155 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-18);
+  min-width: 0;
+}
+
+.modeRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-14);
+}
+
+.hint {
+  margin: 0;
+  font-size: var(--text-13);
+  color: var(--color-text-muted);
+}
+
+.selector {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-10);
+  min-width: 0;
+}
+
+.selectorRow,
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-10);
+}
+
+.heading {
+  margin: 0 var(--space-4) 0 0;
+  font-size: var(--text-18);
+  font-weight: 600;
+}
+
+.field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  min-width: 0;
+  font-size: var(--text-12);
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.shortcut {
+  padding: 7px 12px;
+  border: 1px solid var(--color-input-border);
+  border-radius: var(--radius-7);
+  background: var(--color-white);
+  color: var(--color-ink);
+  font-size: var(--text-13);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.shortcut:hover {
+  background: var(--color-hover);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-24);
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-14);
+  flex: 999 1 520px;
+  min-width: 0;
+}
+
+.check {
+  min-height: 32px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-10);
+  min-width: 0;
+  padding: var(--space-12) var(--space-14);
+  border: 1px solid var(--color-border-alt);
+  border-radius: var(--radius-12);
+}
+
+.legend,
+.trends {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6) var(--space-18);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.legendItem {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-6);
+  font-size: var(--text-13);
+  color: var(--color-ink);
+}
+
+.swatch {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (max-width: 1023px) {
+  .shortcut,
+  .check {
+    min-height: 40px;
+    min-width: 40px;
+  }
+
+  .main {
+    flex-basis: 100%;
+  }
+}

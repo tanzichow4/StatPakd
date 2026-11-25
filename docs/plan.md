@@ -15,6 +15,7 @@ A web app to pick up to 8 players or teams, choose stats, and compare them as a 
 | State | One reducer + React context, pure logic tested separately |
 | Data (phase 1) | Mock NFL data ported from the design, behind a `DataProvider` interface |
 | Backend | Python (FastAPI) in `src/statpakd`, later phase, after a provider spike |
+| Real data source | nflverse via `nflreadpy` (owner, 2026-11-24): [decision](decisions/data-provider.md) |
 | Tests | Vitest + Testing Library (unit/component), Playwright (e2e) |
 
 ## Principles
@@ -46,6 +47,7 @@ A web app to pick up to 8 players or teams, choose stats, and compare them as a 
 | 4 Quality | [T18](tickets/T18-responsive-and-a11y.md) | Responsive and accessibility pass | M | T10 to T17 |
 | | [T19](tickets/T19-e2e-tests.md) | Playwright e2e tests in CI | M | T10 to T17 |
 | | [T20](tickets/T20-visual-fidelity-pass.md) | Visual fidelity pass against design | M | T10 to T17 |
+| | [T25](tickets/T25-player-weeks-dot-plot-3d.md) | Week to week view, dot graph, readable 3D | L | T10 to T14 |
 | 5 Real data (later) | [T21](tickets/T21-spike-data-provider.md) | Spike: choose a stats data provider | S | none |
 | | [T22](tickets/T22-python-api.md) | Python API serving the data contract | L | T21, T03 |
 | | [T23](tickets/T23-api-provider-in-frontend.md) | Frontend API provider, loading and errors | M | T22 |
@@ -64,7 +66,7 @@ Each ticket is small enough for one commit or PR. A ticket is done when its acce
 - **Data licensing and cost** (T21): real NFL stats are often paid or restricted. This blocks T22 and T23 only, not the UI.
 - **3D interaction** (T14): painter sorting and drag handling are the most error prone part. T13 isolates the math so it can be tested without a browser.
 - **Fidelity drift**: the design is high fidelity. T20 is a dedicated pass, and tokens in T02 should prevent most drift.
-- **Mock data is deterministic fake data for 2023 and 2022** (hash-based variation in the design). Do not present it as real; label it clearly until T23.
+- **The mock data is deterministic fake data** (hash-based variation). It is now used only by tests and `VITE_DATA_SOURCE=mock`, where it stays labelled.
 
 ## Open questions
 1. License and distribution (T24): private, open-source repo, or hosted site? Not blocking until publish.

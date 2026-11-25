@@ -1,0 +1,14 @@
+.row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-12);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.addCell {
+  position: relative;
+  display: flex;
+  min-width: 0;
+}

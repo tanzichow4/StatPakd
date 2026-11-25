@@ -1,4 +1,10 @@
 :root {
+  /*
+   * Touch targets: below 1024px (max-width: 1023px) interactive controls are at least 40px tall
+   * and wide. CSS variables cannot be used in media conditions, so the value is repeated in each
+   * module's media block.
+   */
+
   /* Colors */
   --color-ink: #111111;
   --color-white: #ffffff;
@@ -13,10 +19,10 @@
   --color-divider: #f0f0ed;
   --color-input-border: #dededa;
   --color-checkbox-off: #cfcfcb;
-  --color-text-muted: #7a7a75;
-  --color-text-label: #8a8a85;
-  --color-text-faint: #9a9a95;
-  --color-text-na: #b5b5b0;
+  --color-text-muted: #6f6f6a;
+  --color-text-label: #73736e;
+  --color-text-faint: #73736e;
+  --color-text-na: #73736e;
   --color-chart-muted: #c9c9c4;
   --color-nav-text: #a5a5a0;
   --color-nav-soon: #6a6a66;

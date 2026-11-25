@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { useState } from 'react'
+import { createRef, useState } from 'react'
 import { vi } from 'vitest'
 
 import { Checkbox, Chip, IconButton, Pill, SegmentedControl, Select, TabPanel, Tabs } from '.'
@@ -82,6 +82,81 @@ describe('Checkbox', () => {
     await userEvent.click(screen.getByLabelText('Pass Yds'))
     expect(onChange).not.toHaveBeenCalled()
   })
+
+  test('AC9: locked sets aria-disabled and stays checked after click', async () => {
+    const onChange = vi.fn()
+    render(<Checkbox label="Pass Yds" checked onChange={onChange} locked />)
+    const box = screen.getByRole('checkbox', { name: 'Pass Yds' })
+    expect(box).toHaveAttribute('aria-disabled', 'true')
+    await userEvent.click(box)
+    expect(box).toBeChecked()
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  test('AC9: locked ignores the Space key and clicks on the label text', async () => {
+    const onChange = vi.fn()
+    render(<Checkbox label="Pass Yds" checked onChange={onChange} locked />)
+    const box = screen.getByRole('checkbox', { name: 'Pass Yds' })
+    box.focus()
+    await userEvent.keyboard(' ')
+    await userEvent.click(screen.getByText('Pass Yds'))
+    expect(box).toBeChecked()
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  test('AC21: locked checkbox is not natively disabled and is reachable by Tab', async () => {
+    render(<Checkbox label="Pass Yds" checked onChange={vi.fn()} locked />)
+    const box = screen.getByRole('checkbox', { name: 'Pass Yds' })
+    expect(box).toBeEnabled()
+    await userEvent.tab()
+    expect(box).toHaveFocus()
+  })
+
+  test('AC9: without locked there is no aria-disabled and onChange fires', async () => {
+    const onChange = vi.fn()
+    render(<Checkbox label="Pass Yds" checked onChange={onChange} />)
+    const box = screen.getByRole('checkbox', { name: 'Pass Yds' })
+    expect(box).not.toHaveAttribute('aria-disabled')
+    await userEvent.click(box)
+    expect(onChange).toHaveBeenCalledWith(false)
+  })
+
+  test('AC9: locked={false} behaves like an unlocked checkbox', async () => {
+    const onChange = vi.fn()
+    render(<Checkbox label="Pass Yds" checked onChange={onChange} locked={false} />)
+    const box = screen.getByRole('checkbox', { name: 'Pass Yds' })
+    expect(box).not.toHaveAttribute('aria-disabled', 'true')
+    await userEvent.click(box)
+    expect(onChange).toHaveBeenCalledWith(false)
+  })
+
+  test('AC19: inputRef receives the input element (object ref)', () => {
+    const ref = createRef<HTMLInputElement>()
+    render(<Checkbox label="Pass Yds" checked onChange={vi.fn()} inputRef={ref} />)
+    expect(ref.current).toBe(screen.getByRole('checkbox', { name: 'Pass Yds' }))
+  })
+
+  test('AC19: inputRef works as a callback ref', () => {
+    const seen: (HTMLInputElement | null)[] = []
+    render(
+      <Checkbox
+        label="Pass Yds"
+        checked
+        onChange={vi.fn()}
+        inputRef={(n) => {
+          seen.push(n)
+        }}
+      />,
+    )
+    expect(seen).toContain(screen.getByRole('checkbox', { name: 'Pass Yds' }))
+  })
+
+  test('AC3: className is merged onto the label element', () => {
+    render(<Checkbox label="Pass Yds" checked onChange={vi.fn()} className="rowStyle" />)
+    const label = screen.getByRole('checkbox', { name: 'Pass Yds' }).closest('label')
+    expect(label).toHaveClass('rowStyle')
+    expect(label?.className.split(' ').length).toBeGreaterThan(1)
+  })
 })
 
 describe('Pill', () => {
@@ -135,5 +210,95 @@ describe('Select', () => {
     )
     await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Season' }), '2023')
     expect(onChange).toHaveBeenCalledWith('2023')
+  })
+
+  const opts = [
+    { value: 'a', label: 'Alpha' },
+    { value: 'b', label: 'Beta' },
+  ]
+
+  test('AC10: an unknown value shows a disabled placeholder option as the current value', () => {
+    render(
+      <Select
+        label="Pick"
+        value="nope"
+        onChange={() => {}}
+        options={opts}
+        placeholder="Choose a stat"
+      />,
+    )
+    const select = screen.getByRole('combobox', { name: 'Pick' }) as HTMLSelectElement
+    const first = select.options[0]
+    expect(first.textContent).toBe('Choose a stat')
+    expect(first.value).toBe('')
+    expect(first.disabled).toBe(true)
+    expect(select.selectedOptions[0]).toBe(first)
+    expect(select.value).toBe('')
+    expect(select.options).toHaveLength(3)
+  })
+
+  test('AC10: an empty value is also not among the options so the placeholder shows', () => {
+    render(
+      <Select
+        label="Pick"
+        value=""
+        onChange={() => {}}
+        options={opts}
+        placeholder="Choose a stat"
+      />,
+    )
+    const select = screen.getByRole('combobox', { name: 'Pick' }) as HTMLSelectElement
+    expect(select.selectedOptions[0].textContent).toBe('Choose a stat')
+  })
+
+  test('AC10: a known value renders no placeholder option', () => {
+    render(
+      <Select
+        label="Pick"
+        value="b"
+        onChange={() => {}}
+        options={opts}
+        placeholder="Choose a stat"
+      />,
+    )
+    const select = screen.getByRole('combobox', { name: 'Pick' }) as HTMLSelectElement
+    expect(select.options).toHaveLength(2)
+    expect(screen.queryByRole('option', { name: 'Choose a stat' })).toBeNull()
+    expect(select.value).toBe('b')
+  })
+
+  test('AC10: without a placeholder prop an unknown value renders no extra option', () => {
+    render(<Select label="Pick" value="nope" onChange={() => {}} options={opts} />)
+    const select = screen.getByRole('combobox', { name: 'Pick' }) as HTMLSelectElement
+    expect(select.options).toHaveLength(2)
+  })
+
+  test('AC10: choosing a real option from the placeholder state reports it', async () => {
+    const onChange = vi.fn()
+    render(
+      <Select
+        label="Pick"
+        value="nope"
+        onChange={onChange}
+        options={opts}
+        placeholder="Choose a stat"
+      />,
+    )
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Pick' }), 'a')
+    expect(onChange).toHaveBeenCalledWith('a')
+  })
+
+  test('AC35: className is applied to the select and keeps its own classes', () => {
+    render(
+      <Select label="Pick" value="a" onChange={() => {}} options={opts} className="axis-select" />,
+    )
+    const select = screen.getByRole('combobox', { name: 'Pick' })
+    expect(select).toHaveClass('axis-select')
+    expect(select.className.split(/\s+/).length).toBeGreaterThan(1)
+  })
+
+  test('AC35: without className no "undefined" class leaks into the attribute', () => {
+    render(<Select label="Pick" value="a" onChange={() => {}} options={opts} />)
+    expect(screen.getByRole('combobox', { name: 'Pick' }).className).not.toContain('undefined')
   })
 })

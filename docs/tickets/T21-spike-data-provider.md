@@ -11,3 +11,7 @@ Compare at least 3 options (paid API, free API, public dataset or scrape) on: co
 - [ ] Decision document with a comparison table and a recommendation.
 - [ ] Terms of use checked for public display and redistribution.
 - [ ] A mapping sketch from the recommended source to `Entity` and `StatDef`.
+
+## Owner decision (2026-11-24)
+Use nflverse through `nflreadpy`. See [the decision note](../decisions/data-provider.md), which lists
+what is still open.

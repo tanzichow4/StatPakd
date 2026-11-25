@@ -1,0 +1,306 @@
+.root {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-20);
+  min-width: 0;
+  container-type: inline-size;
+}
+
+.chartCol {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  flex: 1 1 520px;
+  min-width: 0;
+}
+
+.readoutCol {
+  flex: 0 0 280px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Below 520 + 20 + 280 the Readout wraps and spans the full width. */
+@container (max-width: 819px) {
+  .readoutCol {
+    flex: 1 1 100%;
+  }
+}
+
+.views {
+  display: flex;
+}
+
+.card {
+  position: relative;
+  /* The hint gets its own strip under the plot so it never overlaps numbers or tags. */
+  padding-bottom: 28px;
+  overflow: hidden;
+  background: var(--color-white);
+  border: 1px solid var(--color-border-alt);
+  border-radius: var(--radius-12);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.card:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+}
+
+.dragging {
+  cursor: grabbing;
+}
+
+.svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.floor {
+  fill: var(--color-track);
+}
+
+.wall {
+  fill: var(--color-surface-subtle);
+}
+
+.grid {
+  stroke: #e2e2de;
+  stroke-width: 1;
+}
+
+.edge {
+  stroke: #dadad5;
+  stroke-width: 1;
+}
+
+.axis {
+  stroke: var(--color-ink);
+  stroke-width: 2;
+}
+
+.drop {
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.dot {
+  stroke: var(--color-white);
+  stroke-width: 1.5;
+}
+
+.unselected .drop {
+  stroke: #e0e0dc;
+}
+
+.unselected .dot {
+  fill: var(--color-chart-muted);
+}
+
+.selected .drop {
+  stroke: var(--series);
+  stroke-width: 1.5;
+}
+
+.selected .dot {
+  fill: var(--series);
+}
+
+.crowded .unselected:not(.activePoint) .drop {
+  display: none;
+}
+
+.activePoint .drop {
+  stroke: var(--color-ink);
+  stroke-width: 1.5;
+}
+
+.ring {
+  fill: none;
+  stroke: var(--color-ink);
+  stroke-width: 2;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0 0 28px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.axisLabel {
+  position: absolute;
+  font-family: var(--font-mono);
+  font-size: var(--text-11);
+  color: var(--color-ink);
+  white-space: nowrap;
+  transform: translate(0, -50%);
+}
+
+.axisLabel.before {
+  transform: translate(-100%, -50%);
+}
+
+.axisLabel.center {
+  transform: translate(-50%, -50%);
+}
+
+.axisLabel {
+  font-weight: 600;
+}
+
+.tick {
+  position: absolute;
+  font-family: var(--font-mono);
+  font-size: var(--text-11);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  transform: translate(-50%, -50%);
+}
+
+.tooltip {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 150px;
+  padding: var(--space-8) var(--space-10);
+  background: var(--color-white);
+  border: 1px solid var(--color-ink);
+  border-radius: var(--radius-8);
+  box-shadow: var(--shadow-menu);
+  font-size: var(--text-12);
+  color: var(--color-ink);
+  white-space: nowrap;
+  transform: translate(14px, 8px);
+}
+
+.tooltip.tooltipLeft {
+  transform: translate(calc(-100% - 14px), 8px);
+}
+
+.tooltip.tooltipUp {
+  transform: translate(14px, calc(-100% - 8px));
+}
+
+.tooltip.tooltipLeft.tooltipUp {
+  transform: translate(calc(-100% - 14px), calc(-100% - 8px));
+}
+
+.tooltipRow {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-12);
+}
+
+.tooltipValue {
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+.tag {
+  position: absolute;
+  padding: 0 3px;
+  border-radius: var(--radius-3);
+  background: rgb(255 255 255 / 85%);
+  font-size: var(--text-12);
+  font-weight: 600;
+  color: var(--color-ink);
+  white-space: nowrap;
+  transform: translate(0, -50%);
+}
+
+.hint {
+  position: absolute;
+  left: var(--space-12);
+  bottom: var(--space-10);
+  font-size: var(--text-12);
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
+.message {
+  margin: 0;
+  padding: 60px var(--space-20);
+  text-align: center;
+  font-size: var(--text-14);
+  color: var(--color-text-muted);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  /* The hint gets its own strip under the plot so it never overlaps labels or tags. */
+  .card {
+    padding-bottom: 28px;
+  }
+
+  .overlay {
+    bottom: 28px;
+  }
+
+  .hint {
+    bottom: var(--space-6);
+  }
+
+  .axisLabel {
+    width: max-content;
+    max-width: 40%;
+    font-size: 10px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    /* Sit just below the axis end, clear of name tags that open to the right of points. */
+    transform: translate(0, 40%);
+  }
+
+  .axisLabel.before {
+    transform: translate(-100%, 40%);
+  }
+
+  .axisLabel.center {
+    transform: translate(-50%, 40%);
+  }
+
+  .tick {
+    font-size: 9px;
+  }
+
+  /* The Y letter sits above its axis, clear of the top number. */
+  .axisLabel.upright {
+    transform: translate(0, -80%);
+  }
+
+  .axisLabel.before.upright {
+    transform: translate(-100%, -80%);
+  }
+
+  /* The stat names are already in the axis selects above, so only the letters are drawn. */
+  .axisLabel[data-letter] {
+    font-size: 0;
+  }
+
+  .axisLabel[data-letter]::after {
+    content: attr(data-letter);
+    font-size: var(--text-12);
+  }
+
+  /* A wider outline keeps the small league dots visible at this size. */
+  .unselected .dot {
+    stroke: var(--color-chart-muted);
+    stroke-width: 4;
+  }
+}

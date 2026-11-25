@@ -1,0 +1,150 @@
+.chart {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-10) var(--space-20);
+  padding: 16px 0;
+  min-width: 0;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 0 0 160px;
+  padding-top: var(--space-4);
+}
+
+.label {
+  font-size: var(--text-14);
+  font-weight: 500;
+  color: var(--color-ink);
+}
+
+.note {
+  font-size: var(--text-11);
+  color: var(--color-text-faint);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+.plot {
+  position: relative;
+  min-width: 0;
+  padding: 0 8px;
+}
+
+/* Inset by the padding so the dots at 0% and 100% stay inside the plot. */
+.scale {
+  position: relative;
+  height: 100%;
+}
+
+.line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2px;
+  margin-top: -1px;
+  background: var(--color-border);
+}
+
+.leagueDot,
+.dot {
+  position: absolute;
+  top: 50%;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.leagueDot {
+  width: 7px;
+  height: 7px;
+  background: var(--color-chart-muted);
+}
+
+.dot {
+  width: 15px;
+  height: 15px;
+  box-shadow: 0 0 0 2px var(--color-white);
+}
+
+.ends {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-12);
+  font-family: var(--font-mono);
+  font-size: var(--text-11);
+  color: var(--color-text-muted);
+}
+
+.values {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6) var(--space-18);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  min-width: 0;
+  font-size: var(--text-12);
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--color-ink);
+}
+
+.swatch {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.value {
+  font-family: var(--font-mono);
+  font-size: var(--text-13);
+  font-weight: 500;
+}
+
+.na {
+  color: var(--color-text-na);
+}
+
+.caption {
+  margin: 0;
+  padding-top: var(--space-10);
+  font-size: var(--text-12);
+  color: var(--color-text-muted);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

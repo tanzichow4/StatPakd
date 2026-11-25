@@ -1,0 +1,75 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-10);
+  min-width: 0;
+  padding: var(--space-16) var(--space-18);
+  border: 1px solid var(--color-border);
+  border-top-width: 4px;
+  border-top-style: solid;
+  border-radius: var(--radius-12);
+  background: var(--color-white);
+  box-sizing: border-box;
+}
+
+.top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-8);
+}
+
+.badge {
+  font-family: var(--font-mono);
+  font-size: var(--text-40);
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.remove {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--color-track);
+  color: #555555;
+  font-family: inherit;
+  font-size: var(--text-14);
+  cursor: pointer;
+}
+
+.remove:hover {
+  background: #e6e6e2;
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.name {
+  font-size: var(--text-17);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.meta {
+  font-size: var(--text-13);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1023px) {
+  .remove {
+    width: 40px;
+    height: 40px;
+  }
+}

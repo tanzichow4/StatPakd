@@ -1,0 +1,197 @@
+.frame {
+  min-width: 0;
+  max-width: 100%;
+  border: 1px solid var(--color-border-alt);
+  border-radius: var(--radius-12);
+  overflow: hidden;
+}
+
+.scroll {
+  min-width: 0;
+  max-width: 100%;
+  position: relative;
+  overflow-x: auto;
+}
+
+.scroll:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: -2px;
+}
+
+.table {
+  display: block;
+  border-collapse: collapse;
+}
+
+.head,
+.body {
+  display: block;
+}
+
+.row {
+  display: grid;
+  align-items: center;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.body .row:last-child {
+  border-bottom: 0;
+}
+
+.headRow {
+  background: var(--color-surface-subtle);
+  border-bottom: 1px solid var(--color-border-alt);
+}
+
+.playerHead,
+.statHead {
+  padding: 12px 18px;
+  font-size: var(--text-11);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+}
+
+.playerHead {
+  text-align: left;
+}
+
+.statHead {
+  text-align: right;
+  min-width: 0;
+}
+
+.sortButton {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.sortButton:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-3);
+}
+
+.sorted {
+  color: var(--color-ink);
+}
+
+.unsorted {
+  color: var(--color-text-muted);
+}
+
+.arrow {
+  margin-left: var(--space-4);
+}
+
+.rowHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-10);
+  padding: 10px 18px;
+  text-align: left;
+  font-weight: 400;
+  min-width: 0;
+}
+
+.swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex: none;
+}
+
+.player {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.name {
+  font-size: var(--text-14);
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--color-ink);
+}
+
+.meta {
+  font-size: var(--text-12);
+  color: var(--color-text-muted);
+}
+
+.cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-4);
+  padding: 8px 18px;
+  min-width: 0;
+}
+
+.value {
+  font-family: var(--font-mono);
+  font-size: var(--text-15);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.plain {
+  color: var(--color-ink);
+}
+
+.na {
+  color: var(--color-text-na);
+}
+
+.leader {
+  padding: 2px 8px;
+  border-radius: var(--radius-5);
+  background: var(--color-ink);
+  color: var(--color-white);
+}
+
+.bar {
+  display: block;
+  width: 72px;
+  height: 4px;
+  border-radius: 2px;
+  background: #edede9;
+  overflow: hidden;
+}
+
+.fill {
+  display: block;
+  height: 100%;
+  background: var(--color-ink);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (max-width: 1023px) {
+  .sortButton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    min-height: 40px;
+    min-width: 40px;
+  }
+}

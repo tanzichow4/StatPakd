@@ -12,7 +12,15 @@
 }
 
 .dark {
+  padding: 6px 10px;
   background: var(--color-nav-surface);
   border: 1px solid var(--color-nav-border);
   color: var(--color-white);
+}
+
+@media (max-width: 1023px) {
+  .select {
+    min-height: 40px;
+    min-width: 40px;
+  }
 }
