@@ -27,14 +27,17 @@ python -m statpakd     start the data API on http://127.0.0.1:8000
 
 ## Running StatPakd
 
-The web app needs the data API. Use two terminals:
+One command starts the data API and the web app, and Ctrl+C stops both:
 
 ```
-python -m statpakd     terminal 1 (venv activated): the API
-npm run dev            terminal 2: the web app, at the address it prints
+npm run dev            then open the address it prints
 ```
 
-After pulling changes, run `pip install -e ".[dev]"` again and restart both.
+It uses the Python in `.venv` (no need to activate it), so set that up first. API messages are
+prefixed with `[api]`. If the API is already running it is used as it is. To run them separately,
+use `python -m statpakd` and `npm run dev:web` in two terminals.
+
+After pulling changes, run `pip install -e ".[dev]"` again and restart.
 
 To run the web app on its built-in sample data, without the API:
 
@@ -61,7 +64,7 @@ All are optional. Put them in `.env` or the environment.
 | Variable | Default | Meaning |
 |---|---|---|
 | `STATPAKD_HOST` | `127.0.0.1` | Address the API listens on |
-| `STATPAKD_PORT` | `8000` | Port the API listens on |
+| `STATPAKD_PORT` | `8000` | Port the API listens on. `npm run dev` reads it from the environment, not `.env` |
 | `STATPAKD_CACHE_DIR` | your user cache folder | Where downloaded tables are saved |
 | `STATPAKD_CACHE_HOURS` | `24` | Age at which data is downloaded again |
 | `STATPAKD_FIRST_SEASON` | `2022` | Oldest season offered |
